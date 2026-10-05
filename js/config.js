@@ -6,7 +6,7 @@
 // igual, pero guarda todo solo en el dispositivo.
 // ─────────────────────────────────────────────────────────────
 
-export const GOOGLE_CLIENT_ID = '';
+export const GOOGLE_CLIENT_ID = '732759481417-3vdaji6jru6dp2ggbrfhds8tjvt2b8dt.apps.googleusercontent.com';
 
 // Carpeta que la app crea en tu Drive.
 export const CARPETA_DRIVE = 'Segundo Cerebro';
