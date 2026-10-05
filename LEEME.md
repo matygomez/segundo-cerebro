@@ -2,7 +2,7 @@
 
 App personal (PWA) que funciona en el celular y en la PC, sin internet, y guarda todo en tu Google Drive.
 
-## Estado actual: versión 0.1.0, el núcleo
+## Estado actual: versión 0.2.0, núcleo y módulo Tareas (parte 1)
 
 Lo que ya funciona:
 
@@ -14,7 +14,18 @@ Lo que ya funciona:
 - **Ajustes:** estado de Drive, sincronizar, instalar la app y borrar los datos del dispositivo.
 - **Instalable y sin conexión:** se instala como app y abre sin internet.
 
-Lo que falta para usarla con Drive: completar `GOOGLE_CLIENT_ID` en `js/config.js` y publicarla en internet (gratis). Son los próximos pasos de la guía.
+**Módulo Tareas (parte 1):**
+
+- Áreas, proyectos y secciones, que arrancan vacíos y se crean a mano. Se pueden renombrar, reordenar y archivar.
+- Tareas con título, notas, fecha y hora, fecha de inicio, prioridad (Normal, Alta, Urgente), estado, repetición, etiquetas, subtareas, duración estimada y recordatorio.
+- Vistas Hoy, Próximos, Vencidas, Áreas, Sin área y búsqueda (por texto o #etiqueta).
+- Las tareas que se repiten pasan solas a la próxima fecha al completarlas.
+- En Inicio: bloque con las tareas de hoy y vencidas, botón Nueva tarea y captura rápida (llega a Sin área).
+- Acción `crear-tarea` para que otros módulos creen tareas.
+
+Queda para la parte 2: comentarios, adjuntos, filtros guardados y campos personalizados.
+
+Publicada en https://matygomez.github.io/segundo-cerebro/
 
 ## Estructura
 
@@ -37,6 +48,7 @@ js/core/                el núcleo
   ajustes.js            pantalla de Ajustes
   ui.js                 piezas de interfaz compartidas
 modules/home/           módulo Inicio
+modules/tareas/         módulo Tareas (modelo, vistas, editor y estilos)
 ```
 
 ## En tu Drive

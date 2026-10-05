@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.1.1';
+const VERSION = 'sc-0.2.0';
 
 const ARCHIVOS = [
   './',
@@ -28,6 +28,11 @@ const ARCHIVOS = [
   './js/core/sincronizacion.js',
   './js/core/ui.js',
   './modules/home/modulo.js',
+  './modules/tareas/modulo.js',
+  './modules/tareas/modelo.js',
+  './modules/tareas/vistas.js',
+  './modules/tareas/editor.js',
+  './modules/tareas/tareas.css',
 ];
 
 const FUENTES = 'sc-fuentes';

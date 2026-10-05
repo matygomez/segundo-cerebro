@@ -24,6 +24,7 @@ export function h(etiqueta, atributos = {}, ...hijos) {
 // Íconos de trazo, dibujados a mano para no depender de nada externo.
 const TRAZOS = {
   inicio: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
+  tareas: '<rect x="4.5" y="4.5" width="15" height="15" rx="3.5"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',
   ajustes: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
   nube: '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.5 3.5 0 0 0 7 18Z"/>',
   'nube-check': '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.5 3.5 0 0 0 7 18Z"/><path d="m9.5 13.5 2 2 3.5-3.5"/>',
@@ -48,6 +49,7 @@ export function icono(nombre, clase = 'icono') {
 // Aviso corto abajo de la pantalla. Opcional: un botón de acción.
 export function aviso(texto, { accion, alTocar, duracion = 3500 } = {}) {
   const zona = document.getElementById('avisos');
+  while (zona.children.length >= 2) zona.firstElementChild.remove();   // como máximo dos a la vista
   const el = h('div', { class: 'aviso', role: 'status' }, h('span', {}, texto));
   if (accion) el.append(h('button', { class: 'aviso-accion', onclick: () => { alTocar?.(); el.remove(); } }, accion));
   zona.append(el);

@@ -108,6 +108,7 @@ function dibujarEstado() {
 function registrarServiceWorker() {
   if (!('serviceWorker' in navigator) || location.protocol === 'file:') return;
   navigator.serviceWorker.register('./sw.js').then((reg) => {
+    if (!reg) return;
     const ofrecer = (sw) => aviso('Hay una versión nueva de la app.', {
       accion: 'Actualizar', duracion: 0, alTocar: () => sw.postMessage('actualizar'),
     });
