@@ -10,7 +10,8 @@ import { sincronizar, estadoSync } from './sincronizacion.js';
 import { escuchar } from './eventos.js';
 import { h, icono, aviso, confirmar, fechaRelativa } from './ui.js';
 import { idDispositivo } from './datos.js';
-import { VERSION, CARPETA_DRIVE } from '../config.js';
+import { CARPETA_DRIVE } from '../config.js';
+import { VERSION } from '../modulos.js';
 import { listaModulos } from './registro.js';
 
 let pedidoInstalacion = null;

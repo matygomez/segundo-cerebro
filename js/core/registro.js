@@ -36,7 +36,7 @@
 // ctx.pedir('nombre-de-accion', datos).
 // ─────────────────────────────────────────────────────────────
 
-import { MODULOS } from '../config.js';
+import { MODULOS } from '../modulos.js';
 import { coleccion } from './datos.js';
 import { abrirFormulario } from './formularios.js';
 import { aviso, confirmar, h, icono } from './ui.js';

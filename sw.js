@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.3.2';
+const VERSION = 'sc-0.4.0';
 
 const ARCHIVOS = [
   './',
@@ -17,6 +17,7 @@ const ARCHIVOS = [
   './icons/icono-192.png',
   './js/app.js',
   './js/config.js',
+  './js/modulos.js',
   './js/core/ajustes.js',
   './js/core/archivos.js',
   './js/core/datos.js',
@@ -35,6 +36,14 @@ const ARCHIVOS = [
   './modules/tareas/editor.js',
   './modules/tareas/arrastre.js',
   './modules/tareas/tareas.css',
+  './modules/finanzas/modulo.js',
+  './modules/finanzas/modelo.js',
+  './modules/finanzas/comun.js',
+  './modules/finanzas/formularios.js',
+  './modules/finanzas/vistas.js',
+  './modules/finanzas/movimientos.js',
+  './modules/finanzas/config.js',
+  './modules/finanzas/finanzas.css',
 ];
 
 const FUENTES = 'sc-fuentes';

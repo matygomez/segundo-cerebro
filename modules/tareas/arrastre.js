@@ -18,7 +18,6 @@ export function hacerOrdenable(ul, alSoltar) {
     if (!asa || !ul.contains(asa) || e.button > 0) return;
     const li = asa.closest('li');
     e.preventDefault();
-    asa.setPointerCapture(e.pointerId);
 
     const inicio = [...ul.children].indexOf(li);
     const agarre = e.clientY - li.getBoundingClientRect().top;
@@ -59,9 +58,9 @@ export function hacerOrdenable(ul, alSoltar) {
     const mover = (ev) => { ultimaY = ev.clientY; acomodar(); };
     const soltar = () => {
       clearInterval(desplazar);
-      asa.removeEventListener('pointermove', mover);
-      asa.removeEventListener('pointerup', soltar);
-      asa.removeEventListener('pointercancel', soltar);
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
       li.style.transform = '';
       li.classList.remove('arrastrando');
       ul.classList.remove('ordenando');
@@ -70,9 +69,11 @@ export function hacerOrdenable(ul, alSoltar) {
         alSoltar(li.dataset.id, antes, despues);
       }
     };
-    asa.addEventListener('pointermove', mover);
-    asa.addEventListener('pointerup', soltar);
-    asa.addEventListener('pointercancel', soltar);
+    // Se escucha en la ventana: al mover la tarea en la lista, el navegador
+    // suelta la "captura" del puntero y la manija dejaría de recibir eventos.
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
   });
 
   // Teclado: flechas sobre la manija.

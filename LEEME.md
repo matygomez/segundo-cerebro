@@ -2,7 +2,7 @@
 
 App personal (PWA) que funciona en el celular y en la PC, sin internet, y guarda todo en tu Google Drive.
 
-## Estado actual: versión 0.3.0, núcleo y módulo Tareas completo
+## Estado actual: versión 0.4.0, núcleo, Tareas y Finanzas
 
 Lo que ya funciona:
 
@@ -26,6 +26,17 @@ Lo que ya funciona:
 - En Inicio: bloque con las tareas de hoy y vencidas, botón Nueva tarea y captura rápida (llega a la Bandeja).
 - Acción `crear-tarea` para que otros módulos creen tareas.
 
+**Módulo Finanzas:**
+
+- Panel: Disponible (cuentas − gastos fijos pendientes − lo que el fondo no cubre del crédito), ingresos, gastos y diferencia del mes. Tocando cada número se ve de dónde sale.
+- Cuadros movibles (Cuentas, Gastos fijos, Crédito, Gastos variables, Inversiones, Préstamos), apagados si no tienen datos y plegables en el celular. Tocando el título se abre su vista completa.
+- Cuentas agrupadas, con ajuste de saldo que crea un gasto o ingreso "Ajuste" por la diferencia.
+- Gastos fijos con presupuesto e historial de cambios, y ✓/✗ si se pagan automático.
+- Crédito con compras en cuotas repartidas por resumen, fechas sugeridas y corregibles, fondo para crédito, "pagado hasta", cuánto falta poner y total para pagar todo.
+- Categorías con subcategorías, inversiones con rendimiento, préstamos que mueven las cuentas.
+- Hoja de movimientos (fecha, tipo, importe, cuenta, categoría, cuotas, descripción) con filtros, orden y detalle.
+- Configurar Finanzas (⚙): crear, editar, archivar y restaurar todo.
+
 Publicada en https://matygomez.github.io/segundo-cerebro/
 
 ## Estructura
@@ -36,7 +47,8 @@ manifest.webmanifest    datos para instalarla como app
 sw.js                   funcionamiento sin internet y actualizaciones
 css/app.css             estilos (claro y oscuro)
 icons/                  íconos de la app
-js/config.js            configuración y lista de módulos
+js/config.js            claves de Google (no se pisa en las actualizaciones)
+js/modulos.js           lista de módulos y versión
 js/app.js               arranque, menú y navegación
 js/core/                el núcleo
   db.js                 base de datos del dispositivo
@@ -51,6 +63,7 @@ js/core/                el núcleo
   ui.js                 piezas de interfaz compartidas
 modules/home/           módulo Inicio
 modules/tareas/         módulo Tareas (modelo, vistas, editor y estilos)
+modules/finanzas/       módulo Finanzas (modelo, vistas, formularios, movimientos, configuración)
 ```
 
 ## En tu Drive
@@ -66,5 +79,5 @@ Los archivos son JSON legibles. Cada registro guarda su id, sus datos, las fecha
 ## Cómo se suma un módulo
 
 1. Crear la carpeta `modules/<id>/` con un `modulo.js` (el formato está explicado al principio de `js/core/registro.js`).
-2. Agregar una línea en `MODULOS` dentro de `js/config.js`.
+2. Agregar una línea en `MODULOS` dentro de `js/modulos.js`.
 3. Agregar sus archivos a la lista de `sw.js` y subir la versión.
