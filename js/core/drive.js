@@ -198,12 +198,28 @@ export async function actualizarJSON(id, datos) {
   return r.json();
 }
 
-// Para adjuntos (se usa a partir del módulo Tareas).
+// Sube un archivo (adjuntos). Hasta 5 MB va en un solo pedido; más grande
+// usa la subida "reanudable" de Google, que acepta archivos pesados.
+const CAMPOS_ARCHIVO = 'id,name,mimeType,webViewLink';
 export async function subirArchivo(nombre, padreId, blob) {
   const tipo = blob.type || 'application/octet-stream';
-  const { cuerpo, tipoCuerpo } = multipart({ name: nombre, parents: [padreId] }, blob, tipo);
-  const r = await pedir(`${SUBIDA}/files?uploadType=multipart&fields=id,name,mimeType,webViewLink`, {
-    method: 'POST', headers: { 'Content-Type': tipoCuerpo }, body: cuerpo,
+  if (blob.size <= 5 * 1024 * 1024) {
+    const { cuerpo, tipoCuerpo } = multipart({ name: nombre, parents: [padreId] }, blob, tipo);
+    const r = await pedir(`${SUBIDA}/files?uploadType=multipart&fields=${CAMPOS_ARCHIVO}`, {
+      method: 'POST', headers: { 'Content-Type': tipoCuerpo }, body: cuerpo,
+    });
+    return r.json();
+  }
+  const inicio = await pedir(`${SUBIDA}/files?uploadType=resumable&fields=${CAMPOS_ARCHIVO}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json; charset=UTF-8', 'X-Upload-Content-Type': tipo },
+    body: JSON.stringify({ name: nombre, parents: [padreId] }),
   });
+  const destino = inicio.headers.get('Location');
+  if (!destino) throw new Error('Drive no aceptó la subida del archivo grande');
+  const r = await pedir(destino, { method: 'PUT', headers: { 'Content-Type': tipo }, body: blob });
   return r.json();
 }
+
+// Para el selector de Google (lo usa archivos.js).
+export const tokenActual = () => (conectado() ? token : null);

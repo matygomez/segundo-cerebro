@@ -39,6 +39,7 @@ export function pantallaAjustes(contenedor) {
         h('dt', {}, 'Carpeta en Drive'), h('dd', {}, CARPETA_DRIVE),
         h('dt', {}, 'Última sincronización'), h('dd', {}, fechaRelativa(s.ultima)),
         h('dt', {}, 'Cambios sin subir'), h('dd', {}, String(s.pendientes)),
+        s.archivos ? [h('dt', {}, 'Archivos sin subir'), h('dd', {}, String(s.archivos))] : null,
       ));
       if (s.fase === 'error') filas.push(h('p', { class: 'nota error' }, icono('alerta'), ' ', s.error));
       if (s.fase === 'sin-internet') filas.push(h('p', { class: 'nota' }, 'Sin internet. Los cambios se suben solos cuando vuelva la conexión.'));

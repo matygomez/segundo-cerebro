@@ -24,6 +24,9 @@
 //   // Acciones que otros módulos pueden pedir por mensaje.
 //   acciones: { 'crear-tarea': (datos, ctx) => { ... } },
 //
+//   // Aviso de que un adjunto que estaba en espera ya se subió a Drive.
+//   archivoSubido({ pendiente, archivo }, ctx) { ... },
+//
 //   // Lo que el módulo publica para el widget (a futuro).
 //   resumen(ctx) { return { ... }; },
 // }
@@ -38,6 +41,7 @@ import { coleccion } from './datos.js';
 import { abrirFormulario } from './formularios.js';
 import { aviso, confirmar, h, icono } from './ui.js';
 import { escuchar } from './eventos.js';
+import * as archivos from './archivos.js';
 
 const cargados = new Map();
 
@@ -83,6 +87,12 @@ export function contexto(moduloId) {
     navegar: (ruta) => { location.hash = '#/' + ruta.replace(/^#?\/?/, ''); },
     pedir,
     capturar,
+    archivos: {
+      subir: (archivo) => archivos.subir(moduloId, archivo),
+      elegirDeDrive: archivos.elegirDeDrive,
+      resolver: archivos.resolver,
+      selectorDisponible: archivos.selectorDisponible,
+    },
     inicio: {
       bloques: () => juntar('bloquesInicio'),
       botones: () => juntar('botonesInicio'),
@@ -106,6 +116,16 @@ async function juntar(funcion) {
   }
   return salida;
 }
+
+// Cuando un adjunto que estaba en espera se sube, se avisa a su módulo.
+escuchar('archivo-subido', async (info) => {
+  try {
+    const def = await cargar(info.modulo);
+    await def?.archivoSubido?.(info, contexto(info.modulo));
+  } catch (e) {
+    console.error('No se pudo avisar del archivo subido', e);
+  }
+});
 
 // Mensaje a otro módulo, sin conocer su código.
 export async function pedir(accion, datos) {

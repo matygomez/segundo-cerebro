@@ -5,25 +5,15 @@
 //   areas      { nombre, orden, archivada }
 //   proyectos  { nombre, areaId, orden, archivado }
 //   secciones  { nombre, proyectoId, orden }
-//   tareas     { titulo, notas, fecha, hora, inicio, prioridad, estado,
+//   tareas     { titulo, notas, fecha, hora, inicio, estado ('pendiente' | 'hecha'),
 //                repeticion: { tipo, cada }, etiquetas: [], subtareas: [],
-//                duracion, recordatorio, areaId, proyectoId, seccionId,
-//                completada, ultimaCompletada }
+//                adjuntos: [], duracion, recordatorio, areaId, proyectoId,
+//                seccionId, completada, ultimaCompletada }
+//   comentarios { tareaId, texto, editado }   (uno por registro: no se pisan)
+//   filtros     { nombre, texto, areaId, proyectoId, fecha, incluirHechas }
 //
 // Fechas como texto 'AAAA-MM-DD' (sin zona horaria, como en un calendario).
 // ─────────────────────────────────────────────────────────────
-
-export const PRIORIDADES = [
-  { valor: 1, nombre: 'Normal' },
-  { valor: 2, nombre: 'Alta' },
-  { valor: 3, nombre: 'Urgente' },
-];
-
-export const ESTADOS = [
-  { valor: 'pendiente', nombre: 'Pendiente' },
-  { valor: 'en-curso', nombre: 'En curso' },
-  { valor: 'hecha', nombre: 'Hecha' },
-];
 
 export const REPETICIONES = [
   { valor: '', nombre: 'No se repite' },
@@ -103,16 +93,41 @@ export const hecha = (t) => t.estado === 'hecha';
 export const vencida = (t) => !hecha(t) && t.fecha && t.fecha < hoy();
 export const deHoy = (t) => !hecha(t) && t.fecha === hoy();
 
-// Orden por defecto: prioridad, luego fecha y hora, luego creación.
+// Orden por defecto: fecha y hora, luego creación.
 export function ordenar(lista) {
   return [...lista].sort((a, b) =>
-    (b.prioridad || 1) - (a.prioridad || 1)
-    || (a.fecha || '9999').localeCompare(b.fecha || '9999')
+    (a.fecha || '9999').localeCompare(b.fecha || '9999')
     || (a.hora || '99').localeCompare(b.hora || '99')
     || a.creado - b.creado);
 }
 
 const porOrden = (a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.creado - b.creado;
+
+// ── Filtros ─────────────────────────────────────────────────
+
+export const FECHAS_FILTRO = [
+  { valor: '', texto: 'Cualquier fecha' },
+  { valor: 'vencidas', texto: 'Vencidas' },
+  { valor: 'hoy', texto: 'Hoy' },
+  { valor: 'semana', texto: 'Próximos 7 días' },
+  { valor: 'sin-fecha', texto: 'Sin fecha' },
+];
+
+export function aplicarFiltro(tareas, f) {
+  const palabras = String(f.texto || '').toLowerCase().split(/\s+/).filter(Boolean);
+  return tareas.filter(t => {
+    if (!f.incluirHechas && hecha(t)) return false;
+    if (f.areaId && t.areaId !== f.areaId) return false;
+    if (f.proyectoId && t.proyectoId !== f.proyectoId) return false;
+    if (f.fecha === 'vencidas' && !vencida(t)) return false;
+    if (f.fecha === 'hoy' && t.fecha !== hoy()) return false;
+    if (f.fecha === 'semana' && !(t.fecha && t.fecha >= hoy() && t.fecha <= sumarDias(hoy(), 7))) return false;
+    if (f.fecha === 'sin-fecha' && t.fecha) return false;
+    return palabras.every(p => p.startsWith('#')
+      ? (t.etiquetas || []).some(e => e.toLowerCase().startsWith(p.slice(1)))
+      : `${t.titulo} ${t.notas || ''} ${(t.etiquetas || []).join(' ')}`.toLowerCase().includes(p));
+  });
+}
 
 // ── Operaciones ─────────────────────────────────────────────
 
@@ -122,13 +137,20 @@ export function crearModelo(ctx) {
     proyectos: ctx.datos('proyectos'),
     secciones: ctx.datos('secciones'),
     tareas: ctx.datos('tareas'),
+    comentarios: ctx.datos('comentarios'),
+    filtros: ctx.datos('filtros'),
   };
 
   async function cargar() {
-    const [areas, proyectos, secciones, tareas] = await Promise.all(
-      [col.areas.listar(), col.proyectos.listar(), col.secciones.listar(), col.tareas.listar()]);
+    const [areas, proyectos, secciones, tareas, comentarios, filtros] = await Promise.all(
+      [col.areas.listar(), col.proyectos.listar(), col.secciones.listar(), col.tareas.listar(),
+        col.comentarios.listar(), col.filtros.listar()]);
     areas.sort(porOrden); proyectos.sort(porOrden); secciones.sort(porOrden);
-    const d = { areas, proyectos, secciones, tareas };
+    comentarios.sort((a, b) => a.creado - b.creado);
+    filtros.sort((a, b) => a.nombre.localeCompare(b.nombre));
+    const d = { areas, proyectos, secciones, tareas, comentarios, filtros };
+    d.comentariosDe = (tareaId) => comentarios.filter(c => c.tareaId === tareaId);
+    d.filtro = (id) => filtros.find(f => f.id === id);
     d.area = (id) => areas.find(a => a.id === id);
     d.proyecto = (id) => proyectos.find(p => p.id === id);
     d.seccion = (id) => secciones.find(s => s.id === id);
@@ -142,15 +164,17 @@ export function crearModelo(ctx) {
   function normalizar(datos) {
     const t = { ...datos };
     t.titulo = String(t.titulo || '').trim();
-    t.prioridad = [1, 2, 3].includes(Number(t.prioridad)) ? Number(t.prioridad) : 1;
-    t.estado = ESTADOS.some(e => e.valor === t.estado) ? t.estado : 'pendiente';
+    t.estado = t.estado === 'hecha' ? 'hecha' : 'pendiente';
+    delete t.prioridad;                       // ya no se usa
     t.etiquetas = Array.isArray(t.etiquetas) ? t.etiquetas.filter(Boolean) : [];
     t.subtareas = Array.isArray(t.subtareas) ? t.subtareas.filter(s => s?.texto) : [];
+    t.adjuntos = Array.isArray(t.adjuntos) ? t.adjuntos.filter(a => a?.driveId || a?.pendiente) : [];
     if (!t.fecha) { t.fecha = ''; t.hora = ''; }
     if (t.repeticion?.tipo && t.repeticion.tipo !== 'dias-habiles' && t.fecha) {
       t.repeticion = { ...t.repeticion, dia: Number(t.fecha.slice(8, 10)) };
     }
     if (!t.repeticion?.tipo) t.repeticion = null;
+    if (!t.areaId) t.proyectoId = '';
     if (!t.proyectoId) t.seccionId = '';
     return t;
   }
@@ -161,7 +185,7 @@ export function crearModelo(ctx) {
     async crearTarea(datos) {
       const t = normalizar(datos);
       if (!t.titulo) throw new Error('La tarea necesita un título');
-      if (t.estado === 'hecha') t.completada = Date.now();
+      t.estado = 'pendiente';
       return col.tareas.crear(t);
     },
 
@@ -169,12 +193,31 @@ export function crearModelo(ctx) {
       const t = normalizar(datos);
       if (!t.titulo) throw new Error('La tarea necesita un título');
       const antes = await col.tareas.obtener(id);
-      if (t.estado === 'hecha' && antes?.estado !== 'hecha') return this.completar({ ...antes, ...t, estado: antes?.estado });
-      if (t.estado !== 'hecha') t.completada = null;
+      t.estado = antes?.estado === 'hecha' ? 'hecha' : 'pendiente';
       return col.tareas.actualizar(id, t);
     },
 
-    borrarTarea: (id) => col.tareas.borrar(id),
+    async borrarTarea(id) {
+      for (const c of (await col.comentarios.listar()).filter(c => c.tareaId === id)) await col.comentarios.borrar(c.id);
+      return col.tareas.borrar(id);
+    },
+
+    // Comentarios
+    comentar(tareaId, texto) { return col.comentarios.crear({ tareaId, texto: texto.trim(), editado: false }); },
+    editarComentario: (id, texto) => col.comentarios.actualizar(id, { texto: texto.trim(), editado: true }),
+    borrarComentario: (id) => col.comentarios.borrar(id),
+
+    // Filtros guardados
+    crearFiltro: (f) => col.filtros.crear(f),
+    actualizarFiltro: (id, f) => col.filtros.actualizar(id, f),
+    borrarFiltro: (id) => col.filtros.borrar(id),
+
+    // Reemplaza adjuntos que estaban en espera por su versión ya subida.
+    async actualizarAdjunto(t, pendiente, archivo) {
+      if (!(t.adjuntos || []).some(a => a.pendiente === pendiente)) return false;
+      await col.tareas.actualizar(t.id, { adjuntos: t.adjuntos.map(a => a.pendiente === pendiente ? archivo : a) });
+      return true;
+    },
 
     // Completar. Si se repite, la tarea no se cierra: pasa a la próxima fecha.
     // Devuelve la próxima fecha, o null si quedó hecha.

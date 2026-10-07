@@ -2,7 +2,7 @@
 
 App personal (PWA) que funciona en el celular y en la PC, sin internet, y guarda todo en tu Google Drive.
 
-## Estado actual: versión 0.2.0, núcleo y módulo Tareas (parte 1)
+## Estado actual: versión 0.3.0, núcleo y módulo Tareas completo
 
 Lo que ya funciona:
 
@@ -14,16 +14,16 @@ Lo que ya funciona:
 - **Ajustes:** estado de Drive, sincronizar, instalar la app y borrar los datos del dispositivo.
 - **Instalable y sin conexión:** se instala como app y abre sin internet.
 
-**Módulo Tareas (parte 1):**
+**Módulo Tareas:**
 
-- Áreas, proyectos y secciones, que arrancan vacíos y se crean a mano. Se pueden renombrar, reordenar y archivar.
-- Tareas con título, notas, fecha y hora, fecha de inicio, prioridad (Normal, Alta, Urgente), estado, repetición, etiquetas, subtareas, duración estimada y recordatorio.
-- Vistas Hoy, Próximos, Vencidas, Áreas, Sin área y búsqueda (por texto o #etiqueta).
-- Las tareas que se repiten pasan solas a la próxima fecha al completarlas.
-- En Inicio: bloque con las tareas de hoy y vencidas, botón Nueva tarea y captura rápida (llega a Sin área).
+- Pantalla principal: Hoy (con las vencidas arriba) o Próximos, y debajo el árbol de Áreas: Bandeja de entrada, áreas, proyectos y secciones.
+- Áreas, proyectos y secciones se crean a mano; se pueden renombrar, reordenar y archivar.
+- Tareas con título, notas, subtareas (visibles en la lista, plegables), fecha y hora, fecha de inicio, repetición, etiquetas, duración, recordatorio, adjuntos y comentarios.
+- Adjuntos: subir archivos (se guardan en `Segundo Cerebro/tareas/adjuntos`) o elegir uno de Drive con el selector de Google. Sin conexión quedan en espera y se suben solos.
+- Comentarios con fecha y hora, editables. Cada uno se guarda por separado, así no se pisan entre dispositivos.
+- Filtros guardados (ícono arriba a la derecha) y búsqueda por texto o #etiqueta.
+- En Inicio: bloque con las tareas de hoy y vencidas, botón Nueva tarea y captura rápida (llega a la Bandeja).
 - Acción `crear-tarea` para que otros módulos creen tareas.
-
-Queda para la parte 2: comentarios, adjuntos, filtros guardados y campos personalizados.
 
 Publicada en https://matygomez.github.io/segundo-cerebro/
 
@@ -46,6 +46,7 @@ js/core/                el núcleo
   registro.js           registro de módulos y mensajes entre módulos
   formularios.js        motor de formularios
   ajustes.js            pantalla de Ajustes
+  archivos.js           subida de adjuntos y selector de Google
   ui.js                 piezas de interfaz compartidas
 modules/home/           módulo Inicio
 modules/tareas/         módulo Tareas (modelo, vistas, editor y estilos)

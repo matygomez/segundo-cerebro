@@ -3,7 +3,7 @@
 //
 // Ofrece al resto de la app:
 //   - Inicio: bloque "Hoy" y botón "Nueva tarea"
-//   - Captura rápida: lo que escribís llega como tarea "Sin área"
+//   - Captura rápida: lo que escribís llega a la Bandeja de entrada
 //   - Acción "crear-tarea" para que otros módulos creen tareas
 //   - Resumen para el widget (a futuro)
 // ─────────────────────────────────────────────────────────────
@@ -66,11 +66,18 @@ export default {
   },
 
   acciones: {
-    // Otros módulos pueden pedir: ctx.pedir('crear-tarea', { titulo, fecha, notas, prioridad })
+    // Otros módulos pueden pedir: ctx.pedir('crear-tarea', { titulo, fecha, hora, notas })
     async 'crear-tarea'(datos, ctx) {
-      const { titulo, fecha = '', hora = '', notas = '', prioridad = 1 } = datos || {};
-      return crearModelo(ctx).crearTarea({ titulo, fecha, hora, notas, prioridad });
+      const { titulo, fecha = '', hora = '', notas = '' } = datos || {};
+      return crearModelo(ctx).crearTarea({ titulo, fecha, hora, notas });
     },
+  },
+
+  // Un adjunto que estaba en espera ya se subió: se actualiza en su tarea.
+  async archivoSubido({ pendiente, archivo }, ctx) {
+    const m = crearModelo(ctx);
+    const d = await m.cargar();
+    for (const t of d.tareas) await m.actualizarAdjunto(t, pendiente, archivo);
   },
 
   async resumen(ctx) {

@@ -15,6 +15,7 @@
 // }
 //
 // Tipos: texto, parrafo, numero, fecha, hora, seleccion, casilla.
+// Las opciones de una selección pueden ser textos o { valor, texto }.
 // abrirFormulario() devuelve los valores, o null si se canceló.
 // Más adelante, el editor de formularios va a guardar estas
 // descripciones en Drive para que los crees desde la app.
@@ -49,9 +50,12 @@ function control(campo, valor) {
     case 'hora':
       return h('input', { ...comun, type: 'time', value: valor });
     case 'seleccion': {
+      const tieneVacia = (campo.opciones || []).some(o => (typeof o === 'object' ? o.valor : o) === '');
       const sel = h('select', comun,
-        campo.requerido ? null : h('option', { value: '' }, '—'),
-        (campo.opciones || []).map(o => h('option', { value: o }, o)));
+        campo.requerido || tieneVacia ? null : h('option', { value: '' }, '—'),
+        (campo.opciones || []).map(o => typeof o === 'object'
+          ? h('option', { value: o.valor }, o.texto)
+          : h('option', { value: o }, o)));
       sel.value = valor;
       return sel;
     }

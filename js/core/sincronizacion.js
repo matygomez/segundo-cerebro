@@ -15,11 +15,12 @@ import * as drive from './drive.js';
 import { CARPETA_DRIVE } from '../config.js';
 import { aplicarRemoto, quitarPendienteSiNoCambio, marcarTodoPendiente } from './datos.js';
 import { fusionar, sonIguales } from './fusion.js';
+import { subirPendientes, cantidadPendientes } from './archivos.js';
 import { emitir, escuchar } from './eventos.js';
 
 const FORMATO = 1;
 
-const est = { fase: 'inactivo', error: '', ultima: 0, pendientes: 0 };
+const est = { fase: 'inactivo', error: '', ultima: 0, pendientes: 0, archivos: 0 };
 export const estadoSync = () => ({ ...est });
 
 function fase(f, error = '') {
@@ -125,6 +126,10 @@ async function pasada() {
     await quitarPendienteSiNoCambio(grupo, locales, sonIguales);
   }
 
+  // ── 3. Adjuntos que quedaron en espera ──
+  await subirPendientes();
+  est.archivos = await cantidadPendientes();
+
   est.ultima = Date.now();
   await db.escribirMeta('ultimaSync', est.ultima);
   fase('al-dia');
@@ -141,6 +146,8 @@ function programar(ms = 3000) {
 export async function iniciarSincronizacion() {
   est.ultima = await db.leerMeta('ultimaSync', 0);
   est.pendientes = (await db.leerMeta('pendientes', [])).length;
+  est.archivos = await cantidadPendientes();
+  escuchar('archivos-pendientes', async () => { est.archivos = await cantidadPendientes(); emitir('sync', estadoSync()); programar(500); });
   escuchar('pendientes', (n) => { est.pendientes = n; emitir('sync', estadoSync()); if (n) programar(); });
   escuchar('sesion', (s) => { if (s === 'conectado') programar(100); else emitir('sync', estadoSync()); });
   window.addEventListener('online', () => programar(500));
