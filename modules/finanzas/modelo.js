@@ -20,7 +20,10 @@
 //     (cuotasPagadas: versión anterior, por cantidad; se sigue respetando.)
 //     tipo: 'gasto' | 'ingreso' | 'transferencia' | 'rendimiento' | 'prestamo'
 //   prestamos   { persona, sentido: 'me-deben' | 'debo', monto, fecha, cuentaId, notas, archivado }
-//   ajustes     { id fijo 'panel': { orden: [...] } }
+//   ajustes     { clave: 'panel', orden: [...] }
+//               { clave: 'credito-reparto', meses: { 'AAAA-MM': monto } }
+//               (cuánto del vencimiento de ese mes se paga con la plata de ese mes
+//                y no con la del mes anterior)
 //
 // Todos los importes en pesos. Fechas 'AAAA-MM-DD', meses 'AAAA-MM'.
 // ─────────────────────────────────────────────────────────────
@@ -56,7 +59,11 @@ export const fechaCorta = (f) => `${f.slice(8, 10)}/${f.slice(5, 7)}`;
 export const fechaLarga = (f) => `${Number(f.slice(8, 10))} ${NOMBRES_MES[Number(f.slice(5, 7)) - 1].slice(0, 3)}`;
 
 const formato = new Intl.NumberFormat('es-AR', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
-export const plata = (n) => `$ ${formato.format(Math.round((Number(n) || 0) * 100) / 100)}`;
+export const plata = (n) => {
+  const v = Math.round((Number(n) || 0) * 100) / 100;
+  // Espacios que no se cortan: el importe nunca se parte en dos renglones.
+  return v < 0 ? `−\u00A0$\u00A0${formato.format(-v)}` : `$\u00A0${formato.format(v)}`;
+};
 export const redondear = (n) => Math.round((Number(n) || 0) * 100) / 100;
 
 // ── Carga ───────────────────────────────────────────────────
@@ -93,6 +100,16 @@ export function crearModelo(ctx) {
       for (const [i, id] of ids.entries()) {
         if (actuales.get(id) && actuales.get(id).orden !== i + 1) await col[coleccion].actualizar(id, { orden: i + 1 });
       }
+    },
+
+    // Reparto del pago de la tarjeta: cuánto del vencimiento de "mes" se paga
+    // con lo que se cobra ese mes. 0 lo saca.
+    async guardarReparto(mes, monto) {
+      const existente = (await col.ajustes.listar()).find(a => a.clave === 'credito-reparto');
+      const meses = { ...(existente?.meses || {}) };
+      if (monto > 0) meses[mes] = redondear(monto); else delete meses[mes];
+      if (existente) return col.ajustes.actualizar(existente.id, { meses });
+      return col.ajustes.crear({ clave: 'credito-reparto', meses });
     },
 
     async guardarOrdenPanel(orden) {
@@ -187,6 +204,7 @@ export class Datos {
   grupo(id) { return this._indice.grupos.get(id); }
   prestamo(id) { return this._indice.prestamos.get(id); }
   panel() { return this.ajustes.find(a => a.clave === 'panel')?.orden || null; }
+  repartos() { return this.ajustes.find(a => a.clave === 'credito-reparto')?.meses || {}; }
 
   nombreCredito(c) { return c ? `${c.nombre} (crédito)` : '—'; }
   nombreCuenta(id) { return this.cuenta(id)?.nombre || '—'; }
@@ -376,7 +394,11 @@ export class Datos {
     return this.categoriasDe('fijo').map(cat => {
       const gastado = redondear(gastos.filter(g => g.categoriaId === cat.id).reduce((a, g) => a + g.importe, 0));
       const presupuesto = this.presupuesto(cat, mes);
-      return { cat, grupo: cat.grupoFijo === 'personal' ? 'personal' : 'familia', presupuesto, gastado, falta: redondear(Math.max(0, presupuesto - gastado)) };
+      return {
+        cat, grupo: cat.grupoFijo === 'personal' ? 'personal' : 'familia', presupuesto, gastado,
+        falta: redondear(Math.max(0, presupuesto - gastado)),
+        excedido: presupuesto > 0 && gastado > presupuesto ? redondear(gastado - presupuesto) : 0,
+      };
     });
   }
 
@@ -445,12 +467,38 @@ export class Datos {
     const fijos = this.fijosDelMes(mes);
     const fijosPendientes = redondear(fijos.reduce((a, f) => a + f.falta, 0));
     const plan = this.planCredito();
-    const proximo = plan.meses[0] || null;
-    const faltanteCredito = proximo ? proximo.falta : 0;
+    const credito = this.creditoDelMes(mes, plan);
+    const proximo = credito.proximo;
+    const faltanteCredito = credito.total;
     return {
       totalGastos, totalIngresos, diferencia: redondear(totalIngresos - totalGastos),
-      cuentas, enCuentas, fijos, fijosPendientes, plan, proximo, faltanteCredito,
+      cuentas, enCuentas, fijos, fijosPendientes, plan, proximo, credito, faltanteCredito,
       disponible: redondear(enCuentas - fijosPendientes - faltanteCredito),
+    };
+  }
+
+  // Lo que el Disponible de "mes" tiene que reservar para el crédito:
+  //  - lo pendiente de vencimientos de este mes o anteriores ("del mes anterior"),
+  //  - el próximo vencimiento, menos lo que se decidió pagar con la plata del mes
+  //    en que vence (reparto).
+  // En los dos casos, primero cubre el fondo.
+  creditoDelMes(mes, plan = this.planCredito()) {
+    const anteriores = plan.meses.filter(x => x.mes <= mes);
+    const proximo = plan.meses.find(x => x.mes > mes) || null;
+    const repartos = this.repartos();
+    const reparto = proximo ? Math.min(repartos[proximo.mes] || 0, proximo.falta) : 0;
+    const totalAnteriores = redondear(anteriores.reduce((a, x) => a + x.falta, 0));
+    const proximoEsteMes = proximo ? redondear(Math.max(0, proximo.falta - reparto)) : 0;
+    // El vencimiento de este mes, para avisar si quedó algo o si ya está pagado.
+    const resumenesDelMes = this.creditosActivos().flatMap(c => this.resumenes(c.id)).filter(r => mesDe(r.vencimiento) <= mes && (r.pendiente > 0 || mesDe(r.vencimiento) === mes));
+    const pendienteAnterior = redondear(resumenesDelMes.reduce((a, r) => a + r.pendiente, 0));
+    const vencimientos = resumenesDelMes.filter(r => r.pendiente > 0).map(r => r.vencimiento).sort();
+    return {
+      anteriores, totalAnteriores, proximo, reparto, proximoEsteMes,
+      total: redondear(totalAnteriores + proximoEsteMes),
+      pendienteAnterior, hayVencimientoEsteMes: resumenesDelMes.length > 0,
+      venceAnterior: vencimientos[0] || null,
+      repartido: !!repartos[mes],
     };
   }
 

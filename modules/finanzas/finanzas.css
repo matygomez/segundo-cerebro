@@ -282,3 +282,28 @@ dialog.fz-hoja { max-width: 32rem; }
 .fz-conf-grupo > .fz-conf-acc { text-transform: none; font-weight: 400; letter-spacing: 0; }
 .fz-lista-ord { display: grid; }
 .fz-moviendo { opacity: 0.55; outline: 2px dashed var(--laton); outline-offset: -2px; border-radius: 8px; background: var(--superficie); }
+
+/* ── Crédito del mes: pendiente del mes anterior y reparto ── */
+.fz-credito-mes { display: grid; gap: 0.35rem; margin-bottom: 0.35rem; }
+.fz-credito-mes .fz-linea { border: 0; padding: 0.2rem 0; }
+.fz-aviso-credito { display: grid; gap: 0.1rem; border-radius: 10px; padding: 0.55rem 0.75rem; background: var(--laton-fondo); }
+.fz-aviso-credito.atrasado { background: var(--rojo-fondo); }
+.fz-aviso-credito.atrasado b { color: var(--rojo); }
+.fz-aviso-credito.ok { background: var(--fz-verde-fondo); }
+.fz-aviso-credito.ok b { color: var(--verde); }
+.fz-reparto { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; border-radius: 10px; padding: 0.5rem 0.75rem; background: var(--fz-azul-fondo); }
+.fz-reparto .fz-link { padding: 0; }
+
+/* ── Gasto fijo excedido ── */
+.fz-fila-bloque.fz-excedido { background: var(--rojo-fondo); margin: 0.1rem -0.5rem; padding: 0.45rem 0.5rem; border-radius: 8px; border-top-color: transparent; }
+.fz-chip-excedido { display: inline-block; margin-left: 0.4rem; font-size: 0.72rem; font-weight: 600; padding: 0.05rem 0.45rem; border-radius: 999px; color: var(--rojo); border: 1px solid color-mix(in srgb, var(--rojo) 45%, transparent); white-space: nowrap; }
+.fz-barra.excedida div { background: var(--rojo); }
+.fz-tabla tbody tr.fz-excedido td { background: var(--rojo-fondo); }
+
+/* Resumen en el celular: números completos, sin cortar */
+@media (max-width: 899px) {
+  .fz-metrica { padding: 0.6rem 0.6rem; }
+  .fz-metrica .fz-valor { font-size: clamp(0.66rem, 3.2vw, 0.9rem); white-space: nowrap; overflow: visible; text-overflow: clip; }
+  .fz-metrica > .icono { display: none; }
+  .fz-metrica .nota { font-size: 0.78rem; line-height: 1.25; }
+}

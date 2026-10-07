@@ -8,8 +8,8 @@
 //   #/finanzas/config             configurar cuentas, crédito, categorías…
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, plata, mesActual, sumarMeses, nombreMes, mesCorto, fechaCorta, fechaLarga, AJUSTE, mesDe } from './modelo.js';
-import { poner, ic, cargarEstilos, hojaInfo, linea, barras, conSigno } from './comun.js';
+import { crearModelo, plata, mesActual, sumarMeses, nombreMes, mesCorto, fechaCorta, fechaLarga, AJUSTE, mesDe, hoy, redondear } from './modelo.js';
+import { poner, ic, cargarEstilos, hojaInfo, linea, barras, conSigno, hoja, campo, inputImporte } from './comun.js';
 import { abrirMovimiento, abrirAjuste, abrirPresupuesto, abrirActualizarInversion, abrirPrestamo, abrirPagoPrestamo, abrirFechasResumen } from './formularios.js';
 import { vistaMovimientos } from './movimientos.js';
 import { vistaConfig } from './config.js';
@@ -79,12 +79,12 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       cuerpo: (r) => {
         // En el panel los pagados arrancan ocultos.
         const ocultos = leerPref('fz-fijos-panel-ocultos', true);
-        const pagados = r.fijos.filter(f => f.presupuesto && !f.falta).length;
+        const pagados = r.fijos.filter(estaPagado).length;
         return [
           pagados ? h('button', { type: 'button', class: 'fz-link fz-alternar', onclick: () => { guardarPref('fz-fijos-panel-ocultos', !ocultos); dibujar(); } },
             ocultos ? `Mostrar pagados (${pagados})` : 'Ocultar pagados') : null,
           porGrupoFijo(r.fijos).map(([titulo, lista]) => {
-            const visibles = ocultos ? lista.filter(f => !(f.presupuesto && !f.falta)) : lista;
+            const visibles = ocultos ? lista.filter(f => !estaPagado(f)) : lista;
             return [
               h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
                 h('span', { class: 'num' }, `${plata(lista.reduce((a, f) => a + f.gastado, 0))} de ${plata(lista.reduce((a, f) => a + f.presupuesto, 0))}`)),
@@ -96,8 +96,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       titulo: 'Crédito',
       vacio: () => !d.creditosActivos().length,
       textoVacio: 'Sin tarjetas',
-      derecha: (r) => h('span', { class: 'neg' }, plata(r.proximo?.total || 0)),
-      cuerpo: (r) => [avisoFondo(r.plan), ...d.creditosActivos().map(c => tarjetaCredito(c))],
+      derecha: (r) => h('span', { class: 'neg' }, plata(r.credito.pendienteAnterior + (r.proximo?.total || 0))),
+      cuerpo: (r) => [bloqueCreditoMes(r.credito), r.plan.fondo ? avisoFondo(r.plan) : null, ...d.creditosActivos().map(c => tarjetaCredito(c))],
     },
     variables: {
       titulo: 'Gastos variables',
@@ -127,10 +127,11 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     },
     inversiones: {
       titulo: 'Inversiones',
-      vacio: () => !d.cuentasActivas('inversion').length,
+      // En el panel solo las que tienen saldo; en el detalle están todas.
+      vacio: () => !invConSaldo().length,
       textoVacio: 'Sin inversiones',
-      derecha: () => plata(d.cuentasActivas('inversion').reduce((a, c) => a + d.inversionDelMes(c, mesVista).actual, 0)),
-      cuerpo: () => d.cuentasActivas('inversion').map(c => {
+      derecha: () => plata(invConSaldo().reduce((a, c) => a + d.inversionDelMes(c, mesVista).actual, 0)),
+      cuerpo: () => invConSaldo().map(c => {
         const x = d.inversionDelMes(c, mesVista);
         return h('div', { class: 'fz-fila-bloque' }, linea(ctx, h('b', {}, c.nombre), h('b', {}, plata(x.actual))),
           h('p', { class: 'nota' }, `Inicio ${plata(x.inicio)} · aportes ${plata(x.aportes)} · retiros ${plata(x.retiros)}${x.rendimiento ? ` · rindió ${conSigno(x.rendimiento)}` : ''}`));
@@ -150,6 +151,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
 
   // Gastos fijos separados en Familia y Personal (solo los grupos que tienen algo).
   const porGrupoFijo = (fijos) => [['Familia', fijos.filter(f => f.grupo === 'familia')], ['Personal', fijos.filter(f => f.grupo === 'personal')]].filter(([, l]) => l.length);
+
+  const invConSaldo = () => d.cuentasActivas('inversion').filter(c => d.inversionDelMes(c, mesVista).actual !== 0);
 
   const prestamosActivos = () => d.prestamos.filter(p => !p.archivado && d.estadoPrestamo(p).falta > 0);
 
@@ -175,12 +178,63 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
 
   function filaFijo(f) {
     const pct = f.presupuesto ? Math.min(100, Math.round(f.gastado / f.presupuesto * 100)) : (f.gastado ? 100 : 0);
-    return h('div', { class: 'fz-fila-bloque' },
+    return h('div', { class: `fz-fila-bloque${f.excedido ? ' fz-excedido' : ''}` },
       h('div', { class: 'fz-linea' },
         h('span', {}, h('span', { class: `fz-auto ${f.cat.automatico ? 'si' : 'no'}`, title: f.cat.automatico ? 'Se paga automático' : 'Se paga a mano' }, f.cat.automatico ? '✓' : '✗'),
-          f.cat.nombre, f.cat.dia ? h('span', { class: 'nota' }, ` día ${f.cat.dia}`) : null),
-        h('span', { class: 'num' }, `${plata(f.gastado)} / ${plata(f.presupuesto)}`)),
-      h('div', { class: `fz-barra${f.gastado >= f.presupuesto && f.presupuesto ? ' lleno' : ''}` }, h('div', { style: `width:${pct}%` })));
+          f.cat.nombre, f.cat.dia && !f.excedido ? h('span', { class: 'nota' }, ` día ${f.cat.dia}`) : null,
+          f.excedido ? h('span', { class: 'fz-chip-excedido' }, `Excedido ${plata(f.excedido)}`) : null),
+        h('span', { class: `num${f.excedido ? ' neg' : ''}` }, `${plata(f.gastado)} / ${plata(f.presupuesto)}`)),
+      h('div', { class: `fz-barra${f.excedido ? ' excedida' : f.gastado >= f.presupuesto && f.presupuesto ? ' lleno' : ''}` }, h('div', { style: `width:${pct}%` })));
+  }
+  // Pagado = llegó justo al presupuesto. Los excedidos no cuentan como pagados: siempre se ven.
+  const estaPagado = (f) => f.presupuesto && !f.falta && !f.excedido;
+
+  // Lo pendiente del mes anterior y el próximo vencimiento con su reparto.
+  function bloqueCreditoMes(cr) {
+    const esActual = mesVista === mesActual();
+    const partes = [];
+    if (cr.pendienteAnterior > 0) {
+      const atrasado = esActual && cr.venceAnterior && cr.venceAnterior < hoy();
+      partes.push(h('div', { class: `fz-aviso-credito${atrasado ? ' atrasado' : ''}` },
+        h('b', {}, `${atrasado ? 'Atrasado: ' : ''}Te falta pagar ${plata(cr.pendienteAnterior)} del mes anterior`),
+        h('span', { class: 'nota' }, atrasado ? `Venció el ${fechaLarga(cr.venceAnterior)}`
+          : `${cr.repartido ? `Lo dejaste para pagar con lo de ${nombreMes(mesVista, false).toLowerCase()} · ` : ''}vence el ${fechaLarga(cr.venceAnterior)}`)));
+    } else if (cr.hayVencimientoEsteMes) {
+      partes.push(h('div', { class: 'fz-aviso-credito ok' }, h('b', {}, `Pagaste lo que vencía en ${nombreMes(mesVista, false).toLowerCase()}`)));
+    }
+    if (cr.proximo) {
+      const mesVence = nombreMes(cr.proximo.mes, false).toLowerCase();
+      const venc = cr.proximo.resumenes.map(x => x.vencimiento).sort()[0];
+      partes.push(
+        linea(ctx, `Próximo: vence el ${fechaLarga(venc)}`, h('b', {}, plata(cr.proximo.total))),
+        esActual ? h('div', { class: 'fz-reparto' },
+          cr.reparto
+            ? [h('span', {}, `Con lo de ${mesVence}: `, h('b', { class: 'num' }, plata(cr.reparto))),
+              h('button', { type: 'button', class: 'fz-link', onclick: () => abrirReparto(cr) }, 'Cambiar')]
+            : [h('span', { class: 'nota' }, 'Todo se paga con la plata de este mes'),
+              h('button', { type: 'button', class: 'fz-link', onclick: () => abrirReparto(cr) }, 'Repartir')]) : null);
+    }
+    return partes.length ? h('div', { class: 'fz-credito-mes' }, partes) : null;
+  }
+
+  function abrirReparto(cr) {
+    const mesVence = nombreMes(cr.proximo.mes, false).toLowerCase();
+    const monto = inputImporte(ctx, cr.reparto || '');
+    return hoja(ctx, {
+      titulo: 'Repartir el pago de la tarjeta',
+      cuerpo: [
+        h('p', {}, `El ${fechaLarga(cr.proximo.resumenes.map(x => x.vencimiento).sort()[0])} vencen `, h('b', { class: 'num' }, plata(cr.proximo.total)), '.'),
+        campo(ctx, `¿Cuánto pagás con lo que cobrás en ${mesVence}?`, monto,
+          `El Disponible de este mes solo reserva el resto. Cuando llegue ${mesVence}, lo que falte se resta como "pendiente del mes anterior".`),
+      ],
+      extraBotones: cr.reparto ? h('button', { type: 'button', class: 'boton peligro', onclick: async (e) => { await m.guardarReparto(cr.proximo.mes, 0); e.target.closest('dialog').close(); ctx.aviso('Reparto quitado'); } }, 'Quitar') : null,
+      alGuardar: async () => {
+        const v = redondear(Number(String(monto.value || 0).replace(',', '.')));
+        if (v < 0 || v > cr.proximo.falta) return `Tiene que ser entre $ 0 y ${plata(cr.proximo.falta)}.`;
+        await m.guardarReparto(cr.proximo.mes, v);
+        ctx.aviso(v ? `Reparto guardado: ${plata(v)} con lo de ${mesVence}` : 'Reparto quitado');
+      },
+    });
   }
 
   function avisoFondo(plan) {
@@ -274,7 +328,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     const disponible = h('button', { type: 'button', class: 'fz-disponible', onclick: () => explicarDisponible(r) },
       h('span', { class: 'nota' }, esActual ? 'Disponible' : `Disponible al cierre de ${nombreMes(mesVista, false).toLowerCase()}`),
       h('span', { class: 'fz-disponible-valor num' }, plata(r.disponible)),
-      h('span', { class: 'nota' }, `En cuentas ${plata(r.enCuentas)} − fijos pendientes ${plata(r.fijosPendientes)} − faltante para el crédito ${plata(r.faltanteCredito)}`),
+      h('span', { class: 'nota' }, `En cuentas ${plata(r.enCuentas)} − fijos pendientes ${plata(r.fijosPendientes)} − crédito de este mes ${plata(r.faltanteCredito)}`),
       ic('info'));
     const plegados = leerPlegados();
     const grilla = h('div', { class: 'fz-grilla' }, ordenPanel().map(k => cuadro(k, r, plegados)));
@@ -310,9 +364,12 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         r.fijos.filter(f => !f.falta).map(f => linea(ctx, `${f.cat.nombre} (ya pagado)`, plata(0), 'fz-sub2')),
         total('Subtotal', `− ${plata(r.fijosPendientes)}`)),
       bloque('Menos lo que falta para el crédito',
-        r.proximo ? [linea(ctx, `Próximo vencimiento (${nombreMes(r.proximo.mes, false).toLowerCase()})`, plata(r.proximo.total)),
-          linea(ctx, 'Cubre el fondo', `− ${plata(r.proximo.cubierto)}`)] : h('p', { class: 'nota' }, 'No hay vencimientos pendientes.'),
-        total('Faltante', plata(r.faltanteCredito))),
+        r.credito.totalAnteriores ? linea(ctx, `${r.credito.venceAnterior && r.credito.venceAnterior < hoy() && mesVista === mesActual() ? 'Atrasado' : 'Pendiente'} del mes anterior${r.credito.venceAnterior ? ` (vence ${fechaLarga(r.credito.venceAnterior)})` : ''}`, h('span', { class: 'neg' }, `− ${plata(r.credito.totalAnteriores)}`)) : null,
+        r.proximo ? [linea(ctx, `Próximo vencimiento (${fechaLarga(r.proximo.resumenes.map(x => x.vencimiento).sort()[0])})`, `− ${plata(r.proximo.total)}`),
+          r.proximo.cubierto ? linea(ctx, 'Cubre el fondo', `+ ${plata(r.proximo.cubierto)}`) : null,
+          r.credito.reparto ? linea(ctx, `Lo pagás con lo de ${nombreMes(r.proximo.mes, false).toLowerCase()}`, `+ ${plata(r.credito.reparto)}`) : null] : null,
+        !r.credito.totalAnteriores && !r.proximo ? h('p', { class: 'nota' }, 'No hay vencimientos pendientes.') : null,
+        total('Crédito de este mes', `− ${plata(r.faltanteCredito)}`)),
       h('div', { class: 'fz-final' }, h('span', {}, 'Disponible'), h('span', { class: 'num' }, plata(r.disponible))),
     ]);
   }
@@ -402,19 +459,19 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       if (!fijos.length) return [sinDatos('Todavía no hay gastos fijos.')];
       const actual = fijos.find(f => f.cat.id === elegido) || fijos[0];
       const pres = fijos.reduce((a, f) => a + f.presupuesto, 0), gast = fijos.reduce((a, f) => a + f.gastado, 0);
-      const filaTabla = (f) => h('tr', { class: f === actual ? 'sel' : '', onclick: () => { elegido = f.cat.id; dibujar(); } },
+      const filaTabla = (f) => h('tr', { class: `${f === actual ? 'sel' : ''}${f.excedido ? ' fz-excedido' : ''}`, onclick: () => { elegido = f.cat.id; dibujar(); } },
         h('td', {}, h('span', { class: `fz-auto ${f.cat.automatico ? 'si' : 'no'}` }, f.cat.automatico ? '✓' : '✗'), f.cat.nombre),
         h('td', { class: 'nota' }, f.cat.dia ? `día ${f.cat.dia}` : '—'),
-        h('td', { class: 'der num' }, plata(f.presupuesto)), h('td', { class: 'der num' }, plata(f.gastado)),
-        h('td', { class: `der num ${f.falta ? '' : 'pos'}` }, f.falta ? plata(f.falta) : 'Pagado'));
+        h('td', { class: 'der num' }, plata(f.presupuesto)), h('td', { class: `der num${f.excedido ? ' neg' : ''}` }, plata(f.gastado)),
+        h('td', { class: `der num ${f.excedido ? 'neg' : f.falta ? '' : 'pos'}` }, f.excedido ? `+ ${plata(f.excedido)}` : f.falta ? plata(f.falta) : 'Pagado'));
       const ocultosDet = leerPref('fz-fijos-detalle-ocultos', false);
-      const pagadosDet = fijos.filter(f => f.presupuesto && !f.falta).length;
+      const pagadosDet = fijos.filter(estaPagado).length;
       const filas = porGrupoFijo(fijos).map(([titulo, lista]) => [
         h('tr', { class: 'fz-fila-grupo' }, h('td', {}, titulo), h('td', {}),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.presupuesto, 0))),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.gastado, 0))),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.falta, 0)))),
-        (ocultosDet ? lista.filter(f => !(f.presupuesto && !f.falta)) : lista).map(filaTabla)]);
+        (ocultosDet ? lista.filter(f => !estaPagado(f)) : lista).map(filaTabla)]);
       return [
         metricas(['Presupuesto del mes', plata(pres)], ['Gastado', plata(gast), '', pres ? `${Math.round(gast / pres * 100)} % del presupuesto` : null],
           ['Falta pagar', plata(fijos.reduce((a, f) => a + f.falta, 0)), 'neg', 'Se resta del Disponible']),
@@ -450,6 +507,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           ['Total para pagar todo', plata(plan.totalTodo), '', plan.faltaTodo ? `Faltan ${plata(plan.faltaTodo)} en el fondo` : 'El fondo cubre todo'],
           ['Pagado hasta', plan.pagadoHasta ? nombreMes(plan.pagadoHasta) : '—', plan.pagadoHasta ? 'pos' : ''],
           [plan.siguiente ? `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} poné` : 'Para cubrir lo que viene', plata(plan.siguiente?.falta || 0), plan.siguiente ? 'neg' : '']),
+        (() => { const cr = d.resumenMes(mesVista).credito; const b = bloqueCreditoMes(cr); return b ? tarjeta(h('h2', {}, `Pago de ${nombreMes(mesVista, false).toLowerCase()}`), b) : null; })(),
         h('div', { class: 'fz-det-grilla' },
           tarjeta(h('h2', {}, 'Plan de pago por mes'),
             plan.meses.length ? h('div', { class: 'fz-tabla-caja' }, h('table', { class: 'fz-tabla' },
