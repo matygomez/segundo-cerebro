@@ -199,6 +199,7 @@ dialog.fz-hoja { max-width: 32rem; }
 .fz-tipo.ingreso { background: var(--fz-verde-fondo); color: var(--verde); }
 .fz-tipo.transferencia { background: var(--fz-azul-fondo); color: var(--fz-azul); }
 .fz-tipo.ajuste { background: var(--laton-fondo); color: var(--laton); }
+.fz-tipo.inicial { background: var(--superficie-2); color: var(--tinta-2); border: 1px solid var(--linea); }
 .fz-lista-mov { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta); padding: 0.2rem 0.75rem; }
 .fz-mov { display: grid; gap: 0.1rem; width: 100%; text-align: left; border: 0; border-top: 1px solid var(--linea); background: none; color: inherit; font: inherit; padding: 0.6rem 0; cursor: pointer; }
 .fz-mov:first-child { border-top: 0; }

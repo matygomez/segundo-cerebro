@@ -325,7 +325,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       const cuentas = [...d.cuentasActivas('cuenta'), ...d.cuentasActivas('reserva')];
       if (!cuentas.length) return [sinDatos('Todavía no hay cuentas.')];
       const actual = cuentas.find(c => c.id === elegido) || cuentas[0];
-      const movs = d.movimientos.filter(x => d.efecto(x, actual.id) !== 0).slice(0, 12);
+      const movs = d.movimientosTodos().filter(x => (x.tipo === 'inicial' ? x.cuentaId === actual.id : d.efecto(x, actual.id) !== 0)).slice(0, 12);
       const ajustes = d.movimientos.filter(x => x.ajuste && x.cuentaId === actual.id).slice(0, 8);
       const r = d.resumenMes(mesVista);
       const ajustesMes = d.movimientos.filter(x => x.ajuste && mesDe(x.fecha) === mesVista).reduce((a, x) => a + (x.tipo === 'gasto' ? -x.importe : x.importe), 0);
@@ -348,7 +348,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
             h('p', { class: 'nota' }, 'Saldo al final de cada mes'),
             barras(ctx, ultimosMeses(6).map(mes => [mesCorto(mes), d.saldo(actual.id, `${mes}-31`)])),
             h('h3', { class: 'fz-h3' }, 'Últimos movimientos'),
-            movs.length ? movs.map(x => linea(ctx, `${fechaCorta(x.fecha)} · ${x.tipo === 'transferencia' ? '⇄ ' + (x.cuentaId === actual.id ? 'a ' + d.destino(x) : 'desde ' + d.nombreCuenta(x.cuentaId)) : x.descripcion || d.nombreCategoria(x.categoriaId)}`,
+            movs.length ? movs.map(x => x.tipo === 'inicial' ? linea(ctx, `${fechaCorta(x.fecha)} · Saldo inicial`, plata(x.importe)) : linea(ctx, `${fechaCorta(x.fecha)} · ${x.tipo === 'transferencia' ? '⇄ ' + (x.cuentaId === actual.id ? 'a ' + d.destino(x) : 'desde ' + d.nombreCuenta(x.cuentaId)) : x.descripcion || d.nombreCategoria(x.categoriaId)}`,
               h('span', { class: x.tipo === 'transferencia' ? 'transf' : d.efecto(x, actual.id) < 0 ? 'neg' : 'pos' }, conSigno(d.efecto(x, actual.id))))) : h('p', { class: 'nota' }, 'Sin movimientos.'),
             h('h3', { class: 'fz-h3' }, 'Ajustes de saldo'),
             ajustes.length ? ajustes.map(x => linea(ctx, fechaCorta(x.fecha), h('span', { class: x.tipo === 'gasto' ? 'neg' : 'pos' }, conSigno(x.tipo === 'gasto' ? -x.importe : x.importe)))) : h('p', { class: 'nota' }, 'Sin ajustes.'))),

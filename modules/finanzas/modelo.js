@@ -193,6 +193,23 @@ export class Datos {
     return this.movimientos.some(m => campos.some(c => m[c] === id));
   }
 
+  // Saldos iniciales como líneas de movimiento (solo para mostrar).
+  // No se guardan como movimientos: el saldo inicial vive en la cuenta,
+  // así no se cuenta dos veces. Tampoco suman a "Ingresos del mes",
+  // porque es plata que ya tenías, no plata que ganaste.
+  movimientosIniciales() {
+    return this.cuentas.filter(c => Number(c.saldoInicial)).map(c => {
+      const f = new Date(c.creado);
+      return {
+        id: `inicial-${c.id}`, tipo: 'inicial', cuentaId: c.id, importe: Number(c.saldoInicial), creado: c.creado,
+        fecha: `${f.getFullYear()}-${pad(f.getMonth() + 1)}-${pad(f.getDate())}`, descripcion: 'Saldo inicial de la cuenta',
+      };
+    });
+  }
+  movimientosTodos() {
+    return [...this.movimientos, ...this.movimientosIniciales()].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.creado - a.creado);
+  }
+
   // ── Saldos ──
 
   // Efecto de un movimiento sobre una cuenta (positivo si entra plata).

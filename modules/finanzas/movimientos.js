@@ -5,7 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { plata, fechaCorta, nombreMes, mesDe, sumarMeses } from './modelo.js';
-import { poner, ic } from './comun.js';
+import { poner, ic, hoja, campo, inputImporte } from './comun.js';
 import { abrirMovimiento } from './formularios.js';
 
 // Se conservan mientras la app está abierta.
@@ -17,6 +17,7 @@ const TIPOS = {
   transferencia: { texto: '⇄ Transferencia', clase: 'transferencia' },
   rendimiento: { texto: 'Rendimiento', clase: 'ingreso' },
   prestamo: { texto: 'Préstamo', clase: 'transferencia' },
+  inicial: { texto: 'Saldo inicial', clase: 'inicial' },
 };
 
 export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
@@ -31,6 +32,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   // Importe con signo según el tipo (y según la cuenta filtrada en las transferencias).
   function importe(x) {
     const [t, id] = estado.cuenta ? [estado.cuenta.slice(0, 1), estado.cuenta.slice(2)] : ['', ''];
+    if (x.tipo === 'inicial') return { txt: `${x.importe < 0 ? '−' : '+'} ${plata(Math.abs(x.importe))}`, clase: '', valor: x.importe };
     if (x.tipo === 'gasto') return { txt: `− ${plata(x.importe)}`, clase: 'neg', valor: -x.importe };
     if (x.tipo === 'ingreso') return { txt: `+ ${plata(x.importe)}`, clase: 'pos', valor: x.importe };
     if (x.tipo === 'rendimiento') return { txt: `${x.importe < 0 ? '−' : '+'} ${plata(Math.abs(x.importe))}`, clase: x.importe < 0 ? 'neg' : 'pos', valor: x.importe };
@@ -43,7 +45,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   function filtrados() {
     const q = estado.texto.toLowerCase().trim();
     const [t, id] = estado.cuenta ? [estado.cuenta.slice(0, 1), estado.cuenta.slice(2)] : ['', ''];
-    const lista = d.movimientos.filter(x =>
+    const lista = d.movimientosTodos().filter(x =>
       (estado.mes === 'todos' || mesDe(x.fecha) === estado.mes) &&
       (!estado.tipo || (estado.tipo === 'ajuste' ? x.ajuste : x.tipo === estado.tipo && !x.ajuste)) &&
       (!t || (t === 'c' ? ((x.cuentaId === id && !x.creditoId) || x.destinoId === id) : (x.creditoId === id || x.destinoCreditoId === id))) &&
@@ -65,6 +67,16 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
     if (x.creditoId && x.cuotas > 1) {
       const lista = d.cuotas().filter(q => q.mov.id === x.id);
       cuotas = ['Cuotas', `${x.cuotas} de ${plata(lista[0]?.importe || 0)}, de ${nombreMes(lista[0].mes, false).toLowerCase()} a ${nombreMes(lista.at(-1).mes).toLowerCase()}`];
+    }
+    if (x.tipo === 'inicial') {
+      const cuenta = d.cuenta(x.cuentaId);
+      return [
+        h('h2', {}, 'Detalle'),
+        h('p', { class: 'fz-detalle-importe num' }, importe(x).txt),
+        dl([['Tipo', h('span', { class: 'fz-tipo inicial' }, 'Saldo inicial')], ['Cuenta', d.nombreCuenta(x.cuentaId)], ['Fecha', fechaCorta(x.fecha) + '/' + x.fecha.slice(0, 4)]]),
+        h('p', { class: 'nota' }, 'Es el saldo con el que arrancó la cuenta. No cuenta como ingreso del mes, porque es plata que ya tenías.'),
+        h('div', { class: 'botonera' }, h('button', { type: 'button', class: 'boton chico', onclick: () => editarInicial(cuenta) }, 'Editar')),
+      ];
     }
     const esInicial = x.tipo === 'prestamo' && x.inicial;
     return [
@@ -92,14 +104,29 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
     ];
   }
 
+  function editarInicial(cuenta) {
+    const valor = inputImporte(ctx, cuenta.saldoInicial);
+    valor.removeAttribute('min');
+    hoja(ctx, {
+      titulo: `Saldo inicial de ${cuenta.nombre}`,
+      cuerpo: [campo(ctx, 'Saldo inicial', valor, 'Cambia el punto de partida de la cuenta y, con él, su saldo actual. Para corregir el saldo de hoy usá "Ajustar".')],
+      alGuardar: async () => {
+        if (valor.value === '') return 'Escribí el saldo inicial.';
+        await m.actualizar('cuentas', cuenta.id, { saldoInicial: Math.round(Number(valor.value) * 100) / 100 });
+        ctx.aviso('Saldo inicial guardado');
+      },
+    });
+  }
+
   // ── Filtros ──
-  const meses = [...new Set([...d.movimientos.map(x => mesDe(x.fecha)), mes])].sort().reverse();
+  const meses = [...new Set([...d.movimientosTodos().map(x => mesDe(x.fecha)), mes])].sort().reverse();
   const op = (v, t, actual) => h('option', { value: v, selected: v === actual }, t);
   const buscador = h('input', { type: 'search', value: estado.texto, placeholder: 'Buscar por descripción, categoría o cuenta', 'aria-label': 'Buscar movimientos' });
   const selMes = h('select', { 'aria-label': 'Mes' }, op('todos', 'Todos los meses', estado.mes), meses.map(x => op(x, nombreMes(x), estado.mes)));
   const selTipo = h('select', { 'aria-label': 'Tipo' }, op('', 'Todos los tipos', estado.tipo),
     op('gasto', 'Gastos', estado.tipo), op('ingreso', 'Ingresos', estado.tipo), op('transferencia', 'Transferencias', estado.tipo),
-    op('ajuste', 'Ajustes', estado.tipo), op('rendimiento', 'Rendimientos', estado.tipo), op('prestamo', 'Préstamos', estado.tipo));
+    op('ajuste', 'Ajustes', estado.tipo), op('rendimiento', 'Rendimientos', estado.tipo), op('prestamo', 'Préstamos', estado.tipo),
+    op('inicial', 'Saldos iniciales', estado.tipo));
   const selCuenta = h('select', { 'aria-label': 'Cuenta' }, op('', 'Todas las cuentas', estado.cuenta),
     d.cuentas.length ? h('optgroup', { label: 'Cuentas' }, d.cuentas.map(c => op(`c:${c.id}`, c.nombre + (c.archivada ? ' (archivada)' : ''), estado.cuenta))) : null,
     d.creditos.length ? h('optgroup', { label: 'Crédito' }, d.creditos.map(c => op(`t:${c.id}`, d.nombreCredito(c), estado.cuenta))) : null);
@@ -115,7 +142,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
     const lista = filtrados();
     const elegido = lista.find(x => x.id === estado.elegido) || null;
     contador.textContent = `${lista.length} movimiento${lista.length === 1 ? '' : 's'}`;
-    const vacio = h('p', { class: 'nota fz-vacio-mov' }, d.movimientos.length ? 'No hay movimientos con esos filtros.' : 'Todavía no hay movimientos. Cargá el primero con Gasto, Ingreso o Transferencia.');
+    const vacio = h('p', { class: 'nota fz-vacio-mov' }, d.movimientosTodos().length ? 'No hay movimientos con esos filtros.' : 'Todavía no hay movimientos. Cargá el primero con Gasto, Ingreso o Transferencia.');
 
     poner(zonaTabla, lista.length ? h('table', { class: 'fz-tabla fz-tabla-mov' },
       h('thead', {}, h('tr', {}, COLUMNAS.map(([k, t, cl]) => h('th', {
