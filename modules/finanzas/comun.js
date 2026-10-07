@@ -111,49 +111,179 @@ export function selectCuentas(ctx, d, { tipos = ['cuenta', 'reserva', 'inversion
     yaHecho ? h('optgroup', { label: 'Ajustes' }, op('y:', yaHecho)) : null);
 }
 
-// Botón que abre la lista de categorías con títulos y subcategorías.
+// Campo de categoría con buscador: se escribe y la lista se filtra.
+// ↑ ↓ para moverse, Enter o Tab para elegir, Esc para cerrar.
+// El botón ▾ (o tocar el campo) muestra la lista completa.
+// Devuelve { elemento, valor(), fijar(id) }.
+const sinAcentos = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+
 export function selectorCategoria(ctx, d, tipos, valor = '') {
-  const { h, icono } = ctx;
+  const { h } = ctx;
   let actual = valor;
-  const texto = h('span', {});
-  const boton = h('button', { type: 'button', class: 'fz-selector-cat' }, texto, ic('abajo'));
-  const pintar = () => {
-    texto.textContent = actual ? d.nombreCategoria(actual) : 'Elegí una categoría';
-    boton.classList.toggle('vacio', !actual);
-  };
-  pintar();
+  let opciones = [];
+  let activa = 0;
   const TITULOS = { fijo: 'Gastos fijos', variable: 'Gastos variables', ingreso: 'Ingresos' };
-  boton.addEventListener('click', () => {
-    const lista = h('div', { class: 'fz-lista-cat' });
-    let hay = false;
-    for (const tp of tipos) {
-      const cats = d.categoriasDe(tp);
-      if (!cats.length) continue;
-      hay = true;
-      lista.append(h('div', { class: 'fz-grupo-cat' }, TITULOS[tp]));
-      const conSubgrupos = tp === 'fijo' ? [['familia', 'Familia'], ['personal', 'Personal']] : [[null, null]];
-      for (const [clave, titulo] of conSubgrupos) {
-      const delGrupo = clave ? cats.filter(c => (c.grupoFijo === 'personal' ? 'personal' : 'familia') === clave) : cats;
-      if (!delGrupo.length) continue;
-      if (titulo) lista.append(h('div', { class: 'fz-subgrupo-cat' }, titulo));
-      for (const c of delGrupo) {
-        const subs = d.subcategorias(c.id);
-        lista.append(h('button', { type: 'button', class: 'fz-cat-padre', onclick: () => elegir(c.id) }, c.nombre, subs.length ? h('span', { class: 'nota' }, 'general') : null));
-        for (const s of subs) lista.append(h('button', { type: 'button', class: 'fz-cat-sub', onclick: () => elegir(s.id) }, s.nombre));
-      }
+
+  // Todas las opciones posibles, en el orden de Configurar.
+  const todas = [];
+  for (const tp of tipos) {
+    const cats = d.categoriasDe(tp);
+    const grupos = tp === 'fijo' ? [['familia', 'Familia'], ['personal', 'Personal']] : [[null, null]];
+    for (const [clave, sub] of grupos) {
+      const lista = clave ? cats.filter(c => (c.grupoFijo === 'personal' ? 'personal' : 'familia') === clave) : cats;
+      const grupo = sub ? `${TITULOS[tp]} · ${sub}` : TITULOS[tp];
+      for (const c of lista) {
+        todas.push({ id: c.id, grupo, texto: c.nombre, padre: '' });
+        for (const s of d.subcategorias(c.id)) todas.push({ id: s.id, grupo, texto: s.nombre, padre: c.nombre });
       }
     }
-    if (!hay) lista.append(h('p', { class: 'nota' }, 'Todavía no hay categorías. Crealas desde Configurar Finanzas (⚙).'));
-    const dlg = h('dialog', { class: 'hoja fz-hoja' },
-      h('header', { class: 'hoja-cabecera' }, h('h2', {}, 'Categoría'),
-        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
-      lista);
-    function elegir(id) { actual = id; pintar(); boton.dispatchEvent(new Event('input', { bubbles: true })); dlg.close(); }
-    dlg.addEventListener('close', () => dlg.remove());
-    document.body.append(dlg);
-    dlg.showModal();
+  }
+
+  const input = h('input', {
+    type: 'text', class: 'fz-combo-input', role: 'combobox', 'aria-expanded': 'false', 'aria-autocomplete': 'list',
+    placeholder: 'Escribí para buscar', autocomplete: 'off', spellcheck: 'false',
   });
-  return { elemento: boton, valor: () => actual, fijar: (id) => { actual = id; pintar(); } };
+  const lista = h('div', { class: 'fz-combo-lista', role: 'listbox', hidden: true });
+  const abrir = h('button', { type: 'button', class: 'fz-combo-abrir', 'aria-label': 'Ver todas las categorías', tabindex: '-1' }, ic('abajo'));
+  const elemento = h('div', { class: 'fz-combo' }, input, abrir, lista);
+
+  const textoDe = (id) => (id ? d.nombreCategoria(id) : '');
+  input.value = textoDe(actual);
+
+  function marcarTexto(texto, q) {
+    if (!q) return texto;
+    const i = sinAcentos(texto).indexOf(sinAcentos(q));
+    if (i < 0) return texto;
+    return [texto.slice(0, i), h('mark', {}, texto.slice(i, i + q.length)), texto.slice(i + q.length)];
+  }
+
+  function mostrar(todo) {
+    const q = todo ? '' : input.value.trim();
+    const nq = sinAcentos(q);
+    opciones = todas.filter(o => !nq || sinAcentos(`${o.padre} ${o.texto}`).includes(nq));
+    activa = Math.max(0, opciones.findIndex(o => o.id === actual && todo));
+    const hijos = [];
+    let grupo = '';
+    opciones.forEach((o, i) => {
+      if (o.grupo !== grupo) { hijos.push(h('div', { class: 'fz-combo-grupo' }, o.grupo)); grupo = o.grupo; }
+      hijos.push(h('div', { class: `fz-combo-op${i === activa ? ' activa' : ''}${o.padre ? ' sub' : ''}`, role: 'option', 'data-i': i },
+        o.padre ? h('span', { class: 'nota' }, marcarTexto(o.padre, q), ' › ') : null, marcarTexto(o.texto, q)));
+    });
+    if (!todas.length) hijos.push(h('p', { class: 'nota fz-combo-vacio' }, 'Todavía no hay categorías. Crealas desde Configurar Finanzas (⚙).'));
+    else if (!opciones.length) hijos.push(h('p', { class: 'nota fz-combo-vacio' }, 'No hay categorías con ese nombre.'));
+    poner(lista, hijos);
+    lista.hidden = false;
+    input.setAttribute('aria-expanded', 'true');
+    lista.querySelector('.activa')?.scrollIntoView({ block: 'nearest' });
+  }
+  function cerrar() { lista.hidden = true; input.setAttribute('aria-expanded', 'false'); }
+  function marcar() {
+    lista.querySelectorAll('.fz-combo-op').forEach(o => o.classList.toggle('activa', Number(o.dataset.i) === activa));
+    lista.querySelector('.activa')?.scrollIntoView({ block: 'nearest' });
+  }
+  function elegir(i) {
+    const o = opciones[i];
+    if (!o) return false;
+    actual = o.id;
+    input.value = textoDe(o.id);
+    cerrar();
+    elemento.dispatchEvent(new Event('input', { bubbles: true }));
+    return true;
+  }
+
+  input.addEventListener('input', (e) => {
+    if (e.target !== input) return;
+    actual = '';            // al escribir, hay que volver a elegir
+    mostrar(false);
+  });
+  input.addEventListener('click', () => { if (lista.hidden) mostrar(!input.value || !!actual); });
+  input.addEventListener('keydown', (e) => {
+    if (lista.hidden) {
+      if (e.key === 'ArrowDown') { e.preventDefault(); mostrar(!!actual); }
+      return;
+    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); activa = Math.min(activa + 1, opciones.length - 1); marcar(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); activa = Math.max(activa - 1, 0); marcar(); }
+    else if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); elegir(activa); }
+    else if (e.key === 'Tab') { if (input.value.trim() && !actual) elegir(activa); else cerrar(); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); cerrar(); }
+  });
+  input.addEventListener('blur', () => setTimeout(() => {
+    if (elemento.contains(document.activeElement)) return;
+    cerrar();
+    if (!actual) {
+      // Si lo escrito coincide exacto con una categoría, se toma.
+      const exacta = todas.find(o => sinAcentos(textoDe(o.id)) === sinAcentos(input.value.trim()));
+      if (exacta) { actual = exacta.id; input.value = textoDe(exacta.id); }
+    }
+  }, 150));
+  lista.addEventListener('mousedown', (e) => {
+    const op = e.target.closest('.fz-combo-op');
+    if (!op) return;
+    e.preventDefault();
+    elegir(Number(op.dataset.i));
+  });
+  abrir.addEventListener('click', () => { if (lista.hidden) { mostrar(true); input.focus(); } else cerrar(); });
+
+  return {
+    elemento,
+    valor: () => actual,
+    fijar: (id) => { actual = id; input.value = textoDe(id); cerrar(); },
+  };
+}
+
+// Ordenar arrastrando la manija (⋮⋮). Se mueve el hijo directo de la lista
+// (.fz-lista-ord) más cercana a la manija, así nada sale de su lista.
+// Al soltar llama a alSoltar(lista, ids en el nuevo orden).
+export function hacerOrdenable(raiz, alSoltar) {
+  raiz.addEventListener('pointerdown', (e) => {
+    const asa = e.target.closest('.fz-asa-ord');
+    if (!asa || e.button > 0) return;
+    const lista = asa.closest('.fz-lista-ord');
+    if (!lista) return;
+    e.preventDefault();
+    let mov = asa;
+    while (mov.parentElement !== lista) mov = mov.parentElement;
+    const antes = [...lista.children].map(x => x.dataset.id).join();
+    mov.classList.add('fz-moviendo');
+    const mover = (ev) => {
+      for (const otro of [...lista.children]) {
+        if (otro === mov) continue;
+        const r = otro.getBoundingClientRect();
+        if (ev.clientY > r.top && ev.clientY < r.bottom) {
+          if (ev.clientY < r.top + r.height / 2) otro.before(mov); else otro.after(mov);
+          break;
+        }
+      }
+      if (ev.clientY < 70) window.scrollBy(0, -12);
+      if (ev.clientY > window.innerHeight - 110) window.scrollBy(0, 12);
+    };
+    const soltar = () => {
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', soltar);
+      window.removeEventListener('pointercancel', soltar);
+      mov.classList.remove('fz-moviendo');
+      const ids = [...lista.children].map(x => x.dataset.id).filter(Boolean);
+      if (ids.join() !== antes) alSoltar(lista, ids);
+    };
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', soltar);
+    window.addEventListener('pointercancel', soltar);
+  });
+  // Teclado: flechas sobre la manija.
+  raiz.addEventListener('keydown', (e) => {
+    const asa = e.target.closest('.fz-asa-ord');
+    if (!asa || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
+    const lista = asa.closest('.fz-lista-ord');
+    let mov = asa;
+    while (mov.parentElement !== lista) mov = mov.parentElement;
+    const otro = e.key === 'ArrowUp' ? mov.previousElementSibling : mov.nextElementSibling;
+    if (!otro) return;
+    e.preventDefault();
+    if (e.key === 'ArrowUp') otro.before(mov); else otro.after(mov);
+    asa.focus();
+    alSoltar(lista, [...lista.children].map(x => x.dataset.id).filter(Boolean));
+  });
 }
 
 // Fila de "concepto ........ importe".

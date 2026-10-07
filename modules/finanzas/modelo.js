@@ -87,6 +87,14 @@ export function crearModelo(ctx) {
     actualizar: (coleccion, id, cambios) => col[coleccion].actualizar(id, cambios),
     borrar: (coleccion, id) => col[coleccion].borrar(id),
 
+    // Guarda el orden de una lista (ids en el orden nuevo). Solo cambia los que se movieron.
+    async reordenar(coleccion, ids) {
+      const actuales = new Map((await col[coleccion].listar()).map(x => [x.id, x]));
+      for (const [i, id] of ids.entries()) {
+        if (actuales.get(id) && actuales.get(id).orden !== i + 1) await col[coleccion].actualizar(id, { orden: i + 1 });
+      }
+    },
+
     async guardarOrdenPanel(orden) {
       const existente = (await col.ajustes.listar()).find(a => a.clave === 'panel');
       if (existente) return col.ajustes.actualizar(existente.id, { orden });
@@ -168,6 +176,9 @@ export class Datos {
     for (const n of ['grupos', 'cuentas', 'creditos', 'categorias', 'prestamos']) {
       this._indice[n] = new Map(this[n].map(x => [x.id, x]));
     }
+    // Las cuentas siguen el orden de sus grupos y, adentro, el suyo.
+    const ordenGrupo = (c) => this._indice.grupos.get(c.grupoId)?.orden ?? 1e9;
+    this.cuentas.sort((a, b) => ordenGrupo(a) - ordenGrupo(b) || (a.orden ?? 0) - (b.orden ?? 0) || a.creado - b.creado);
   }
 
   cuenta(id) { return this._indice.cuentas.get(id); }
@@ -409,14 +420,20 @@ export class Datos {
     const porCat = new Map();
     for (const g of gastos) {
       const principal = this.categoriaPrincipal(g.categoriaId) || { id: 'sin', nombre: 'Sin categoría' };
-      if (!porCat.has(principal.id)) porCat.set(principal.id, { cat: principal, total: 0, subs: new Map(), gastos: [] });
+      if (!porCat.has(principal.id)) porCat.set(principal.id, { cat: principal, total: 0, general: 0, subs: new Map(), gastos: [] });
       const x = porCat.get(principal.id);
       x.total = redondear(x.total + g.importe);
       x.gastos.push(g);
       const sub = this.categoria(g.categoriaId);
       if (sub?.padreId) x.subs.set(sub.id, { cat: sub, total: redondear((x.subs.get(sub.id)?.total || 0) + g.importe) });
+      else x.general = redondear(x.general + g.importe);
     }
-    return [...porCat.values()].sort((a, b) => b.total - a.total);
+    // En el orden de Configurar; el ajuste y lo sin categoría van al final.
+    const pos = (x) => (x.cat.id === AJUSTE || x.cat.id === 'sin' ? 1e9 : this.categorias.indexOf(this.categoria(x.cat.id)));
+    for (const x of porCat.values()) {
+      x.subs = new Map([...x.subs.entries()].sort((a, b) => this.categorias.indexOf(a[1].cat) - this.categorias.indexOf(b[1].cat)));
+    }
+    return [...porCat.values()].sort((a, b) => pos(a) - pos(b));
   }
 
   resumenMes(mes) {

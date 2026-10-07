@@ -23,6 +23,12 @@ function leerPlegados() {
 }
 function guardarPlegados(s) { try { localStorage.setItem('fz-plegados', JSON.stringify([...s])); } catch { /* sin almacenamiento */ } }
 
+// Preferencias de vista guardadas en este dispositivo.
+function leerPref(clave, porDefecto) {
+  try { const v = JSON.parse(localStorage.getItem(clave) ?? 'null'); return v === null ? porDefecto : v; } catch { return porDefecto; }
+}
+function guardarPref(clave, valor) { try { localStorage.setItem(clave, JSON.stringify(valor)); } catch { /* sin almacenamiento */ } }
+
 export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h } = ctx;
@@ -70,10 +76,21 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       vacio: () => !d.categoriasDe('fijo').length,
       textoVacio: 'Sin gastos fijos',
       derecha: (r) => `${plata(r.fijos.reduce((a, f) => a + f.gastado, 0))} de ${plata(r.fijos.reduce((a, f) => a + f.presupuesto, 0))}`,
-      cuerpo: (r) => porGrupoFijo(r.fijos).map(([titulo, lista]) => [
-        h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
-          h('span', { class: 'num' }, `${plata(lista.reduce((a, f) => a + f.gastado, 0))} de ${plata(lista.reduce((a, f) => a + f.presupuesto, 0))}`)),
-        lista.map(f => filaFijo(f))]),
+      cuerpo: (r) => {
+        // En el panel los pagados arrancan ocultos.
+        const ocultos = leerPref('fz-fijos-panel-ocultos', true);
+        const pagados = r.fijos.filter(f => f.presupuesto && !f.falta).length;
+        return [
+          pagados ? h('button', { type: 'button', class: 'fz-link fz-alternar', onclick: () => { guardarPref('fz-fijos-panel-ocultos', !ocultos); dibujar(); } },
+            ocultos ? `Mostrar pagados (${pagados})` : 'Ocultar pagados') : null,
+          porGrupoFijo(r.fijos).map(([titulo, lista]) => {
+            const visibles = ocultos ? lista.filter(f => !(f.presupuesto && !f.falta)) : lista;
+            return [
+              h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
+                h('span', { class: 'num' }, `${plata(lista.reduce((a, f) => a + f.gastado, 0))} de ${plata(lista.reduce((a, f) => a + f.presupuesto, 0))}`)),
+              visibles.length ? visibles.map(f => filaFijo(f)) : h('p', { class: 'nota' }, 'Todos pagados.')];
+          })];
+      },
     },
     credito: {
       titulo: 'Crédito',
@@ -89,7 +106,23 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       derecha: () => plata(d.variablesDelMes(mesVista).reduce((a, x) => a + x.total, 0)),
       cuerpo: () => {
         const v = d.variablesDelMes(mesVista);
-        return v.length ? v.map(x => linea(ctx, x.cat.nombre, plata(x.total))) : h('p', { class: 'nota' }, 'Sin gastos variables este mes.');
+        if (!v.length) return h('p', { class: 'nota' }, 'Sin gastos variables este mes.');
+        // Subcategorías desplegadas; tocando la categoría se pliegan.
+        const plegadas = new Set(leerPref('fz-variables-plegadas', []));
+        return v.map(x => {
+          const subs = [...x.subs.values()];
+          const tiene = subs.length > 0;
+          const plegada = plegadas.has(x.cat.id);
+          return [
+            h('button', {
+              type: 'button', class: `fz-var-cat${plegada ? ' plegada' : ''}`, disabled: !tiene, 'aria-expanded': tiene ? String(!plegada) : false,
+              onclick: () => { plegada ? plegadas.delete(x.cat.id) : plegadas.add(x.cat.id); guardarPref('fz-variables-plegadas', [...plegadas]); dibujar(); },
+            }, h('span', {}, tiene ? ic('abajo') : h('span', { class: 'fz-var-hueco' }), x.cat.nombre), h('span', { class: 'num' }, plata(x.total))),
+            tiene && !plegada ? h('div', { class: 'fz-var-subs' },
+              subs.map(sb => linea(ctx, sb.cat.nombre, plata(sb.total))),
+              x.general ? linea(ctx, 'General', plata(x.general)) : null) : null,
+          ];
+        });
       },
     },
     inversiones: {
@@ -308,7 +341,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       bloque('Gastos fijos', fijos.length ? fijos.map(f => linea(ctx, f.cat.nombre, plata(f.gastado))) : h('p', { class: 'nota' }, 'Nada todavía.'),
         total('Subtotal', plata(fijos.reduce((a, f) => a + f.gastado, 0)))),
       bloque('Gastos variables', variables.length ? variables.map(x => [linea(ctx, x.cat.nombre, plata(x.total)),
-        [...x.subs.values()].map(s => linea(ctx, s.cat.nombre, plata(s.total), 'fz-sub2'))]) : h('p', { class: 'nota' }, 'Nada todavía.'),
+        [...x.subs.values()].map(s => linea(ctx, s.cat.nombre, plata(s.total), 'fz-sub2')),
+        x.subs.size && x.general ? linea(ctx, 'General', plata(x.general), 'fz-sub2') : null]) : h('p', { class: 'nota' }, 'Nada todavía.'),
         total('Subtotal', plata(variables.reduce((a, x) => a + x.total, 0)))),
       h('div', { class: 'fz-final' }, h('span', {}, 'Total gastos'), h('span', { class: 'num' }, plata(r.totalGastos))),
       h('p', { class: 'nota' }, 'Las compras en cuotas suman la cuota del resumen de este mes. No se cuentan transferencias, pagos de tarjeta ni préstamos.'),
@@ -373,16 +407,20 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('td', { class: 'nota' }, f.cat.dia ? `día ${f.cat.dia}` : '—'),
         h('td', { class: 'der num' }, plata(f.presupuesto)), h('td', { class: 'der num' }, plata(f.gastado)),
         h('td', { class: `der num ${f.falta ? '' : 'pos'}` }, f.falta ? plata(f.falta) : 'Pagado'));
+      const ocultosDet = leerPref('fz-fijos-detalle-ocultos', false);
+      const pagadosDet = fijos.filter(f => f.presupuesto && !f.falta).length;
       const filas = porGrupoFijo(fijos).map(([titulo, lista]) => [
         h('tr', { class: 'fz-fila-grupo' }, h('td', {}, titulo), h('td', {}),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.presupuesto, 0))),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.gastado, 0))),
           h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.falta, 0)))),
-        lista.map(filaTabla)]);
+        (ocultosDet ? lista.filter(f => !(f.presupuesto && !f.falta)) : lista).map(filaTabla)]);
       return [
         metricas(['Presupuesto del mes', plata(pres)], ['Gastado', plata(gast), '', pres ? `${Math.round(gast / pres * 100)} % del presupuesto` : null],
           ['Falta pagar', plata(fijos.reduce((a, f) => a + f.falta, 0)), 'neg', 'Se resta del Disponible']),
-        tarjeta(h('h2', {}, nombreMes(mesVista)),
+        tarjeta(h('div', { class: 'fz-cab-flex' }, h('h2', {}, nombreMes(mesVista)),
+            pagadosDet ? h('button', { type: 'button', class: 'fz-link', onclick: () => { guardarPref('fz-fijos-detalle-ocultos', !ocultosDet); dibujar(); } },
+              ocultosDet ? `Mostrar pagados (${pagadosDet})` : 'Ocultar pagados') : null),
           h('div', { class: 'fz-tabla-caja' }, h('table', { class: 'fz-tabla' },
             h('thead', {}, h('tr', {}, h('th', {}, 'Gasto'), h('th', {}, 'Vence'), h('th', { class: 'der' }, 'Presupuesto'), h('th', { class: 'der' }, 'Gastado'), h('th', { class: 'der' }, 'Falta'))),
             h('tbody', {}, filas))),
@@ -448,6 +486,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           tarjeta(h('h2', {}, 'Por categoría'), v.map(x => h('button', { type: 'button', class: `fz-elegible${x === actual ? ' sel' : ''}`, onclick: () => { elegido = x.cat.id; dibujar(); } },
             linea(ctx, x.cat.nombre, h('b', {}, plata(x.total))),
             [...x.subs.values()].map(s => linea(ctx, s.cat.nombre, plata(s.total), 'fz-sub2')),
+            x.subs.size && x.general ? linea(ctx, 'General', plata(x.general), 'fz-sub2') : null,
             h('span', { class: 'nota' }, `Promedio ${plata(promCat(x.cat.id))}`)))),
           tarjeta(h('h2', {}, actual.cat.nombre, ' ', h('span', { class: 'num' }, plata(actual.total))),
             barras(ctx, ultimosMeses(6).map(mes => [mesCorto(mes), d.variablesDelMes(mes).find(x => x.cat.id === actual.cat.id)?.total || 0])),

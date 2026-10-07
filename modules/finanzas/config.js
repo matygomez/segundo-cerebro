@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { plata, mesActual, redondear } from './modelo.js';
-import { poner, hoja, campo, inputImporte } from './comun.js';
+import { poner, hoja, campo, inputImporte, hacerOrdenable, ic } from './comun.js';
 
 export function vistaConfig(cuerpo, ctx, m, d) {
   const { h } = ctx;
@@ -23,12 +23,15 @@ export function vistaConfig(cuerpo, ctx, m, d) {
     ctx.aviso(r === 'archivado' ? `"${nombre}" archivado` : `"${nombre}" eliminado`);
   }
 
-  const fila = (titulo, detalle, alEditar, alEliminar, clase = '') => h('div', { class: `fz-conf-fila ${clase}` },
-    h('span', {}, h('b', {}, titulo), detalle ? [h('br'), h('span', { class: 'nota' }, detalle)] : null),
+  const asa = (nombre) => h('button', { type: 'button', class: 'fz-asa-ord', 'aria-label': `Mover ${nombre} (arrastrá, o usá las flechas)`, title: 'Arrastrá para cambiar el orden' }, ic('asa'));
+  const fila = (titulo, detalle, alEditar, alEliminar, clase = '', id = null) => h('div', { class: `fz-conf-fila ${clase}`, 'data-id': id },
+    id ? asa(titulo) : null,
+    h('span', { class: 'fz-conf-nombre' }, h('b', {}, titulo), detalle ? [h('br'), h('span', { class: 'nota' }, detalle)] : null),
     h('span', { class: 'fz-conf-acc' },
       h('button', { type: 'button', class: 'boton chico', onclick: alEditar }, 'Editar'),
       h('button', { type: 'button', class: 'boton chico peligro', onclick: alEliminar }, 'Eliminar')));
 
+  const listaOrd = (coleccion, items) => h('div', { class: 'fz-lista-ord', 'data-coleccion': coleccion }, items);
   const seccion = (titulo, boton, ...contenido) => h('section', { class: 'fz-tarjeta-det' },
     h('div', { class: 'fz-cab-flex' }, h('h2', {}, titulo), boton), contenido);
 
@@ -136,24 +139,23 @@ export function vistaConfig(cuerpo, ctx, m, d) {
     const cuentas = d.cuentas.filter(c => !c.archivada && c.tipo !== 'inversion');
     const filaCuenta = (c) => fila(c.nombre,
       [c.tipo === 'reserva' ? 'Reserva' : 'Cuenta', `saldo inicial ${plata(c.saldoInicial || 0)}`, c.fondoCredito ? 'fondo para crédito' : null].filter(Boolean).join(' · '),
-      () => formCuenta(c), () => eliminar('cuentas', c, c.nombre), 'fz-conf-sub');
-    const bloques = d.grupos.map(g => [
-      h('div', { class: 'fz-conf-grupo' }, h('span', {}, g.nombre),
+      () => formCuenta(c), () => eliminar('cuentas', c, c.nombre), 'fz-conf-sub', c.id);
+    const bloques = d.grupos.map(g => h('div', { class: 'fz-conf-bloque', 'data-id': g.id },
+      h('div', { class: 'fz-conf-grupo' }, asa(g.nombre), h('span', { class: 'fz-conf-nombre' }, g.nombre),
         h('span', { class: 'fz-conf-acc' }, nuevoBoton('Editar', () => formGrupo(g)),
           h('button', { type: 'button', class: 'boton chico peligro', onclick: () => eliminar('grupos', g, g.nombre) }, 'Eliminar'))),
-      cuentas.filter(c => c.grupoId === g.id).map(filaCuenta),
-    ]);
+      listaOrd('cuentas', cuentas.filter(c => c.grupoId === g.id).map(filaCuenta))));
     const sueltas = cuentas.filter(c => !d.grupo(c.grupoId));
     return seccion('Cuentas y grupos', h('span', { class: 'botonera' }, nuevoBoton('+ Cuenta', () => formCuenta()), nuevoBoton('+ Grupo', () => formGrupo())),
-      bloques,
-      sueltas.length ? [d.grupos.length ? h('div', { class: 'fz-conf-grupo' }, h('span', {}, 'Sin grupo')) : null, sueltas.map(filaCuenta)] : null,
+      listaOrd('grupos', bloques),
+      sueltas.length ? [d.grupos.length ? h('div', { class: 'fz-conf-grupo' }, h('span', {}, 'Sin grupo')) : null, listaOrd('cuentas', sueltas.map(filaCuenta))] : null,
       !cuentas.length ? h('p', { class: 'nota' }, 'Creá tus cuentas (bancos, billeteras, efectivo) y, si querés, agrupalas. Para el fondo con el que pagás las tarjetas, creá una cuenta tipo Reserva y marcala como fondo para crédito.') : null);
   }
 
   function seccionCredito() {
     const lista = d.creditosActivos();
     return seccion('Crédito', nuevoBoton('+ Tarjeta', () => formCredito()),
-      lista.map(c => fila(d.nombreCredito(c), `Cierre cerca del ${c.diaCierre} · vence cerca del ${c.diaVencimiento}`, () => formCredito(c), () => eliminar('creditos', c, d.nombreCredito(c)))),
+      listaOrd('creditos', lista.map(c => fila(d.nombreCredito(c), `Cierre cerca del ${c.diaCierre} · vence cerca del ${c.diaVencimiento}`, () => formCredito(c), () => eliminar('creditos', c, d.nombreCredito(c)), '', c.id))),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin tarjetas todavía.'),
       d.fondo() ? h('p', { class: 'nota' }, `El crédito se paga con el fondo "${d.fondo().nombre}". Se cambia editando las cuentas.`) : h('p', { class: 'nota' }, 'Todavía no elegiste un fondo para pagar el crédito.'));
   }
@@ -161,37 +163,37 @@ export function vistaConfig(cuerpo, ctx, m, d) {
   function seccionFijos() {
     const lista = d.categoriasDe('fijo');
     const filaFijo = (c) => fila(c.nombre, `Presupuesto ${plata(d.presupuesto(c, mesActual()))}${c.dia ? ` · día ${c.dia}` : ''} · ${c.automatico ? '✓ automático' : '✗ manual'}`,
-      () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre), 'fz-conf-sub');
+      () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre), 'fz-conf-sub', c.id);
     const grupos = [['Familia', lista.filter(c => c.grupoFijo !== 'personal')], ['Personal', lista.filter(c => c.grupoFijo === 'personal')]].filter(([, l]) => l.length);
     return seccion('Gastos fijos', nuevoBoton('+ Gasto fijo', () => formCategoria('fijo')),
-      grupos.map(([titulo, l]) => [h('div', { class: 'fz-conf-grupo' }, h('span', {}, titulo)), l.map(filaFijo)]),
+      grupos.map(([titulo, l]) => [h('div', { class: 'fz-conf-grupo' }, h('span', {}, titulo)), listaOrd('categorias', l.map(filaFijo))]),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin gastos fijos todavía.'));
   }
 
   function seccionVariables() {
     const lista = d.categoriasDe('variable');
     return seccion('Gastos variables', nuevoBoton('+ Categoría', () => formCategoria('variable')),
-      lista.map(c => {
+      listaOrd('categorias', lista.map(c => {
         const subs = d.subcategorias(c.id);
-        return h('div', { class: 'fz-conf-cat' },
-          fila(c.nombre, subs.length ? `${subs.length} subcategoría${subs.length === 1 ? '' : 's'}` : 'Sin subcategorías', () => formCategoria('variable', c), () => eliminar('categorias', c, c.nombre)),
-          subs.map(s => fila(s.nombre, null, () => formCategoria('variable', s, c), () => eliminar('categorias', s, s.nombre), 'fz-conf-sub')),
+        return h('div', { class: 'fz-conf-cat', 'data-id': c.id },
+          fila(c.nombre, subs.length ? `${subs.length} subcategoría${subs.length === 1 ? '' : 's'}` : 'Sin subcategorías', () => formCategoria('variable', c), () => eliminar('categorias', c, c.nombre), '', c.id),
+          listaOrd('categorias', subs.map(sb => fila(sb.nombre, null, () => formCategoria('variable', sb, c), () => eliminar('categorias', sb, sb.nombre), 'fz-conf-sub', sb.id))),
           h('div', { class: 'fz-conf-sub fz-conf-nueva' }, nuevoBoton(`+ Subcategoría en ${c.nombre}`, () => formCategoria('variable', null, c))));
-      }),
+      })),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin categorías todavía. Por ejemplo: Bebé, con subcategorías Remedios, Ropa y Pañales.'));
   }
 
   function seccionIngresos() {
     const lista = d.categoriasDe('ingreso');
     return seccion('Categorías de ingreso', nuevoBoton('+ Categoría', () => formCategoria('ingreso')),
-      lista.map(c => fila(c.nombre, null, () => formCategoria('ingreso', c), () => eliminar('categorias', c, c.nombre))),
+      listaOrd('categorias', lista.map(c => fila(c.nombre, null, () => formCategoria('ingreso', c), () => eliminar('categorias', c, c.nombre), '', c.id))),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin categorías todavía. Por ejemplo: Sueldo, Extra.'));
   }
 
   function seccionInversiones() {
     const lista = d.cuentasActivas('inversion');
     return seccion('Inversiones', nuevoBoton('+ Inversión', () => formCuenta(null, 'inversion')),
-      lista.map(c => fila(c.nombre, `Saldo actual ${plata(d.saldo(c.id))}`, () => formCuenta(c), () => eliminar('cuentas', c, c.nombre))),
+      listaOrd('cuentas', lista.map(c => fila(c.nombre, `Saldo actual ${plata(d.saldo(c.id))}`, () => formCuenta(c), () => eliminar('cuentas', c, c.nombre), '', c.id))),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin inversiones todavía.'));
   }
 
@@ -207,10 +209,12 @@ export function vistaConfig(cuerpo, ctx, m, d) {
         h('button', { type: 'button', class: 'boton chico', onclick: () => m.actualizar(col, item.id, cambios) }, 'Restaurar'))));
   }
 
+  const grilla = h('div', { class: 'fz-det-grilla' }, seccionCuentas(), seccionCredito(), seccionFijos(), seccionVariables(), seccionIngresos(), seccionInversiones());
+  hacerOrdenable(grilla, (lista, ids) => m.reordenar(lista.dataset.coleccion, ids));
   poner(cuerpo,
     h('a', { href: '#/finanzas', class: 'fz-volver' }, '← Panel'),
     h('h2', { class: 'fz-det-titulo' }, 'Configurar Finanzas'),
-    h('p', { class: 'nota' }, 'Acá se crean, modifican y eliminan las cuentas, el crédito, las categorías y las inversiones. Si algo ya tiene movimientos, en lugar de eliminarse se archiva, así no se pierde el historial.'),
-    h('div', { class: 'fz-det-grilla' }, seccionCuentas(), seccionCredito(), seccionFijos(), seccionVariables(), seccionIngresos(), seccionInversiones()),
+    h('p', { class: 'nota' }, 'Acá se crean, modifican y eliminan las cuentas, el crédito, las categorías y las inversiones. Con la manija ⋮⋮ cambiás el orden dentro de cada lista. Si algo ya tiene movimientos, en lugar de eliminarse se archiva, así no se pierde el historial.'),
+    grilla,
     seccionArchivados());
 }
