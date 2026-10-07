@@ -18,6 +18,7 @@ Lo que ya funciona:
 
 - Pantalla principal: Hoy (con las vencidas arriba) o Próximos, y debajo el árbol de Áreas: Bandeja de entrada, áreas, proyectos y secciones.
 - Áreas, proyectos y secciones se crean a mano; se pueden renombrar, reordenar y archivar.
+- Dentro de la bandeja, las áreas, los proyectos y las secciones, las tareas se ordenan a mano arrastrando la manija (⋮⋮). En Hoy y Próximos se ordenan por fecha.
 - Tareas con título, notas, subtareas (visibles en la lista, plegables), fecha y hora, fecha de inicio, repetición, etiquetas, duración, recordatorio, adjuntos y comentarios.
 - Adjuntos: subir archivos (se guardan en `Segundo Cerebro/tareas/adjuntos`) o elegir uno de Drive con el selector de Google. Sin conexión quedan en espera y se suben solos.
 - Comentarios con fecha y hora, editables. Cada uno se guarda por separado, así no se pisan entre dispositivos.

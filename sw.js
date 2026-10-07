@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.3.1';
+const VERSION = 'sc-0.3.2';
 
 const ARCHIVOS = [
   './',
@@ -33,6 +33,7 @@ const ARCHIVOS = [
   './modules/tareas/modelo.js',
   './modules/tareas/vistas.js',
   './modules/tareas/editor.js',
+  './modules/tareas/arrastre.js',
   './modules/tareas/tareas.css',
 ];
 

@@ -206,3 +206,20 @@ a.tr-adjunto-nombre { color: var(--laton); }
 .tr-comentario-texto { white-space: pre-wrap; overflow-wrap: anywhere; }
 .tr-nuevo-comentario { display: grid; gap: 0.5rem; justify-items: end; }
 .tr-link.peligro { color: var(--rojo); }
+
+/* ── Ordenar a mano ─────────────────────────────────────── */
+.tr-tarea.ordenable { grid-template-columns: auto auto minmax(0, 1fr); gap: 0.5rem; }
+.tr-asa {
+  width: 1.5rem; height: 2rem; margin: -0.25rem -0.25rem 0 -0.4rem; padding: 0;
+  display: grid; place-items: center; border: 0; background: none; border-radius: 6px;
+  color: var(--tinta-2); opacity: 0.55; cursor: grab; touch-action: none; user-select: none;
+}
+.tr-asa:hover, .tr-asa:focus-visible { opacity: 1; }
+.tr-asa .icono { width: 1.1rem; height: 1.1rem; }
+.tr-tarea.ordenable .tr-check { margin-left: 0.15rem; }
+.tr-lista.ordenando { user-select: none; }
+.tr-tarea.arrastrando {
+  position: relative; z-index: 3; cursor: grabbing;
+  background: var(--superficie); border-radius: var(--radio-control);
+  box-shadow: 0 8px 22px rgb(10 15 18 / 0.18);
+}

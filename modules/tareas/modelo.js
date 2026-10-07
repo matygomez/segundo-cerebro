@@ -101,6 +101,11 @@ export function ordenar(lista) {
     || a.creado - b.creado);
 }
 
+// Orden a mano (dentro de áreas, proyectos, secciones y bandeja).
+// Las tareas sin orden propio usan su fecha de creación.
+export const ordenEfectivo = (t) => (typeof t.orden === 'number' ? t.orden : t.creado);
+export const ordenarManual = (lista) => [...lista].sort((a, b) => ordenEfectivo(a) - ordenEfectivo(b));
+
 const porOrden = (a, b) => (a.orden ?? 0) - (b.orden ?? 0) || a.creado - b.creado;
 
 // ── Filtros ─────────────────────────────────────────────────
@@ -186,6 +191,7 @@ export function crearModelo(ctx) {
       const t = normalizar(datos);
       if (!t.titulo) throw new Error('La tarea necesita un título');
       t.estado = 'pendiente';
+      if (typeof t.orden !== 'number') t.orden = Date.now();   // las nuevas van al final
       return col.tareas.crear(t);
     },
 
@@ -241,6 +247,17 @@ export function crearModelo(ctx) {
       }
       await col.tareas.actualizar(t.id, { ...t, estado: 'hecha', completada: Date.now() });
       return null;
+    },
+
+    // Guarda el nuevo lugar de una tarea: queda entre "antes" y "despues".
+    // Solo cambia esa tarea, así la sincronización no choca con nada.
+    async moverTarea(id, antes, despues) {
+      let orden;
+      if (antes && despues) orden = (ordenEfectivo(antes) + ordenEfectivo(despues)) / 2;
+      else if (antes) orden = ordenEfectivo(antes) + 1000;
+      else if (despues) orden = ordenEfectivo(despues) - 1000;
+      else return;
+      return col.tareas.actualizar(id, { orden });
     },
 
     reabrir: (t) => col.tareas.actualizar(t.id, { ...t, estado: 'pendiente', completada: null }),

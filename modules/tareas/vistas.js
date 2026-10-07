@@ -12,8 +12,9 @@
 //   #/tareas/buscar                #/tareas/filtro/<id>
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, hoy, hecha, vencida, deHoy, ordenar, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
+import { crearModelo, hoy, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
+import { hacerOrdenable } from './arrastre.js';
 
 // Íconos propios del módulo.
 const TRAZOS = {
@@ -30,6 +31,7 @@ const TRAZOS = {
   abajo: '<path d="m6 9 6 6 6-6"/>',
   reloj: '<circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/>',
   clip: '<path d="M15.5 7.5 9 14a2 2 0 0 0 2.8 2.8l7-7a4 4 0 0 0-5.6-5.6l-7.3 7.2a6 6 0 0 0 8.5 8.5L20 14.5"/>',
+  asa: '<circle cx="9" cy="6.5" r="1.2"/><circle cx="15" cy="6.5" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="17.5" r="1.2"/><circle cx="15" cy="17.5" r="1.2"/>',
   comentario: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5Z"/>',
 };
 
@@ -55,7 +57,7 @@ const subPlegadas = new Set();       // tareas con las subtareas plegadas
 
 // ── Fila de una tarea (se usa también en el bloque de Inicio) ──
 
-export function filaTarea(ctx, m, d, t, { ubicacion = true } = {}) {
+export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } = {}) {
   const { h } = ctx;
   const subs = t.subtareas || [];
   const nComentarios = d.comentariosDe ? d.comentariosDe(t.id).length : 0;
@@ -108,7 +110,8 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true } = {}) {
     bloqueSub = h('div', { class: 'tr-sub' }, alternar, lista);
   }
 
-  return h('li', { class: hecha(t) ? 'tr-tarea hecha' : 'tr-tarea' },
+  return h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}`, 'data-id': t.id },
+    ordenable ? h('button', { type: 'button', class: 'tr-asa', 'aria-label': `Mover "${t.titulo}" (arrastrá, o usá las flechas)` }, ic('asa')) : null,
     check,
     h('div', { class: 'tr-contenido' },
       h('button', { type: 'button', class: 'tr-cuerpo', onclick: () => abrirEditor(ctx, m, d, t) },
@@ -151,7 +154,17 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   const pendientes = () => d.tareas.filter(t => !hecha(t));
   const cuenta = (filtro) => pendientes().filter(filtro).length;
-  const lista = (tareas, opciones) => h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, opciones)));
+  // Lista común: ordenada por fecha. Con { manual: true } se ordena a mano y se puede arrastrar.
+  function lista(tareas, opciones = {}) {
+    if (!opciones.manual) return h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, opciones)));
+    const ordenadas = ordenarManual(tareas);
+    const ul = h('ul', { class: 'tr-lista' }, ordenadas.map(t => filaTarea(ctx, m, d, t, { ...opciones, ordenable: true })));
+    hacerOrdenable(ul, (id, antes, despues) => {
+      const buscar = (x) => (x ? d.tareas.find(t => t.id === x) : null);
+      m.moverTarea(id, buscar(antes), buscar(despues));
+    });
+    return ul;
+  }
 
   function grupo(titulo, tareas, { clase = '', opciones } = {}) {
     return h('section', { class: `tr-grupo ${clase}` },
@@ -257,9 +270,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       volver('#/tareas', 'Tareas'),
       tituloVista('Bandeja de entrada'),
       h('p', { class: 'nota' }, 'Lo que capturás desde Inicio llega acá. Abrí cada tarea y asignale un área cuando puedas.'),
-      pend.length ? lista(pend, { ubicacion: false }) : vacio('Bandeja vacía', null),
+      pend.length ? lista(pend, { ubicacion: false, manual: true }) : vacio('Bandeja vacía', null),
       interruptorHechas('bandeja', hechas.length),
-      mostrarHechas.has('bandeja') ? lista(hechas, { ubicacion: false }) : null,
+      mostrarHechas.has('bandeja') ? lista(hechas, { ubicacion: false, manual: true }) : null,
     ];
   }
 
@@ -293,14 +306,14 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     if (sueltas.length || !proys.length) {
       partes.push(h('section', { class: 'tr-grupo' },
         proys.length ? h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Sin proyecto')) : null,
-        sueltas.length ? lista(sueltas, { ubicacion: false }) : h('p', { class: 'nota' }, 'Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')));
+        sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')));
     }
     for (const p of proys) {
       const ts = visibles.filter(t => t.proyectoId === p.id);
       partes.push(h('section', { class: 'tr-grupo tr-seccion' },
         h('div', { class: 'tr-grupo-cabecera' },
           h('a', { href: `#/tareas/proyecto/${p.id}`, class: 'tr-grupo-link' }, h('h2', {}, p.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))), ic('flecha'))),
-        ts.length ? lista(ts, { ubicacion: false }) : h('p', { class: 'nota' }, 'Sin tareas pendientes.')));
+        ts.length ? lista(ts, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas pendientes.')));
     }
     if (proysArch.length) {
       partes.push(h('details', { class: 'tr-hechas' }, h('summary', {}, `Proyectos archivados (${proysArch.length})`),
@@ -356,7 +369,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     if (sinSeccion.length || !secciones.length) {
       partes.push(h('section', { class: 'tr-grupo' },
         secciones.length ? h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Sin sección')) : null,
-        sinSeccion.length ? lista(sinSeccion, { ubicacion: false }) : null,
+        sinSeccion.length ? lista(sinSeccion, { ubicacion: false, manual: true }) : null,
         agregarEn({ ...base, seccionId: '' })));
     }
     for (const s of secciones) {
@@ -365,7 +378,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         h('div', { class: 'tr-grupo-cabecera' },
           h('a', { href: `#/tareas/seccion/${s.id}`, class: 'tr-grupo-link' }, h('h2', {}, s.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length)))),
           h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de la sección ${s.nombre}`, onclick: () => opcionesSeccion(s, secciones) }, ic('puntos'))),
-        ts.length ? lista(ts, { ubicacion: false }) : null,
+        ts.length ? lista(ts, { ubicacion: false, manual: true }) : null,
         agregarEn({ ...base, seccionId: s.id })));
     }
     if (!secciones.length) partes.push(h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'));
@@ -386,7 +399,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       volver(`#/tareas/proyecto/${p.id}`, p.nombre),
       tituloVista(s.nombre, () => opcionesSeccion(s, secciones)),
       h('div', { class: 'tr-acciones-vista' }, interruptorHechas(clave, tareas.filter(hecha).length)),
-      visibles.length ? lista(visibles, { ubicacion: false }) : h('p', { class: 'nota' }, 'Sin tareas pendientes en esta sección.'),
+      visibles.length ? lista(visibles, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
     ];
   }
