@@ -11,7 +11,7 @@ export const GOOGLE_CLIENT_ID = '732759481417-3vdaji6jru6dp2ggbrfhds8tjvt2b8dt.a
 // Selector de archivos de Google (para adjuntar archivos que ya están en tu Drive).
 // GOOGLE_API_KEY se crea en Google Cloud (te guío). GOOGLE_APP_ID es el número
 // de tu proyecto: la parte numérica del principio del GOOGLE_CLIENT_ID.
-export const GOOGLE_API_KEY = '';
+export const GOOGLE_API_KEY = 'AIzaSyCYCTPwpQn8kk4IdXxrPRe-ovXELsR-QtQ';
 export const GOOGLE_APP_ID = '732759481417';
 
 // Carpeta que la app crea en tu Drive.
