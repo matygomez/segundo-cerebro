@@ -70,7 +70,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       vacio: () => !d.categoriasDe('fijo').length,
       textoVacio: 'Sin gastos fijos',
       derecha: (r) => `${plata(r.fijos.reduce((a, f) => a + f.gastado, 0))} de ${plata(r.fijos.reduce((a, f) => a + f.presupuesto, 0))}`,
-      cuerpo: (r) => r.fijos.map(f => filaFijo(f)),
+      cuerpo: (r) => porGrupoFijo(r.fijos).map(([titulo, lista]) => [
+        h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
+          h('span', { class: 'num' }, `${plata(lista.reduce((a, f) => a + f.gastado, 0))} de ${plata(lista.reduce((a, f) => a + f.presupuesto, 0))}`)),
+        lista.map(f => filaFijo(f))]),
     },
     credito: {
       titulo: 'Crédito',
@@ -111,6 +114,9 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       }),
     },
   };
+
+  // Gastos fijos separados en Familia y Personal (solo los grupos que tienen algo).
+  const porGrupoFijo = (fijos) => [['Familia', fijos.filter(f => f.grupo === 'familia')], ['Personal', fijos.filter(f => f.grupo === 'personal')]].filter(([, l]) => l.length);
 
   const prestamosActivos = () => d.prestamos.filter(p => !p.archivado && d.estadoPrestamo(p).falta > 0);
 
@@ -362,11 +368,17 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       if (!fijos.length) return [sinDatos('Todavía no hay gastos fijos.')];
       const actual = fijos.find(f => f.cat.id === elegido) || fijos[0];
       const pres = fijos.reduce((a, f) => a + f.presupuesto, 0), gast = fijos.reduce((a, f) => a + f.gastado, 0);
-      const filas = fijos.map(f => h('tr', { class: f === actual ? 'sel' : '', onclick: () => { elegido = f.cat.id; dibujar(); } },
+      const filaTabla = (f) => h('tr', { class: f === actual ? 'sel' : '', onclick: () => { elegido = f.cat.id; dibujar(); } },
         h('td', {}, h('span', { class: `fz-auto ${f.cat.automatico ? 'si' : 'no'}` }, f.cat.automatico ? '✓' : '✗'), f.cat.nombre),
         h('td', { class: 'nota' }, f.cat.dia ? `día ${f.cat.dia}` : '—'),
         h('td', { class: 'der num' }, plata(f.presupuesto)), h('td', { class: 'der num' }, plata(f.gastado)),
-        h('td', { class: `der num ${f.falta ? '' : 'pos'}` }, f.falta ? plata(f.falta) : 'Pagado')));
+        h('td', { class: `der num ${f.falta ? '' : 'pos'}` }, f.falta ? plata(f.falta) : 'Pagado'));
+      const filas = porGrupoFijo(fijos).map(([titulo, lista]) => [
+        h('tr', { class: 'fz-fila-grupo' }, h('td', {}, titulo), h('td', {}),
+          h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.presupuesto, 0))),
+          h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.gastado, 0))),
+          h('td', { class: 'der num' }, plata(lista.reduce((a, f) => a + f.falta, 0)))),
+        lista.map(filaTabla)]);
       return [
         metricas(['Presupuesto del mes', plata(pres)], ['Gastado', plata(gast), '', pres ? `${Math.round(gast / pres * 100)} % del presupuesto` : null],
           ['Falta pagar', plata(fijos.reduce((a, f) => a + f.falta, 0)), 'neg', 'Se resta del Disponible']),

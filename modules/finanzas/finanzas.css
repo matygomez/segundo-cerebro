@@ -178,6 +178,15 @@ dialog.fz-hoja { max-width: 32rem; }
 .fz-selector-cat.vacio { color: var(--tinta-2); }
 .fz-lista-cat { display: grid; gap: 0.1rem; }
 .fz-grupo-cat { font-size: 0.75rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: var(--laton); padding: 0.8rem 0.3rem 0.25rem; }
+.fz-subgrupo-cat { font-size: 0.82rem; font-weight: 600; color: var(--tinta-2); padding: 0.45rem 0.6rem 0.1rem; }
+.fz-chips { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.fz-chip { border: 1px solid var(--linea); background: var(--superficie-2); border-radius: 10px; padding: 0.35rem 0.65rem; text-align: left; font: inherit; font-size: 0.85rem; color: var(--tinta); cursor: pointer; line-height: 1.3; }
+.fz-chip:hover { border-color: var(--laton); }
+.fz-chip .nota { font-size: 0.75rem; }
+.fz-barra-alta { height: 8px; }
+.fz-barra-alta div { height: 8px; transition: width 0.25s; }
+.fz-clasif-listo { text-align: center; padding: 0.6rem 0; }
+.fz-tabla tr.fz-fila-grupo td { background: var(--superficie-2); font-weight: 600; color: var(--tinta-2); font-size: 0.85rem; cursor: default; }
 .fz-cat-padre, .fz-cat-sub { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; border: 0; background: none; text-align: left; padding: 0.6rem 0.6rem; border-radius: 8px; color: var(--tinta); font: inherit; cursor: pointer; }
 .fz-cat-padre { font-weight: 600; }
 .fz-cat-sub { padding-left: 1.8rem; justify-content: flex-start; }
@@ -216,6 +225,11 @@ dialog.fz-hoja { max-width: 32rem; }
 .fz-detalle-cel .fz-pierna { background: var(--superficie); }
 .fz-detalle-importe { font-size: 1.5rem; font-weight: 600; }
 .fz-vacio-mov { padding: 0.8rem 0; }
+.fz-celda-borrar { width: 2.5rem; padding: 0.2rem 0.4rem !important; text-align: right; }
+.fz-borrar { width: 2rem; height: 2rem; border: 0; border-radius: 8px; background: none; color: var(--tinta-2); cursor: pointer; display: inline-grid; place-items: center; opacity: 0.5; }
+.fz-tabla tbody tr:hover .fz-borrar, .fz-borrar:focus-visible { opacity: 1; }
+.fz-borrar:hover { background: var(--rojo-fondo); color: var(--rojo); }
+.fz-borrar .icono { width: 1.1rem; height: 1.1rem; }
 .fz-detalle-mov { position: sticky; top: 4.5rem; }
 
 /* ── Configurar ── */

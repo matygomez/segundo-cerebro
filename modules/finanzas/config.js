@@ -101,8 +101,10 @@ export function vistaConfig(cuerpo, ctx, m, d) {
   function formCategoria(tipo, cat = null, padre = null) {
     const nombre = nombreInput(cat?.nombre, padre ? 'Ej. Remedios' : tipo === 'fijo' ? 'Ej. Alquiler' : tipo === 'ingreso' ? 'Ej. Sueldo' : 'Ej. Bebé');
     const filas = [campo(ctx, 'Nombre', nombre)];
-    let presupuesto, dia, automatico;
+    let presupuesto, dia, automatico, grupoFijo;
     if (tipo === 'fijo') {
+      grupoFijo = h('select', {}, h('option', { value: 'familia', selected: cat?.grupoFijo !== 'personal' }, 'Familia'), h('option', { value: 'personal', selected: cat?.grupoFijo === 'personal' }, 'Personal'));
+      filas.push(campo(ctx, 'Grupo', grupoFijo));
       presupuesto = inputImporte(ctx, cat ? d.presupuesto(cat, mesActual()) : '');
       dia = h('input', { type: 'number', min: 1, max: 31, inputmode: 'numeric', value: cat?.dia || '', placeholder: '10' });
       automatico = h('input', { type: 'checkbox', checked: !!cat?.automatico });
@@ -117,7 +119,7 @@ export function vistaConfig(cuerpo, ctx, m, d) {
       alGuardar: async () => {
         if (!nombre.value.trim()) return 'Escribí un nombre.';
         const datos = { nombre: nombre.value.trim() };
-        if (tipo === 'fijo') Object.assign(datos, { dia: Number(dia.value) || '', automatico: automatico.checked });
+        if (tipo === 'fijo') Object.assign(datos, { dia: Number(dia.value) || '', automatico: automatico.checked, grupoFijo: grupoFijo.value });
         if (cat) return void await m.actualizar('categorias', cat.id, datos);
         Object.assign(datos, { tipo, padreId: padre?.id || '', archivada: false });
         if (tipo === 'fijo') datos.presupuestos = presupuesto.value === '' ? [] : [{ desde: mesActual(), monto: leer(presupuesto) }];
@@ -158,9 +160,11 @@ export function vistaConfig(cuerpo, ctx, m, d) {
 
   function seccionFijos() {
     const lista = d.categoriasDe('fijo');
+    const filaFijo = (c) => fila(c.nombre, `Presupuesto ${plata(d.presupuesto(c, mesActual()))}${c.dia ? ` · día ${c.dia}` : ''} · ${c.automatico ? '✓ automático' : '✗ manual'}`,
+      () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre), 'fz-conf-sub');
+    const grupos = [['Familia', lista.filter(c => c.grupoFijo !== 'personal')], ['Personal', lista.filter(c => c.grupoFijo === 'personal')]].filter(([, l]) => l.length);
     return seccion('Gastos fijos', nuevoBoton('+ Gasto fijo', () => formCategoria('fijo')),
-      lista.map(c => fila(c.nombre, `Presupuesto ${plata(d.presupuesto(c, mesActual()))}${c.dia ? ` · día ${c.dia}` : ''} · ${c.automatico ? '✓ automático' : '✗ manual'}`,
-        () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre))),
+      grupos.map(([titulo, l]) => [h('div', { class: 'fz-conf-grupo' }, h('span', {}, titulo)), l.map(filaFijo)]),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin gastos fijos todavía.'));
   }
 

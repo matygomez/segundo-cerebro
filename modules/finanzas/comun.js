@@ -17,6 +17,7 @@ const TRAZOS = {
   izquierda: '<path d="m15 6-6 6 6 6"/>',
   info: '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8v.5"/>',
   cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
+  papelera: '<path d="M5 7h14"/><path d="M10 7V5h4v2"/><path d="M7 7l1 12h8l1-12"/><path d="M10.5 10.5v5M13.5 10.5v5"/>',
   tabla: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/>',
 };
 
@@ -48,7 +49,7 @@ export function inputImporte(ctx, valor = '', placeholder = '$ 0') {
 }
 
 // Hoja de formulario genérica. alGuardar devuelve un texto de error o nada.
-export function hoja(ctx, { titulo, cuerpo, textoGuardar = 'Guardar', alGuardar, extraBotones = null, ancho = '' }) {
+export function hoja(ctx, { titulo, cuerpo, textoGuardar = 'Guardar', alGuardar, extraBotones = null, ancho = '', sinCancelar = false }) {
   const { h, icono } = ctx;
   return new Promise((listo) => {
     const error = h('p', { class: 'formulario-error', role: 'alert' });
@@ -59,7 +60,7 @@ export function hoja(ctx, { titulo, cuerpo, textoGuardar = 'Guardar', alGuardar,
       h('div', { class: 'formulario-campos' }, cuerpo),
       error,
       h('div', { class: 'hoja-botones fz-botones' }, extraBotones, h('span', { class: 'fz-espacio' }),
-        h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, 'Cancelar'),
+        sinCancelar ? null : h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, alGuardar ? 'Cancelar' : 'Cerrar'),
         alGuardar ? guardar : null));
     let resultado = null;
     form.addEventListener('input', () => { error.textContent = ''; });
@@ -95,7 +96,7 @@ export function hojaInfo(ctx, titulo, contenido) {
 
 // Lista con títulos: cuentas, reservas, inversiones y (opcional) crédito.
 // Los valores son 'c:<id>' para cuentas y 't:<id>' para crédito.
-export function selectCuentas(ctx, d, { tipos = ['cuenta', 'reserva', 'inversion'], creditos = false, pagarCredito = false, valor = '', vacio = null } = {}) {
+export function selectCuentas(ctx, d, { tipos = ['cuenta', 'reserva', 'inversion'], creditos = false, pagarCredito = false, valor = '', vacio = null, yaHecho = null } = {}) {
   const { h } = ctx;
   const grupos = { cuenta: 'Cuentas', reserva: 'Reservas', inversion: 'Inversiones' };
   const op = (v, t) => h('option', { value: v, selected: v === valor }, t);
@@ -105,7 +106,9 @@ export function selectCuentas(ctx, d, { tipos = ['cuenta', 'reserva', 'inversion
       const lista = d.cuentasActivas(tp);
       return lista.length ? h('optgroup', { label: grupos[tp] }, lista.map(c => op(`c:${c.id}`, c.nombre))) : null;
     }),
-    creditos && d.creditosActivos().length ? h('optgroup', { label: pagarCredito ? 'Pagar crédito' : 'Crédito' }, d.creditosActivos().map(c => op(`t:${c.id}`, d.nombreCredito(c)))) : null);
+    creditos && d.creditosActivos().length ? h('optgroup', { label: pagarCredito ? 'Pagar crédito' : 'Crédito' }, d.creditosActivos().map(c => op(`t:${c.id}`, d.nombreCredito(c)))) : null,
+    // Para cargar algo de antes, sin mover ninguna cuenta.
+    yaHecho ? h('optgroup', { label: 'Ajustes' }, op('y:', yaHecho)) : null);
 }
 
 // Botón que abre la lista de categorías con títulos y subcategorías.
@@ -128,10 +131,16 @@ export function selectorCategoria(ctx, d, tipos, valor = '') {
       if (!cats.length) continue;
       hay = true;
       lista.append(h('div', { class: 'fz-grupo-cat' }, TITULOS[tp]));
-      for (const c of cats) {
+      const conSubgrupos = tp === 'fijo' ? [['familia', 'Familia'], ['personal', 'Personal']] : [[null, null]];
+      for (const [clave, titulo] of conSubgrupos) {
+      const delGrupo = clave ? cats.filter(c => (c.grupoFijo === 'personal' ? 'personal' : 'familia') === clave) : cats;
+      if (!delGrupo.length) continue;
+      if (titulo) lista.append(h('div', { class: 'fz-subgrupo-cat' }, titulo));
+      for (const c of delGrupo) {
         const subs = d.subcategorias(c.id);
         lista.append(h('button', { type: 'button', class: 'fz-cat-padre', onclick: () => elegir(c.id) }, c.nombre, subs.length ? h('span', { class: 'nota' }, 'general') : null));
         for (const s of subs) lista.append(h('button', { type: 'button', class: 'fz-cat-sub', onclick: () => elegir(s.id) }, s.nombre));
+      }
       }
     }
     if (!hay) lista.append(h('p', { class: 'nota' }, 'Todavía no hay categorías. Crealas desde Configurar Finanzas (⚙).'));
@@ -144,7 +153,7 @@ export function selectorCategoria(ctx, d, tipos, valor = '') {
     document.body.append(dlg);
     dlg.showModal();
   });
-  return { elemento: boton, valor: () => actual };
+  return { elemento: boton, valor: () => actual, fijar: (id) => { actual = id; pintar(); } };
 }
 
 // Fila de "concepto ........ importe".

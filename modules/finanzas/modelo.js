@@ -9,8 +9,15 @@
 //                 archivado, orden }
 //   categorias  { nombre, tipo: 'fijo' | 'variable' | 'ingreso', padreId,
 //                 dia, automatico, presupuestos: [{ desde: 'AAAA-MM', monto }], archivada, orden }
-//   movimientos { tipo, fecha, importe, cuentaId, creditoId, cuotas, destinoId,
-//                 destinoCreditoId, categoriaId, descripcion, ajuste, prestamoId }
+//   movimientos { tipo, fecha, importe, cuentaId, creditoId, cuotas, cuotasPagadas, destinoId,
+//                 destinoCreditoId, categoriaId, descripcion, ajuste, prestamoId, sinDescontar }
+//     sinDescontar: gasto o ingreso cargado después, que ya estaba reflejado en el
+//                   saldo de la cuenta. Cuenta para el mes, pero no mueve el saldo.
+//     pagadasHasta: en una compra con crédito cargada después, las cuotas que
+//                   vencieron antes de esta fecha (la del día en que se cargó)
+//                   se toman como pagadas. Las que vencen después siguen siendo
+//                   deuda hasta que se registre el pago.
+//     (cuotasPagadas: versión anterior, por cantidad; se sigue respetando.)
 //     tipo: 'gasto' | 'ingreso' | 'transferencia' | 'rendimiento' | 'prestamo'
 //   prestamos   { persona, sentido: 'me-deben' | 'debo', monto, fecha, cuentaId, notas, archivado }
 //   ajustes     { id fijo 'panel': { orden: [...] } }
@@ -202,7 +209,7 @@ export class Datos {
       const f = new Date(c.creado);
       return {
         id: `inicial-${c.id}`, tipo: 'inicial', cuentaId: c.id, importe: Number(c.saldoInicial), creado: c.creado,
-        fecha: `${f.getFullYear()}-${pad(f.getMonth() + 1)}-${pad(f.getDate())}`, descripcion: 'Saldo inicial de la cuenta',
+        fecha: `${f.getFullYear()}-${pad(f.getMonth() + 1)}-${pad(f.getDate())}`, descripcion: '',
       };
     });
   }
@@ -215,6 +222,7 @@ export class Datos {
   // Efecto de un movimiento sobre una cuenta (positivo si entra plata).
   efecto(m, cuentaId) {
     let e = 0;
+    if (m.sinDescontar) return 0;
     if (m.tipo === 'gasto' && m.cuentaId === cuentaId && !m.creditoId) e -= m.importe;
     if (m.tipo === 'ingreso' && m.cuentaId === cuentaId) e += m.importe;
     if (m.tipo === 'transferencia') {
@@ -268,7 +276,9 @@ export class Datos {
       const base = Math.floor((m.importe / n) * 100) / 100;
       for (let k = 0; k < n; k++) {
         const importe = k === n - 1 ? redondear(m.importe - base * (n - 1)) : base;
-        lista.push({ mov: m, creditoId: cr.id, mes: sumarMeses(primero, k), numero: k + 1, total: n, importe });
+        const mes = sumarMeses(primero, k);
+        const vencida = m.pagadasHasta && this.fechasResumen(cr, mes).vencimiento < m.pagadasHasta;
+        lista.push({ mov: m, creditoId: cr.id, mes, numero: k + 1, total: n, importe, yaPagada: !!vencida || k < (Number(m.cuotasPagadas) || 0) });
       }
     }
     return (this._cuotas = lista);
@@ -286,9 +296,11 @@ export class Datos {
     return [...porMes.keys()].sort().map(mes => {
       const items = porMes.get(mes);
       const total = redondear(items.reduce((a, q) => a + q.importe, 0));
-      const aplicado = Math.min(pagado, total);
+      const previo = redondear(items.filter(q => q.yaPagada).reduce((a, q) => a + q.importe, 0));
+      const aplicado = Math.min(pagado, redondear(total - previo));
       pagado = redondear(pagado - aplicado);
-      return { creditoId, mes, ...this.fechasResumen(cr, mes), items, total, pagado: aplicado, pendiente: redondear(total - aplicado) };
+      const totalPagado = redondear(previo + aplicado);
+      return { creditoId, mes, ...this.fechasResumen(cr, mes), items, total, pagado: totalPagado, pendiente: redondear(total - totalPagado) };
     });
   }
 
@@ -353,8 +365,43 @@ export class Datos {
     return this.categoriasDe('fijo').map(cat => {
       const gastado = redondear(gastos.filter(g => g.categoriaId === cat.id).reduce((a, g) => a + g.importe, 0));
       const presupuesto = this.presupuesto(cat, mes);
-      return { cat, presupuesto, gastado, falta: redondear(Math.max(0, presupuesto - gastado)) };
+      return { cat, grupo: cat.grupoFijo === 'personal' ? 'personal' : 'familia', presupuesto, gastado, falta: redondear(Math.max(0, presupuesto - gastado)) };
     });
+  }
+
+  // Sugerencias para clasificar un ajuste.
+  // bajos: categorías que este mes llevan menos que su promedio de los 3 meses anteriores.
+  // usadas: las más usadas en los últimos 3 meses.
+  sugerencias(tipo, mes) {
+    const meses = [1, 2, 3].map(i => sumarMeses(mes, -i));
+    if (tipo === 'ingreso') {
+      const cuenta = new Map();
+      for (const m of this.movimientos) if (m.tipo === 'ingreso' && !m.ajuste && meses.includes(mesDe(m.fecha))) cuenta.set(m.categoriaId, (cuenta.get(m.categoriaId) || 0) + 1);
+      const usadas = [...cuenta.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id).filter(id => this.categoria(id));
+      // Primero las más usadas; después el resto de las categorías de ingreso.
+      const resto = this.categoriasDe('ingreso').map(c => c.id).filter(id => !usadas.includes(id));
+      return { bajos: [], usadas: [...usadas, ...resto].slice(0, 6) };
+    }
+    const porCat = (m) => {
+      const t = new Map();
+      for (const g of this.gastosDelMes(m)) if (g.categoriaId !== AJUSTE) t.set(g.categoriaId, (t.get(g.categoriaId) || 0) + g.importe);
+      return t;
+    };
+    const ahora = porCat(mes);
+    const previos = meses.map(porCat);
+    const ids = new Set(previos.flatMap(t => [...t.keys()]));
+    const bajos = [];
+    for (const id of ids) {
+      if (!this.categoria(id) || this.categoria(id).archivada) continue;
+      const prom = previos.reduce((a, t) => a + (t.get(id) || 0), 0) / 3;
+      const actual = ahora.get(id) || 0;
+      if (prom > 0 && actual < prom * 0.8) bajos.push({ id, actual: redondear(actual), promedio: redondear(prom), brecha: prom - actual });
+    }
+    bajos.sort((a, b) => b.brecha - a.brecha);
+    const usos = new Map();
+    for (const m of this.movimientos) if (m.tipo === 'gasto' && !m.ajuste && meses.concat(mes).includes(mesDe(m.fecha))) usos.set(m.categoriaId, (usos.get(m.categoriaId) || 0) + 1);
+    const usadas = [...usos.entries()].sort((a, b) => b[1] - a[1]).map(([id]) => id).filter(id => this.categoria(id) && !bajos.slice(0, 4).some(b => b.id === id));
+    return { bajos: bajos.slice(0, 4), usadas: usadas.slice(0, 5) };
   }
 
   variablesDelMes(mes) {
@@ -413,6 +460,7 @@ export class Datos {
   // Texto de la cuenta o crédito de un movimiento.
   origen(m) {
     if (m.tipo === 'gasto' && m.creditoId) return this.nombreCredito(this.credito(m.creditoId));
+    if (m.sinDescontar) return { gasto: 'Ya pagado', ingreso: 'Ya sumado', transferencia: 'Ya hecha' }[m.tipo] || this.nombreCuenta(m.cuentaId);
     return this.nombreCuenta(m.cuentaId);
   }
   destino(m) {

@@ -6,7 +6,7 @@
 
 import { plata, fechaCorta, nombreMes, mesDe, sumarMeses } from './modelo.js';
 import { poner, ic, hoja, campo, inputImporte } from './comun.js';
-import { abrirMovimiento } from './formularios.js';
+import { abrirMovimiento, abrirClasificar } from './formularios.js';
 
 // Se conservan mientras la app está abierta.
 const estado = { texto: '', tipo: '', cuenta: '', mes: null, orden: { campo: 'fecha', desc: true }, elegido: null };
@@ -25,9 +25,21 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   if (estado.mes === null) estado.mes = mes;
 
   const tipoDe = (x) => (x.ajuste ? { texto: 'Ajuste', clase: 'ajuste' } : TIPOS[x.tipo] || { texto: x.tipo, clase: '' });
-  const cuentaTexto = (x) => (x.tipo === 'transferencia' ? `${d.nombreCuenta(x.cuentaId)} → ${d.destino(x)}` : d.origen(x));
+  const cuentaTexto = (x) => (x.tipo === 'transferencia' ? `${x.sinDescontar ? 'Ya hecha' : d.nombreCuenta(x.cuentaId)} → ${d.destino(x)}` : d.origen(x));
   const categoriaTexto = (x) => (x.categoriaId ? d.nombreCategoria(x.categoriaId) : x.tipo === 'prestamo' ? d.prestamo(x.prestamoId)?.persona || '—' : '—');
-  const cuotasTexto = (x) => (x.creditoId && x.cuotas > 1 ? `${x.cuotas} cuotas` : '');
+  const cuotasTexto = (x) => {
+    if (!x.creditoId) return '';
+    const viejas = x.pagadasHasta || x.cuotasPagadas ? ' (vencidas ya pagadas)' : '';
+    return x.cuotas > 1 ? `${x.cuotas} cuotas${viejas}` : viejas.trim().replace(/[()]/g, '');
+  };
+
+  async function borrarMovimiento(x) {
+    if (!await ctx.confirmar('¿Borrar este movimiento? Los saldos se recalculan solos.', { si: 'Borrar', peligro: true })) return;
+    await m.borrar('movimientos', x.id);
+    estado.elegido = null;
+    ctx.aviso('Movimiento borrado');
+  }
+
 
   // Importe con signo según el tipo (y según la cuenta filtrada en las transferencias).
   function importe(x) {
@@ -88,18 +100,15 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
         x.tipo !== 'transferencia' ? [x.creditoId ? 'Crédito' : 'Cuenta', d.origen(x)] : null,
         x.tipo !== 'transferencia' && x.tipo !== 'rendimiento' ? ['Categoría', categoriaTexto(x)] : null,
         cuotas,
+        x.pagadasHasta ? ['Cuotas vencidas', `Tomadas como pagadas al ${fechaCorta(x.pagadasHasta)}/${x.pagadasHasta.slice(0, 4)}`] : null,
+        x.cuotasPagadas ? ['Ya pagadas', `${x.cuotasPagadas} cuota${x.cuotasPagadas === 1 ? '' : 's'}`] : null,
+        x.sinDescontar ? ['Saldos', 'Cargado de antes: no mueve ninguna cuenta'] : null,
         ['Descripción', x.descripcion || '—'],
       ]),
       h('div', { class: 'botonera' },
+        x.ajuste ? h('button', { type: 'button', class: 'boton chico principal', onclick: () => abrirClasificar(ctx, m, d, x) }, 'Clasificar') : null,
         h('button', { type: 'button', class: 'boton chico', disabled: esInicial, onclick: () => abrirMovimiento(ctx, m, d, x.tipo, x) }, 'Editar'),
-        h('button', {
-          type: 'button', class: 'boton chico peligro', disabled: esInicial, onclick: async () => {
-            if (!await ctx.confirmar('¿Borrar este movimiento? Los saldos se recalculan solos.', { si: 'Borrar', peligro: true })) return;
-            await m.borrar('movimientos', x.id);
-            estado.elegido = null;
-            ctx.aviso('Movimiento borrado');
-          },
-        }, 'Borrar')),
+        h('button', { type: 'button', class: 'boton chico peligro', disabled: esInicial, onclick: () => borrarMovimiento(x) }, 'Borrar')),
       esInicial ? h('p', { class: 'nota' }, 'Es el movimiento que creó el préstamo: se maneja desde la vista de Préstamos.') : null,
     ];
   }
@@ -186,6 +195,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   poner(cuerpo,
     h('div', { class: 'fz-filtros' }, buscador, selMes, selTipo, selCuenta),
     contador,
+    h('p', { class: 'nota' }, 'Tocá un movimiento para ver el detalle, editarlo o borrarlo.'),
     h('div', { class: 'fz-hoja-mov' }, zonaTabla, zonaLista, zonaDetalle),
     h('p', { class: 'nota' }, 'Con una cuenta elegida en el filtro, las transferencias muestran − si salieron de esa cuenta y + si entraron.'));
   pintar();
