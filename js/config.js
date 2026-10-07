@@ -18,7 +18,7 @@ export const GOOGLE_APP_ID = '732759481417';
 export const CARPETA_DRIVE = 'Segundo Cerebro';
 
 // Versión visible en Ajustes. Se sube en cada actualización.
-export const VERSION = '0.3.0';
+export const VERSION = '0.3.2';
 
 // Registro de módulos.
 // Para sumar un módulo: crear su carpeta en /modules y agregar una línea acá.
