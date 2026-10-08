@@ -151,19 +151,37 @@ export function abrirAjuste(ctx, m, d, cuenta) {
 }
 
 // Presupuesto de un gasto fijo, con historial.
+// Gasto fijo: su presupuesto, cómo va el mes y el historial de cambios.
+// Se abre tocando la línea del gasto en el panel o "Ajustar presupuesto" en el detalle.
 export function abrirPresupuesto(ctx, m, d, cat, mesVista) {
   const { h } = ctx;
-  const monto = inputImporte(ctx, d.presupuesto(cat, mesVista) || '');
   const actual = mesActual();
+  const mesRef = mesVista && mesVista > actual ? mesVista : actual;
+  const valorHoy = d.presupuesto(cat, mesRef);
+  const monto = inputImporte(ctx, valorHoy || '');
   const desde = h('select', {}, h('option', { value: actual }, `Este mes (${nombreMes(actual, false).toLowerCase()})`),
-    h('option', { value: sumarMeses(actual, 1) }, `El mes que viene (${nombreMes(sumarMeses(actual, 1), false).toLowerCase()})`));
+    h('option', { value: sumarMeses(actual, 1), selected: mesRef !== actual }, `El mes que viene (${nombreMes(sumarMeses(actual, 1), false).toLowerCase()})`));
+  const f = d.fijosDelMes(mesVista || actual).find(x => x.cat.id === cat.id);
+  const fila = (a, b, clase = '') => h('div', { class: `fz-linea ${clase}` }, h('span', {}, a), h('span', { class: 'num' }, b));
+  const historial = [...(cat.presupuestos || [])].sort((a, b) => b.desde.localeCompare(a.desde));
   return hoja(ctx, {
-    titulo: `Presupuesto de ${cat.nombre}`,
-    cuerpo: [campo(ctx, 'Nuevo presupuesto mensual', monto), campo(ctx, 'Aplica desde', desde),
-      h('p', { class: 'nota' }, 'El valor anterior queda en el historial y los meses pasados conservan el suyo.')],
+    titulo: cat.nombre,
+    cuerpo: [
+      f ? h('div', { class: 'fz-bloque' }, h('h3', {}, nombreMes(mesVista || actual)),
+        fila('Presupuesto', plata(f.presupuesto)), fila('Pagado', plata(f.gastado)),
+        f.excedido ? fila('Excedido', h('span', { class: 'neg' }, plata(f.excedido))) : fila('Falta pagar', h('span', { class: f.falta ? 'neg' : 'pos' }, f.falta ? plata(f.falta) : 'Nada'), 'fz-total')) : null,
+      h('div', { class: 'fz-bloque' }, h('h3', {}, 'Cambiar presupuesto'),
+        campo(ctx, 'Nuevo presupuesto mensual', monto), campo(ctx, 'Aplica desde', desde),
+        h('p', { class: 'nota' }, 'Si lo bajás, la diferencia vuelve al Disponible. Los meses anteriores conservan su valor.')),
+      h('div', { class: 'fz-bloque fz-historial' }, h('h3', {}, 'Historial del presupuesto'),
+        historial.length ? historial.map(p => fila(`Desde ${nombreMes(p.desde).toLowerCase()}`, plata(p.monto), 'fz-sub2')) : h('p', { class: 'nota' }, 'Sin presupuesto cargado.')),
+    ],
     alGuardar: async () => {
-      if (!(leerImporte(monto) >= 0) || monto.value === '') return 'Escribí el presupuesto.';
-      await m.cambiarPresupuesto(cat, leerImporte(monto), desde.value);
+      if (monto.validity?.badInput) return 'Escribí solo números, sin puntos de miles (ej. 150000 o 150000,50).';
+      if (monto.value === '' || !(leerImporte(monto) >= 0)) return 'Escribí el presupuesto.';
+      const nuevo = leerImporte(monto);
+      if (nuevo === d.presupuesto(cat, desde.value)) return;
+      await m.cambiarPresupuesto(cat, nuevo, desde.value);
       ctx.aviso('Presupuesto actualizado');
     },
   });

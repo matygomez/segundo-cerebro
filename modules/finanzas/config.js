@@ -111,9 +111,9 @@ export function vistaConfig(cuerpo, ctx, m, d) {
       presupuesto = inputImporte(ctx, cat ? d.presupuesto(cat, mesActual()) : '');
       dia = h('input', { type: 'number', min: 1, max: 31, inputmode: 'numeric', value: cat?.dia || '', placeholder: '10' });
       automatico = h('input', { type: 'checkbox', checked: !!cat?.automatico });
-      filas.push(h('div', { class: 'fz-dos' }, cat ? null : campo(ctx, 'Presupuesto mensual', presupuesto), campo(ctx, 'Día de vencimiento', dia)),
+      filas.push(h('div', { class: 'fz-dos' }, campo(ctx, cat ? 'Presupuesto desde este mes' : 'Presupuesto mensual', presupuesto), campo(ctx, 'Día de vencimiento', dia)),
         h('label', { class: 'fila-campo casilla' }, automatico, h('span', { class: 'etiqueta-campo' }, 'Se paga automático')),
-        cat ? h('p', { class: 'nota' }, 'El presupuesto se cambia desde el detalle de Gastos fijos, así queda en el historial.') : null);
+        cat ? h('p', { class: 'nota' }, 'Si cambiás el presupuesto, el anterior queda en el historial y los meses pasados conservan el suyo.') : null);
     }
     const titulos = { fijo: 'gasto fijo', variable: padre ? 'subcategoría' : 'categoría de gasto', ingreso: 'categoría de ingreso' };
     return hoja(ctx, {
@@ -123,7 +123,10 @@ export function vistaConfig(cuerpo, ctx, m, d) {
         if (!nombre.value.trim()) return 'Escribí un nombre.';
         const datos = { nombre: nombre.value.trim() };
         if (tipo === 'fijo') Object.assign(datos, { dia: Number(dia.value) || '', automatico: automatico.checked, grupoFijo: grupoFijo.value });
-        if (cat) return void await m.actualizar('categorias', cat.id, datos);
+        if (cat) {
+          if (tipo === 'fijo' && presupuesto.value !== '' && leer(presupuesto) !== d.presupuesto(cat, mesActual())) await m.cambiarPresupuesto(cat, leer(presupuesto), mesActual());
+          return void await m.actualizar('categorias', cat.id, datos);
+        }
         Object.assign(datos, { tipo, padreId: padre?.id || '', archivada: false });
         if (tipo === 'fijo') datos.presupuestos = presupuesto.value === '' ? [] : [{ desde: mesActual(), monto: leer(presupuesto) }];
         await m.crear('categorias', datos);

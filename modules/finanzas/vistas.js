@@ -75,7 +75,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       titulo: 'Gastos fijos',
       vacio: () => !d.categoriasDe('fijo').length,
       textoVacio: 'Sin gastos fijos',
-      derecha: (r) => `${plata(r.fijos.reduce((a, f) => a + f.gastado, 0))} de ${plata(r.fijos.reduce((a, f) => a + f.presupuesto, 0))}`,
+      derecha: (r) => faltaFijos(r.fijos),
       cuerpo: (r) => {
         // En el panel los pagados arrancan ocultos.
         const ocultos = leerPref('fz-fijos-panel-ocultos', true);
@@ -87,7 +87,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
             const visibles = ocultos ? lista.filter(f => !estaPagado(f)) : lista;
             return [
               h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
-                h('span', { class: 'num' }, `${plata(lista.reduce((a, f) => a + f.gastado, 0))} de ${plata(lista.reduce((a, f) => a + f.presupuesto, 0))}`)),
+                faltaFijos(lista)),
               visibles.length ? visibles.map(f => filaFijo(f)) : h('p', { class: 'nota' }, 'Todos pagados.')];
           })];
       },
@@ -149,6 +149,12 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     },
   };
 
+  // Lo que falta pagar de una lista de gastos fijos.
+  const faltaFijos = (lista) => {
+    const falta = lista.reduce((a, f) => a + f.falta, 0);
+    return falta ? h('span', { class: 'num neg' }, `Falta ${plata(falta)}`) : h('span', { class: 'num pos' }, 'Todo pagado');
+  };
+
   // Gastos fijos separados en Familia y Personal (solo los grupos que tienen algo).
   const porGrupoFijo = (fijos) => [['Familia', fijos.filter(f => f.grupo === 'familia')], ['Personal', fijos.filter(f => f.grupo === 'personal')]].filter(([, l]) => l.length);
 
@@ -160,17 +166,18 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     const filas = [];
     const cuentas = [...d.cuentasActivas('cuenta'), ...d.cuentasActivas('reserva')];
     const sub = (c) => h('div', { class: `fz-subcuenta${seleccion === c.id ? ' sel' : ''}`, 'data-id': c.id },
-      h('b', {}, c.nombre),
+      h('b', {}, c.nombre, c.fondoCredito && !d.grupo(c.grupoId) ? h('span', { class: 'fz-nota-chica' }, ' no suma a Disponible') : null),
       h('span', { class: 'fz-subcuenta-der' }, h('b', { class: 'num' }, plata(d.saldo(c.id, corte()))),
         conAjustar ? h('button', { type: 'button', class: 'boton chico', onclick: () => abrirAjuste(ctx, m, d, c) }, 'Ajustar') : null));
     for (const g of d.grupos) {
       const delGrupo = cuentas.filter(c => c.grupoId === g.id);
       if (!delGrupo.length) continue;
-      filas.push(linea(ctx, g.nombre, plata(delGrupo.reduce((a, c) => a + d.saldo(c.id, corte()), 0)), 'fz-grupo'), ...delGrupo.map(sub));
+      const esFondo = delGrupo.some(c => c.fondoCredito);
+      filas.push(h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, g.nombre, esFondo ? h('span', { class: 'fz-nota-chica' }, ' no suma a Disponible') : null),
+        h('span', { class: 'num' }, plata(delGrupo.reduce((a, c) => a + d.saldo(c.id, corte()), 0)))), ...delGrupo.map(sub));
     }
     const sueltas = cuentas.filter(c => !d.grupo(c.grupoId));
     if (sueltas.length) filas.push(...(d.grupos.length ? [h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, 'Sin grupo'))] : []), ...sueltas.map(sub));
-    if (d.fondo()) filas.push(h('p', { class: 'nota' }, `${d.fondo().nombre} es el fondo para crédito: no suma al Disponible.`));
     return filas;
   }
 
@@ -178,7 +185,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
 
   function filaFijo(f) {
     const pct = f.presupuesto ? Math.min(100, Math.round(f.gastado / f.presupuesto * 100)) : (f.gastado ? 100 : 0);
-    return h('div', { class: `fz-fila-bloque${f.excedido ? ' fz-excedido' : ''}` },
+    return h('div', { class: `fz-fila-bloque fz-tocable${f.excedido ? ' fz-excedido' : ''}`, role: 'button', tabindex: '0', title: 'Ver presupuesto e historial',
+      onclick: () => abrirPresupuesto(ctx, m, d, f.cat, mesVista), onkeydown: (e) => { if (e.key === 'Enter') abrirPresupuesto(ctx, m, d, f.cat, mesVista); } },
       h('div', { class: 'fz-linea' },
         h('span', {}, h('span', { class: `fz-auto ${f.cat.automatico ? 'si' : 'no'}`, title: f.cat.automatico ? 'Se paga automático' : 'Se paga a mano' }, f.cat.automatico ? '✓' : '✗'),
           f.cat.nombre, f.cat.dia && !f.excedido ? h('span', { class: 'nota' }, ` día ${f.cat.dia}`) : null,
@@ -328,7 +336,6 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     const disponible = h('button', { type: 'button', class: 'fz-disponible', onclick: () => explicarDisponible(r) },
       h('span', { class: 'nota' }, esActual ? 'Disponible' : `Disponible al cierre de ${nombreMes(mesVista, false).toLowerCase()}`),
       h('span', { class: 'fz-disponible-valor num' }, plata(r.disponible)),
-      h('span', { class: 'nota' }, `En cuentas ${plata(r.enCuentas)} − fijos pendientes ${plata(r.fijosPendientes)} − crédito de este mes ${plata(r.faltanteCredito)}`),
       ic('info'));
     const plegados = leerPlegados();
     const grilla = h('div', { class: 'fz-grilla' }, ordenPanel().map(k => cuadro(k, r, plegados)));
@@ -342,7 +349,6 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         metrica('Ingresos del mes', plata(r.totalIngresos), 'pos', () => explicarIngresos()),
         metrica('Gastos del mes', plata(r.totalGastos), 'neg', () => explicarGastos(r)),
         h('div', { class: 'fz-metrica fija' }, h('span', { class: 'nota' }, 'Diferencia'), h('span', { class: `fz-valor num ${r.diferencia < 0 ? 'neg' : ''}` }, plata(r.diferencia)))),
-      h('p', { class: 'nota fz-ayuda' }, 'Arrastrá un cuadro desde ⋮⋮ para cambiarlo de lugar. Tocá su título para ver el detalle completo.'),
       grilla,
     ];
   }

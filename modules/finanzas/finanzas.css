@@ -307,3 +307,10 @@ dialog.fz-hoja { max-width: 32rem; }
   .fz-metrica > .icono { display: none; }
   .fz-metrica .nota { font-size: 0.78rem; line-height: 1.25; }
 }
+
+/* 0.7.1 */
+.fz-nota-chica { font-weight: 400; font-size: 0.78rem; color: var(--tinta-2); opacity: 0.8; margin-left: 0.35rem; white-space: nowrap; }
+.fz-tocable { cursor: pointer; border-radius: 6px; }
+.fz-tocable:hover { background: var(--superficie-2); }
+.fz-tocable:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; }
+.fz-historial .fz-linea.fz-sub2 { padding-left: 0; }
