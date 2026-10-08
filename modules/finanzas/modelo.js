@@ -20,7 +20,7 @@
 //     (cuotasPagadas: versión anterior, por cantidad; se sigue respetando.)
 //     tipo: 'gasto' | 'ingreso' | 'transferencia' | 'rendimiento' | 'prestamo'
 //   prestamos   { persona, sentido: 'me-deben' | 'debo', monto, fecha, cuentaId, notas, archivado }
-//   ajustes     { clave: 'panel', orden: [...] }
+//   ajustes     { clave: 'panel', orden: [...], columnas: [[...], [...], [...]] }
 //               { clave: 'credito-reparto', meses: { 'AAAA-MM': monto } }
 //               (cuánto del vencimiento de ese mes se paga con la plata de ese mes
 //                y no con la del mes anterior)
@@ -112,10 +112,11 @@ export function crearModelo(ctx) {
       return col.ajustes.crear({ clave: 'credito-reparto', meses });
     },
 
-    async guardarOrdenPanel(orden) {
+    async guardarOrdenPanel(orden, columnas = null) {
       const existente = (await col.ajustes.listar()).find(a => a.clave === 'panel');
-      if (existente) return col.ajustes.actualizar(existente.id, { orden });
-      return col.ajustes.crear({ clave: 'panel', orden });
+      const cambios = columnas ? { orden, columnas } : { orden };
+      if (existente) return col.ajustes.actualizar(existente.id, cambios);
+      return col.ajustes.crear({ clave: 'panel', ...cambios });
     },
 
     // Nuevo presupuesto para un gasto fijo: queda en el historial.
@@ -204,6 +205,7 @@ export class Datos {
   grupo(id) { return this._indice.grupos.get(id); }
   prestamo(id) { return this._indice.prestamos.get(id); }
   panel() { return this.ajustes.find(a => a.clave === 'panel')?.orden || null; }
+  panelColumnas() { return this.ajustes.find(a => a.clave === 'panel')?.columnas || null; }
   repartos() { return this.ajustes.find(a => a.clave === 'credito-reparto')?.meses || {}; }
 
   nombreCredito(c) { return c ? `${c.nombre} (crédito)` : '—'; }

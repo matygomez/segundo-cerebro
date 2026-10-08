@@ -17,11 +17,17 @@ import { vistaConfig } from './config.js';
 let mesVista = mesActual();
 const ORDEN_INICIAL = ['cuentas', 'fijos', 'credito', 'variables', 'inversiones', 'prestamos'];
 
+// Columnas del panel la primera vez (después vale lo que acomodes vos).
+const COLUMNAS_INICIALES = [['cuentas', 'credito'], ['fijos', 'variables'], ['inversiones', 'prestamos']];
+
+// Cuadros plegados: en el celular y en la PC se recuerdan por separado.
+const esPC = () => window.matchMedia('(min-width: 900px)').matches;
 function leerPlegados() {
-  try { return new Set(JSON.parse(localStorage.getItem('fz-plegados') || 'null') || ['fijos', 'variables', 'inversiones', 'prestamos']); }
-  catch { return new Set(['fijos', 'variables', 'inversiones', 'prestamos']); }
+  const porDefecto = esPC() ? [] : ['fijos', 'variables', 'inversiones', 'prestamos'];
+  try { return new Set(JSON.parse(localStorage.getItem(esPC() ? 'fz-plegados-pc' : 'fz-plegados') || 'null') || porDefecto); }
+  catch { return new Set(porDefecto); }
 }
-function guardarPlegados(s) { try { localStorage.setItem('fz-plegados', JSON.stringify([...s])); } catch { /* sin almacenamiento */ } }
+function guardarPlegados(s) { try { localStorage.setItem(esPC() ? 'fz-plegados-pc' : 'fz-plegados', JSON.stringify([...s])); } catch { /* sin almacenamiento */ } }
 
 // Preferencias de vista guardadas en este dispositivo.
 function leerPref(clave, porDefecto) {
@@ -42,9 +48,16 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   contenedor.replaceChildren(cabecera, cuerpo);
 
   // ── Encabezado: título, mes, botones y pestañas ──
+  // En el panel, la cabecera va arriba de la primera columna; en las demás vistas, arriba de todo.
   function dibujarCabecera() {
+    const enPanel = vista === 'panel';
+    cabecera.hidden = enPanel;
+    if (enPanel) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
+  }
+
+  function piezasCabecera() {
     const cambiarMes = (n) => { mesVista = sumarMeses(mesVista, n); dibujar(); };
-    poner(cabecera,
+    return [
       h('div', { class: 'fz-titulo' },
         h('h1', {}, 'Finanzas'),
         h('div', { class: 'fz-mes' },
@@ -58,7 +71,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('a', { href: '#/finanzas/config', class: 'boton fz-config', 'aria-label': 'Configurar Finanzas', title: 'Cuentas, crédito, categorías e inversiones' }, ic('engranaje'))),
       h('nav', { class: 'fz-pestanas' },
         h('a', { href: '#/finanzas', 'aria-current': vista === 'panel' || vista === 'detalle' ? 'page' : false }, 'Panel'),
-        h('a', { href: '#/finanzas/movimientos', 'aria-current': vista === 'movimientos' ? 'page' : false }, 'Movimientos')));
+        h('a', { href: '#/finanzas/movimientos', 'aria-current': vista === 'movimientos' ? 'page' : false }, 'Movimientos'))];
   }
 
   // ── Panel ──
@@ -97,7 +110,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       vacio: () => !d.creditosActivos().length,
       textoVacio: 'Sin tarjetas',
       derecha: (r) => h('span', { class: 'neg' }, plata(r.credito.pendienteAnterior + (r.proximo?.total || 0))),
-      cuerpo: (r) => [bloqueCreditoMes(r.credito), r.plan.fondo ? avisoFondo(r.plan) : null, ...d.creditosActivos().map(c => tarjetaCredito(c))],
+      cuerpo: (r) => [transferirFondo(r), bloqueCreditoMes(r.credito), ...d.creditosActivos().map(c => tarjetaCredito(c))],
     },
     variables: {
       titulo: 'Gastos variables',
@@ -245,6 +258,29 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     });
   }
 
+  // Cuánto pasar al fondo para crédito ahora y cuánto el mes del vencimiento (reparto).
+  function transferirFondo(r) {
+    const plan = r.plan, cr = r.credito;
+    if (!plan.meses.length) return null;
+    if (!plan.fondo) return h('p', { class: 'nota' }, 'Elegí una cuenta como fondo para crédito en Configurar Finanzas para saber cuánto transferir.');
+    const cuando = mesVista === mesActual() ? 'este mes' : `en ${nombreMes(mesVista, false).toLowerCase()}`;
+    const ahora = cr.total;
+    const venc = cr.proximo ? cr.proximo.resumenes.map(x => x.vencimiento).sort()[0] : null;
+    const mesProx = cr.proximo ? nombreMes(cr.proximo.mes, false).toLowerCase() : '';
+    const filas = [];
+    if (cr.totalAnteriores) filas.push(linea(ctx, `Pendiente del mes anterior${cr.venceAnterior ? ` (vence ${fechaCorta(cr.venceAnterior)})` : ''}`, h('span', { class: 'neg' }, plata(cr.totalAnteriores))));
+    if (cr.proximoEsteMes) filas.push(linea(ctx, `Para el vencimiento del ${fechaCorta(venc)}`, plata(cr.proximoEsteMes)));
+    if (cr.reparto) filas.push(linea(ctx, `En ${mesProx}, antes del ${fechaCorta(venc)}`, h('b', {}, plata(cr.reparto))));
+    const nota = ahora > 0 ? null : cr.reparto ? `Lo que falta lo dejaste para ${mesProx}.` : plan.pagadoHasta ? `Pagado hasta ${nombreMes(plan.pagadoHasta, false).toLowerCase()}.` : null;
+    // Si hay una sola fila y es el mismo número de arriba, no hace falta el desglose.
+    const conDetalle = filas.length > 1 || (filas.length === 1 && (cr.reparto || ahora === 0));
+    return h('div', { class: `fz-transferir${ahora > 0 ? '' : ' ok'}` },
+      h('span', { class: 'fz-transferir-t' }, `Transferir al fondo ${cuando}`),
+      h('span', { class: 'fz-transferir-v num' }, ahora > 0 ? plata(ahora) : 'Nada ✓'),
+      nota ? h('span', { class: 'nota' }, nota) : null,
+      conDetalle ? h('div', { class: 'fz-transferir-det' }, filas) : null);
+  }
+
   function avisoFondo(plan) {
     if (!plan.meses.length) return h('p', { class: 'nota' }, 'No hay nada pendiente de pagar.');
     if (!plan.fondo) return h('p', { class: 'nota' }, 'Elegí una cuenta como fondo para crédito en Configurar Finanzas para ver hasta qué mes tenés pagado.');
@@ -274,10 +310,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     return det;
   }
 
-  function cuadro(claveCuadro, r, plegados) {
+  function cuadro(claveCuadro, r, plegados, col = 0) {
     const def = CUADROS[claveCuadro];
     const vacio = def.vacio(r);
-    const sec = h('section', { class: `fz-cuadro${vacio ? ' apagado' : ''}${plegados.has(claveCuadro) ? ' plegado' : ''}`, 'data-cuadro': claveCuadro },
+    const sec = h('section', { class: `fz-cuadro${vacio ? ' apagado' : ''}${plegados.has(claveCuadro) ? ' plegado' : ''}`, 'data-cuadro': claveCuadro, 'data-col': String(col) },
       h('div', { class: 'fz-cuadro-cab' },
         h('button', { type: 'button', class: 'fz-asa', 'aria-label': `Mover ${def.titulo}`, title: 'Arrastrá para mover' }, ic('asa')),
         h('a', { href: `#/finanzas/detalle/${claveCuadro}`, class: 'fz-cuadro-titulo' }, def.titulo, ' ›'),
@@ -290,38 +326,78 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     return sec;
   }
 
+  // Arrastrar un cuadro desde ⋮⋮ a cualquier columna y posición.
+  // Mientras se mueve, un hueco punteado marca dónde va a quedar.
   function hacerMovibles(grilla) {
     grilla.addEventListener('pointerdown', (e) => {
       const asa = e.target.closest('.fz-asa');
       if (!asa || e.button > 0) return;
       e.preventDefault();
       const sec = asa.closest('.fz-cuadro');
-      sec.classList.add('moviendo');
+      const caja = sec.getBoundingClientRect();
+      const hueco = h('div', { class: 'fz-hueco', style: `height:${caja.height}px` });
+      sec.after(hueco);
+      const dx = e.clientX - caja.left, dy = e.clientY - caja.top;
+      Object.assign(sec.style, { width: `${caja.width}px`, left: `${caja.left}px`, top: `${caja.top}px` });
+      sec.classList.add('volando');
+      document.body.append(sec);
+      grilla.classList.add('arrastrando');
+      arrastrando = true;
+      const columnas = [...grilla.querySelectorAll('.fz-col')];
       const mover = (ev) => {
-        const debajo = document.elementFromPoint(ev.clientX, ev.clientY)?.closest('.fz-cuadro');
-        if (debajo && debajo !== sec && debajo.parentElement === grilla) {
-          const r = debajo.getBoundingClientRect();
-          const despues = ev.clientY > r.top + r.height / 2 || (ev.clientX > r.left + r.width / 2 && ev.clientY > r.top + r.height / 3);
-          if (despues) debajo.after(sec); else debajo.before(sec);
-        }
+        sec.style.left = `${ev.clientX - dx}px`;
+        sec.style.top = `${ev.clientY - dy}px`;
+        const col = columnas.find(c => { const b = c.getBoundingClientRect(); return ev.clientX >= b.left - 8 && ev.clientX <= b.right + 8; })
+          || columnas.reduce((a, c) => (Math.abs(c.getBoundingClientRect().left - ev.clientX) < Math.abs(a.getBoundingClientRect().left - ev.clientX) ? c : a));
+        const antes = [...col.querySelectorAll(':scope > .fz-cuadro')].find(x => { const b = x.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+        if (antes) antes.before(hueco); else col.append(hueco);
         if (ev.clientY < 70) window.scrollBy(0, -12);
         if (ev.clientY > window.innerHeight - 110) window.scrollBy(0, 12);
       };
-      // Se escucha en la ventana: al mover el cuadro en la página, el navegador
-      // suelta la "captura" del puntero y la manija dejaría de recibir eventos.
+      // Se escucha en la ventana: al mover el cuadro, el navegador suelta la
+      // "captura" del puntero y la manija dejaría de recibir eventos.
       const soltar = async () => {
         window.removeEventListener('pointermove', mover);
         window.removeEventListener('pointerup', soltar);
         window.removeEventListener('pointercancel', soltar);
-        sec.classList.remove('moviendo');
-        const orden = [...grilla.children].map(x => x.dataset.cuadro);
-        if (orden.join() !== ordenPanel().join()) await m.guardarOrdenPanel(orden);
+        sec.classList.remove('volando');
+        sec.removeAttribute('style');
+        hueco.replaceWith(sec);
+        grilla.classList.remove('arrastrando');
+        arrastrando = false;
+        // Columna del cuadro: la del de arriba; si no hay, la del de abajo; si está sola, la de esa columna.
+        const vecino = (el, dir) => { let x = el[dir]; while (x && !x.classList?.contains('fz-cuadro')) x = x[dir]; return x; };
+        const arriba = vecino(sec, 'previousElementSibling'), abajo = vecino(sec, 'nextElementSibling');
+        sec.dataset.col = (arriba || abajo)?.dataset.col ?? sec.parentElement.dataset.logica;
+        const nuevas = [[], [], []];
+        for (const c of grilla.querySelectorAll('.fz-col')) for (const x of c.querySelectorAll(':scope > .fz-cuadro')) nuevas[Number(x.dataset.col)].push(x.dataset.cuadro);
+        if (JSON.stringify(nuevas) !== JSON.stringify(columnasPanel())) await m.guardarOrdenPanel(nuevas.flat(), nuevas);
+        if (Number(grilla.dataset.n) < 3) dibujar();
       };
       window.addEventListener('pointermove', mover);
       window.addEventListener('pointerup', soltar);
       window.addEventListener('pointercancel', soltar);
     });
   }
+
+  // Tres columnas guardadas. Si venías del orden anterior (cuadrícula), se reparte igual que se veía.
+  const columnasPanel = () => {
+    let cols;
+    const guardadas = d.panelColumnas();
+    if (guardadas) cols = guardadas.slice(0, 3).map(c => (Array.isArray(c) ? c : []));
+    else if (d.panel()) { const o = ordenPanel(); cols = [0, 1, 2].map(i => o.filter((_, j) => j % 3 === i)); }
+    else cols = COLUMNAS_INICIALES.map(c => [...c]);
+    while (cols.length < 3) cols.push([]);
+    const vistos = new Set();
+    cols = cols.map(c => c.filter(k => CUADROS[k] && !vistos.has(k) && vistos.add(k)));
+    for (const k of ORDEN_INICIAL) if (!vistos.has(k)) cols[2].push(k);
+    return cols;
+  };
+
+  // Cuántas columnas entran según el ancho: 3 en la PC, 2 en pantallas medianas, 1 en el celular.
+  const columnasVisibles = () => { const w = cuerpo.clientWidth || window.innerWidth; return w >= 860 ? 3 : w >= 560 ? 2 : 1; };
+  let arrastrando = false;
+  let nDibujado = null;
 
   const ordenPanel = () => {
     const guardado = (d.panel() || []).filter(k => CUADROS[k]);
@@ -331,26 +407,32 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   function vistaPanel() {
     const r = d.resumenMes(mesVista);
     const esActual = mesVista === mesActual();
-    const metrica = (titulo, valor, clase, explicar) => h('button', { type: 'button', class: 'fz-metrica', onclick: explicar },
-      h('span', { class: 'nota' }, titulo), h('span', { class: `fz-valor num ${clase}` }, valor), ic('info'));
-    const disponible = h('button', { type: 'button', class: 'fz-disponible', onclick: () => explicarDisponible(r) },
-      h('span', { class: 'nota' }, esActual ? 'Disponible' : `Disponible al cierre de ${nombreMes(mesVista, false).toLowerCase()}`),
-      h('span', { class: 'fz-disponible-valor num' }, plata(r.disponible)),
-      ic('info'));
-    const plegados = leerPlegados();
-    const grilla = h('div', { class: 'fz-grilla' }, ordenPanel().map(k => cuadro(k, r, plegados)));
-    hacerMovibles(grilla);
+    const disponible = h('div', { class: 'fz-disponible' },
+      h('button', { type: 'button', class: 'fz-disp-boton', onclick: () => explicarDisponible(r) },
+        h('span', { class: 'nota' }, esActual ? 'Disponible' : `Disponible al cierre de ${nombreMes(mesVista, false).toLowerCase()}`),
+        h('span', { class: 'fz-disponible-valor num' }, plata(r.disponible)),
+        ic('info')),
+      h('div', { class: 'fz-mini' },
+        h('button', { type: 'button', onclick: () => explicarIngresos() }, 'Ingresos ', h('b', { class: 'num pos' }, plata(r.totalIngresos))),
+        h('button', { type: 'button', onclick: () => explicarGastos(r) }, 'Gastos ', h('b', { class: 'num neg' }, plata(r.totalGastos))),
+        h('span', {}, 'Diferencia ', h('b', { class: `num ${r.diferencia < 0 ? 'neg' : 'pos'}` }, plata(r.diferencia)))));
     const sinNada = !d.cuentas.length && !d.categorias.length && !d.creditos.length;
-    return [
+    const fija = h('div', { class: 'fz-fija' }, piezasCabecera(), disponible,
       sinNada ? h('div', { class: 'vacio' }, h('h2', {}, 'Empecemos'),
         h('p', {}, 'Creá tus cuentas, tarjetas y categorías desde Configurar Finanzas. Después ya podés cargar gastos e ingresos.'),
-        h('a', { href: '#/finanzas/config', class: 'boton principal' }, ic('engranaje'), 'Configurar Finanzas')) : null,
-      h('div', { class: 'fz-resumen' }, disponible,
-        metrica('Ingresos del mes', plata(r.totalIngresos), 'pos', () => explicarIngresos()),
-        metrica('Gastos del mes', plata(r.totalGastos), 'neg', () => explicarGastos(r)),
-        h('div', { class: 'fz-metrica fija' }, h('span', { class: 'nota' }, 'Diferencia'), h('span', { class: `fz-valor num ${r.diferencia < 0 ? 'neg' : ''}` }, plata(r.diferencia)))),
-      grilla,
-    ];
+        h('a', { href: '#/finanzas/config', class: 'boton principal' }, ic('engranaje'), 'Configurar Finanzas')) : null);
+    const plegados = leerPlegados();
+    const cols = columnasPanel();
+    const n = columnasVisibles();
+    nDibujado = n;
+    // Columnas que se ven, y qué columnas guardadas muestra cada una.
+    const reparto = n === 3 ? [[0], [1], [2]] : n === 2 ? [[0], [1, 2]] : [[0, 1, 2]];
+    const grilla = h('div', { class: 'fz-columnas', style: `--n:${n}`, 'data-n': String(n) },
+      reparto.map((logicas, i) => h('div', { class: 'fz-col', 'data-logica': String(logicas[0]) },
+        i === 0 ? fija : null,
+        logicas.map(l => cols[l].map(k => cuadro(k, r, plegados, l))))));
+    hacerMovibles(grilla);
+    return [grilla];
   }
 
   // ── Explicaciones de los números ──
@@ -513,7 +595,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           ['Total para pagar todo', plata(plan.totalTodo), '', plan.faltaTodo ? `Faltan ${plata(plan.faltaTodo)} en el fondo` : 'El fondo cubre todo'],
           ['Pagado hasta', plan.pagadoHasta ? nombreMes(plan.pagadoHasta) : '—', plan.pagadoHasta ? 'pos' : ''],
           [plan.siguiente ? `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} poné` : 'Para cubrir lo que viene', plata(plan.siguiente?.falta || 0), plan.siguiente ? 'neg' : '']),
-        (() => { const cr = d.resumenMes(mesVista).credito; const b = bloqueCreditoMes(cr); return b ? tarjeta(h('h2', {}, `Pago de ${nombreMes(mesVista, false).toLowerCase()}`), b) : null; })(),
+        (() => { const rm = d.resumenMes(mesVista); const t = transferirFondo(rm); const b = bloqueCreditoMes(rm.credito); return t || b ? tarjeta(h('h2', {}, `Pago de ${nombreMes(mesVista, false).toLowerCase()}`), t, b) : null; })(),
         h('div', { class: 'fz-det-grilla' },
           tarjeta(h('h2', {}, 'Plan de pago por mes'),
             plan.meses.length ? h('div', { class: 'fz-tabla-caja' }, h('table', { class: 'fz-tabla' },
@@ -627,8 +709,15 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     espera = setTimeout(async () => { d = await m.cargar(); dibujar(); }, 60);
   });
 
+  // Si cambia el ancho y entran más o menos columnas, se vuelve a armar el panel.
+  const observador = typeof ResizeObserver === 'function' ? new ResizeObserver(() => {
+    if (vista !== 'panel' || arrastrando) return;
+    if (nDibujado !== null && columnasVisibles() !== nDibujado) dibujar();
+  }) : null;
+  observador?.observe(cuerpo);
+
   dibujar();
-  return () => { quitar(); clearTimeout(espera); };
+  return () => { quitar(); clearTimeout(espera); observador?.disconnect(); };
 }
 
 // Para el bloque de Inicio.

@@ -65,10 +65,62 @@
 }
 .fz-ayuda { margin-top: -0.25rem; }
 
-/* ── Cuadros del panel ── */
-.fz-grilla { display: grid; gap: 0.75rem; align-items: start; }
-@media (min-width: 900px) { .fz-grilla { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.9rem; } }
-@media (min-width: 640px) and (max-width: 899px) { .fz-grilla { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+/* ── Panel en columnas ──
+   Cada columna apila sus cuadros sin huecos. La primera lleva arriba
+   la cabecera y el Disponible. */
+.fz-columnas { display: grid; grid-template-columns: repeat(var(--n, 1), minmax(0, 1fr)); gap: 0.7rem; align-items: start; }
+.fz-col { display: flex; flex-direction: column; gap: 0.7rem; min-width: 0; min-height: 4rem; border-radius: var(--radio-tarjeta); }
+.fz-columnas.arrastrando .fz-col { outline: 1px dashed var(--linea); outline-offset: 3px; background: color-mix(in srgb, var(--laton) 5%, transparent); }
+.fz-hueco { border: 2px dashed var(--laton); border-radius: var(--radio-tarjeta); background: var(--laton-fondo); flex: none; }
+.fz-cuadro.volando { position: fixed; z-index: 50; pointer-events: none; box-shadow: 0 12px 30px rgba(0, 0, 0, 0.2); transform: rotate(1deg); opacity: 0.95; margin: 0; }
+
+.fz-fija { display: grid; gap: 0.55rem; min-width: 0; }
+.fz-fija .fz-titulo { justify-content: space-between; gap: 0.5rem; }
+.fz-fija .fz-titulo h1 { font-size: 1.75rem; }
+.fz-fija .fz-mes > span { min-width: 7.5rem; }
+.fz-fija .fz-mes button { width: 1.8rem; height: 1.8rem; }
+.fz-fija .fz-acciones { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)) auto; gap: 0.4rem; }
+.fz-fija .fz-acciones .boton { flex-direction: row; min-height: 2.4rem; padding: 0.35rem 0.4rem; font-size: 0.88rem; gap: 0.3rem; white-space: nowrap; }
+.fz-fija .fz-config { width: 2.4rem; min-height: 2.4rem; }
+.fz-fija .fz-pestanas a { padding: 0.4rem 0.7rem; }
+@media (min-width: 900px) {
+  .fz-fija .fz-acciones { grid-template-columns: 1fr 1fr 1.35fr auto; }
+  .fz-fija .fz-acciones .boton:not(.fz-config) .icono { display: none; }
+}
+@media (max-width: 420px) { .fz-fija .fz-acciones .boton { flex-direction: column; gap: 0.05rem; font-size: 0.78rem; min-height: 2.9rem; } }
+
+/* Disponible con ingresos, gastos y diferencia en una línea chica */
+.fz-disponible { cursor: default; padding: 0.65rem 0.85rem; gap: 0.3rem; }
+.fz-disponible:hover { border-color: var(--linea); }
+.fz-disp-boton { all: unset; display: grid; gap: 0.05rem; position: relative; cursor: pointer; border-radius: 6px; }
+.fz-disp-boton:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; }
+.fz-disp-boton:hover .fz-disponible-valor { color: var(--laton); }
+.fz-disp-boton > .icono { position: absolute; top: 0.1rem; right: 0; width: 1rem; height: 1rem; color: var(--tinta-2); }
+.fz-disponible .fz-disponible-valor { font-size: 2.3rem; line-height: 1; }
+.fz-mini { display: flex; flex-wrap: wrap; gap: 0.1rem 0.9rem; font-size: 0.8rem; color: var(--tinta-2); }
+.fz-mini > * { white-space: nowrap; }
+.fz-mini button { all: unset; cursor: pointer; border-bottom: 1px dotted transparent; }
+.fz-mini button:hover, .fz-mini button:focus-visible { border-bottom-color: var(--tinta-2); }
+.fz-mini b { font-weight: 600; }
+
+/* Cuadros más compactos dentro del panel */
+.fz-columnas .fz-cuadro { padding: 0.55rem 0.8rem; font-size: 0.93rem; }
+.fz-columnas .fz-cuadro-cuerpo { margin-top: 0.35rem; }
+.fz-columnas .fz-linea { padding: 0.26rem 0; }
+.fz-columnas .fz-linea.fz-grupo { padding-top: 0.45rem; }
+.fz-columnas .fz-fila-bloque { padding: 0.28rem 0; }
+.fz-columnas .fz-subcuenta { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.fz-columnas .boton.chico { min-height: 1.6rem; padding: 0.05rem 0.55rem; }
+.fz-columnas .fz-plegar { width: 1.7rem; height: 1.7rem; }
+
+/* Cuánto transferir al fondo para crédito */
+.fz-transferir { display: grid; gap: 0.1rem; border: 1.5px solid var(--laton); background: var(--laton-fondo); border-radius: 10px; padding: 0.5rem 0.7rem; margin-bottom: 0.35rem; }
+.fz-transferir.ok { border-color: var(--verde); background: var(--fz-verde-fondo); }
+.fz-transferir-t { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.03em; color: var(--tinta-2); }
+.fz-transferir-v { font-family: var(--fuente-titulo); font-size: 1.55rem; font-weight: 600; line-height: 1.1; }
+.fz-transferir.ok .fz-transferir-v { color: var(--verde); }
+.fz-transferir-det { margin-top: 0.25rem; border-top: 1px dashed var(--linea); padding-top: 0.15rem; }
+.fz-transferir-det .fz-linea { border: 0; padding: 0.12rem 0; font-size: 0.86rem; }
 .fz-cuadro { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta); padding: 0.85rem 1rem; min-width: 0; }
 .fz-cuadro.apagado { background: transparent; border-style: dashed; }
 .fz-cuadro.apagado .fz-cuadro-titulo, .fz-cuadro.apagado .fz-cuadro-der { color: var(--tinta-2); }
@@ -84,9 +136,8 @@
 .fz-plegar .icono { transition: transform 0.15s; }
 .fz-cuadro.plegado .fz-plegar .icono { transform: rotate(-90deg); }
 .fz-cuadro-cuerpo { margin-top: 0.6rem; display: grid; gap: 0.1rem; }
-/* En el celular los cuadros se pliegan; en la PC se ven siempre abiertos. */
-@media (max-width: 899px) { .fz-cuadro.plegado .fz-cuadro-cuerpo { display: none; } }
-@media (min-width: 900px) { .fz-plegar { display: none; } .fz-cuadro-cab { grid-template-columns: auto auto minmax(0, 1fr); } }
+/* Los cuadros se pliegan en el celular y en la PC (se recuerda por separado). */
+.fz-cuadro.plegado .fz-cuadro-cuerpo { display: none; }
 
 .fz-linea { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; padding: 0.4rem 0; border-top: 1px solid var(--linea); }
 .fz-linea:first-child { border-top: 0; }
