@@ -13,6 +13,7 @@ import { poner, ic, cargarEstilos, hojaInfo, linea, barras, conSigno, hoja, camp
 import { abrirMovimiento, abrirAjuste, abrirPresupuesto, abrirActualizarInversion, abrirPrestamo, abrirPagoPrestamo, abrirFechasResumen } from './formularios.js';
 import { vistaMovimientos } from './movimientos.js';
 import { vistaConfig } from './config.js';
+import { vistaAnalisis } from './analisis.js';
 
 let mesVista = mesActual();
 
@@ -67,7 +68,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('a', { href: '#/finanzas/config', class: 'boton fz-config', 'aria-label': 'Configurar Finanzas', title: 'Cuentas, crédito, categorías e inversiones' }, ic('engranaje'))),
       h('nav', { class: 'fz-pestanas' },
         h('a', { href: '#/finanzas', 'aria-current': vista === 'panel' || vista === 'detalle' ? 'page' : false }, 'Panel'),
-        h('a', { href: '#/finanzas/movimientos', 'aria-current': vista === 'movimientos' ? 'page' : false }, 'Movimientos'))];
+        h('a', { href: '#/finanzas/movimientos', 'aria-current': vista === 'movimientos' ? 'page' : false }, 'Movimientos'),
+        h('a', { href: '#/finanzas/analisis', 'aria-current': vista === 'analisis' ? 'page' : false }, 'Análisis'))];
   }
 
   // ── Panel ──
@@ -703,8 +705,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
 
   function dibujar() {
     dibujarCabecera();
+    cuerpo.onpointermove = cuerpo.onpointerdown = cuerpo.onpointerleave = null;
     if (vista === 'movimientos') return vistaMovimientos(cuerpo, ctx, m, d, { mes: mesVista, alCambiarMes: (mes) => { mesVista = mes; dibujar(); } });
     if (vista === 'config') return vistaConfig(cuerpo, ctx, m, d);
+    if (vista === 'analisis') return vistaAnalisis(cuerpo, ctx, m, d, { mes: mesVista });
     poner(cuerpo, vista === 'detalle' ? vistaDetalle() : vistaPanel());
   }
 

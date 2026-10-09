@@ -22,6 +22,7 @@
 //   prestamos   { persona, sentido: 'me-deben' | 'debo', monto, fecha, cuentaId, notas, archivado }
 //   ajustes     { clave: 'panel', columnas: [[...], [...], [...]] (PC), celular: [...], orden: [...] (versión vieja) }
 //               { clave: 'credito-reparto', meses: { 'AAAA-MM': monto } }
+//               { clave: 'clasificacion', cats: { idCategoria: 'nec' | 'gus' } }  (regla 50/30/20)
 //               (cuánto del vencimiento de ese mes se paga con la plata de ese mes
 //                y no con la del mes anterior)
 //
@@ -114,6 +115,13 @@ export function crearModelo(ctx) {
       if (monto > 0) meses[mes] = redondear(monto); else delete meses[mes];
       if (existente) return col.ajustes.actualizar(existente.id, { meses });
       return col.ajustes.crear({ clave: 'credito-reparto', meses });
+    },
+
+    // Necesidad o gusto de cada categoría, para la regla 50/30/20: { idCategoria: 'nec' | 'gus' }.
+    async guardarClasificacion(cats) {
+      const existente = (await col.ajustes.listar()).find(a => a.clave === 'clasificacion');
+      if (existente) return col.ajustes.actualizar(existente.id, { cats });
+      return col.ajustes.crear({ clave: 'clasificacion', cats });
     },
 
     // cambios: { columnas: [[…],[…],[…]] } para la PC y/o { celular: […] } para el celular.
