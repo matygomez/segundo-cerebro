@@ -141,6 +141,7 @@ async function arrancar() {
     return;
   }
   drive.restaurar();
+  drive.reconectarAlTocar();
   armarCascaron();
   window.addEventListener('hashchange', mostrar);
   await mostrar();
