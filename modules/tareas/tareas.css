@@ -359,15 +359,24 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-zona { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; align-items: start; }
 .tr-panel[hidden] { display: none; }
 @media (min-width: 900px) {
-  #pantalla.tr-con-panel { max-width: 78rem; }
-  .tr-con-panel .tr-zona { grid-template-columns: minmax(0, 1fr) minmax(22rem, 30rem); }
+  /* La lista usa todo el ancho y no se mueve; el detalle entra desde la derecha, encima. */
+  #pantalla:has(.tr-zona) { max-width: none; }
   .tr-panel {
-    position: sticky; top: 1rem; max-height: calc(100vh - 2rem); overflow-y: auto;
-    background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta);
-    padding: 1rem 1.1rem; box-shadow: 0 4px 18px rgb(10 15 18 / 0.06);
+    position: fixed; right: 0; bottom: 0; top: 0; z-index: 8;
+    width: var(--tr-ancho-panel, 520px); max-width: calc(100vw - 2rem);
+    display: flex; background: var(--superficie); border-left: 1px solid var(--linea);
+    box-shadow: -12px 0 32px rgb(10 15 18 / 0.14);
+    transform: translateX(105%); transition: transform 0.2s ease;
   }
+  .tr-panel.abierto { transform: none; }
+  .tr-panel.ajustando { transition: none; user-select: none; }
+  .tr-panel-contenido { flex: 1; min-width: 0; overflow-y: auto; overscroll-behavior: contain; padding: 1rem 1.25rem 1.5rem; }
+  .tr-panel-asa { flex: none; width: 8px; margin-right: -8px; position: relative; z-index: 1; cursor: col-resize; touch-action: none; }
+  .tr-panel-asa::after { content: ''; position: absolute; left: 2px; top: 50%; width: 4px; height: 2.5rem; margin-top: -1.25rem; border-radius: 999px; background: var(--linea); transition: background 0.15s; }
+  .tr-panel-asa:hover::after, .tr-panel.ajustando .tr-panel-asa::after { background: var(--laton); }
   .tr-fab { display: none; }
 }
+@media (prefers-reduced-motion: reduce) { .tr-panel { transition: none; } }
 @media (max-width: 899px) {
   .tr-nueva-arriba, .tr-rapida { display: none !important; }
 }
@@ -379,11 +388,12 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-editor-madre .tr-link { padding: 0; font-size: 0.85rem; }
 .tr-tarea.abierta > .tr-fila { background: var(--laton-fondo); border-radius: var(--radio-control); }
 
-/* Alta rápida arriba de cada lista */
-.tr-rapida { display: flex; align-items: center; gap: 0.5rem; border: 1px dashed var(--linea); border-radius: var(--radio-control); padding: 0 0.7rem; background: var(--superficie); }
-.tr-rapida:focus-within { border-style: solid; border-color: var(--laton); }
-.tr-rapida .icono { color: var(--laton); width: 1.1rem; height: 1.1rem; flex: none; }
-.tr-rapida input.tr-rapida-campo { border: 0; background: transparent; min-height: 2.6rem; padding: 0.4rem 0; outline: none; }
+/* Alta rápida arriba de cada lista: una línea fina, sutil, a todo el ancho */
+.tr-rapida { display: flex; align-items: center; gap: 0.45rem; border: 0; border-bottom: 1px solid var(--linea); border-radius: 0; padding: 0 0.15rem; background: transparent; margin-top: -0.4rem; }
+.tr-rapida:focus-within { border-bottom-color: var(--laton); }
+.tr-rapida .icono { color: var(--laton); width: 0.95rem; height: 0.95rem; flex: none; opacity: 0.8; }
+.tr-rapida input.tr-rapida-campo { border: 0; background: transparent; min-height: 2rem; padding: 0.25rem 0; outline: none; font-size: 0.86rem; }
+.tr-rapida input.tr-rapida-campo::placeholder { color: var(--tinta-2); opacity: 0.75; }
 
 /* Subtareas debajo de su tarea */
 .tr-hijas { margin: 0 0 0.35rem 2.1rem; border-left: 2px solid var(--linea); padding-left: 0.5rem; }

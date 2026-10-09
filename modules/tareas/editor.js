@@ -319,7 +319,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     if (cerrado) return;
     cerrado = true;
     if (dlg) dlg.close();
-    else { panel.replaceChildren(); alCerrar?.(); }
+    else alCerrar ? alCerrar() : panel.replaceChildren();   // el panel se vacía al terminar de cerrarse
   }
   ctrl = {
     tareaId: tarea?.id || null,
