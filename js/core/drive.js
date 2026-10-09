@@ -242,6 +242,13 @@ export async function actualizarJSON(id, datos) {
 
 // Sube un archivo (adjuntos). Hasta 5 MB va en un solo pedido; más grande
 // usa la subida "reanudable" de Google, que acepta archivos pesados.
+
+// Baja el contenido de un archivo (para ver imágenes adjuntas dentro de la app).
+export async function descargar(id) {
+  const r = await pedir(`${API}/files/${encodeURIComponent(id)}?alt=media`);
+  return r.blob();
+}
+
 const CAMPOS_ARCHIVO = 'id,name,mimeType,webViewLink';
 export async function subirArchivo(nombre, padreId, blob) {
   const tipo = blob.type || 'application/octet-stream';

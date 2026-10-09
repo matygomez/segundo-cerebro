@@ -36,11 +36,40 @@ async function carpetaAdjuntos(modulo) {
   return mapa.carpetas[clave];
 }
 
+// ── Imágenes: se bajan una vez y quedan guardadas en el dispositivo ──
+const CACHE_IMG = 'sc-imagenes';
+const claveImg = (id) => new URL(`./__imagenes/${encodeURIComponent(id)}`, location.href).href;
+export const esImagen = (a) => /^image\//.test(a?.tipo || '') || /\.(png|jpe?g|gif|webp|bmp|avif)$/i.test(a?.nombre || '');
+async function guardarImagen(id, blob) {
+  try { if (blob && /^image\//.test(blob.type || '')) await (await caches.open(CACHE_IMG)).put(claveImg(id), new Response(blob)); } catch { /* sin caché */ }
+}
+// Devuelve una dirección para mostrar la imagen, o null si no se puede (sin conexión y sin copia).
+export async function urlImagen(adj) {
+  if (!adj) return null;
+  if (adj.pendiente) {
+    const local = (await db.listarArchivos()).find(f => f.id === adj.pendiente);
+    if (local) return URL.createObjectURL(local.blob);
+    adj = await resolver(adj.pendiente);
+    if (!adj) return null;
+  }
+  if (!adj.driveId) return null;
+  try {
+    const guardada = await (await caches.open(CACHE_IMG)).match(claveImg(adj.driveId));
+    if (guardada) return URL.createObjectURL(await guardada.blob());
+  } catch { /* sin caché */ }
+  if (!drive.conectado() || !navigator.onLine) return null;
+  const blob = await drive.descargar(adj.driveId);
+  guardarImagen(adj.driveId, blob);
+  return URL.createObjectURL(blob);
+}
+
 export async function subir(modulo, archivo) {
   const nombre = archivo.name || `archivo-${Date.now()}`;
   if (drive.conectado() && navigator.onLine) {
     try {
-      return deDrive(await drive.subirArchivo(nombre, await carpetaAdjuntos(modulo), archivo));
+      const info = deDrive(await drive.subirArchivo(nombre, await carpetaAdjuntos(modulo), archivo));
+      guardarImagen(info.driveId, archivo);
+      return info;
     } catch (e) {
       if (!(e instanceof drive.ErrorSesion) && navigator.onLine) throw e;
     }
@@ -65,6 +94,7 @@ export async function subirPendientes() {
   const lista = await db.listarArchivos();
   for (const f of lista) {
     const info = deDrive(await drive.subirArchivo(f.nombre, await carpetaAdjuntos(f.modulo), f.blob));
+    await guardarImagen(info.driveId, f.blob);
     const subidos = await db.leerMeta('archivos:subidos', {});
     subidos[f.id] = info;
     await db.escribirMeta('archivos:subidos', subidos);

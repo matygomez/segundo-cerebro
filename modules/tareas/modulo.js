@@ -78,6 +78,7 @@ export default {
     const m = crearModelo(ctx);
     const d = await m.cargar();
     for (const t of d.tareas) await m.actualizarAdjunto(t, pendiente, archivo);
+    await m.actualizarAdjuntoComentarios(pendiente, archivo);
   },
 
   async resumen(ctx) {

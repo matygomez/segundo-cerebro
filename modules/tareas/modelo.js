@@ -291,7 +291,10 @@ export function crearModelo(ctx) {
     descendientes: (id) => descendientes(id),
 
     // Comentarios
-    comentar(tareaId, texto) { return col.comentarios.crear({ tareaId, texto: texto.trim(), editado: false }); },
+    comentar(tareaId, texto, adjuntos = []) {
+      const limpios = (adjuntos || []).filter(a => a?.driveId || a?.pendiente);
+      return col.comentarios.crear({ tareaId, texto: String(texto || '').trim(), adjuntos: limpios, editado: false });
+    },
     editarComentario: (id, texto) => col.comentarios.actualizar(id, { texto: texto.trim(), editado: true }),
     borrarComentario: (id) => col.comentarios.borrar(id),
 
@@ -305,6 +308,12 @@ export function crearModelo(ctx) {
       if (!(t.adjuntos || []).some(a => a.pendiente === pendiente)) return false;
       await col.tareas.actualizar(t.id, { adjuntos: t.adjuntos.map(a => a.pendiente === pendiente ? archivo : a) });
       return true;
+    },
+    async actualizarAdjuntoComentarios(pendiente, archivo) {
+      for (const c of await col.comentarios.listar()) {
+        if (!(c.adjuntos || []).some(a => a.pendiente === pendiente)) continue;
+        await col.comentarios.actualizar(c.id, { adjuntos: c.adjuntos.map(a => a.pendiente === pendiente ? archivo : a) });
+      }
     },
 
     // Completar. Si se repite, la tarea no se cierra: pasa a la próxima fecha.

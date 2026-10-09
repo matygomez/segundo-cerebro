@@ -91,6 +91,8 @@ export function contexto(moduloId) {
       subir: (archivo) => archivos.subir(moduloId, archivo),
       elegirDeDrive: archivos.elegirDeDrive,
       resolver: archivos.resolver,
+      urlImagen: archivos.urlImagen,
+      esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
     },
     inicio: {

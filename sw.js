@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.10.3';
+const VERSION = 'sc-0.11.0';
 
 const ARCHIVOS = [
   './',
@@ -55,7 +55,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== VERSION && k !== FUENTES) await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== VERSION && k !== FUENTES && k !== 'sc-imagenes') await caches.delete(k);
     await self.clients.claim();
   })());
 });

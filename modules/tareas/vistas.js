@@ -15,7 +15,7 @@
 //   #/tareas/buscar               #/tareas/filtro/<id>
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, hoy, sumarDias, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
+import { crearModelo, hoy, sumarDias, diasEntre, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
 import { hacerOrdenable } from './arrastre.js';
 
@@ -40,6 +40,9 @@ const TRAZOS = {
   papelera: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
   archivo: '<rect x="3.5" y="5" width="17" height="4" rx="1"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/>',
   mas: '<path d="M12 5v14M5 12h14"/>',
+  ordenar: '<path d="M7 5v14M4 16l3 3 3-3"/><path d="M17 19V5M14 8l3-3 3 3"/>',
+  nota: '<path d="M6 3.5h8.5L18 7v13.5H6Z"/><path d="M9 11h6M9 14.5h6M9 18h3.5"/>',
+  subtareas: '<path d="m4 6.5 1.5 1.5L8 5.5"/><path d="M11 7h9"/><path d="m4 15.5 1.5 1.5L8 14.5"/><path d="M11 16h9"/>',
   // Para Inicio, Hoy y para elegir el ícono de áreas y proyectos.
   inicio: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
   sol: '<circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"/>',
@@ -86,6 +89,40 @@ export function cargarEstilos() {
 let abridor = null;
 const abrirTarea = (ctx, m, d, t) => (abridor ? abridor(t) : abrirEditor(ctx, m, d, t));
 
+// Color de la fecha: vencida (rojo), hoy (verde), mañana (dorado),
+// esta semana (azul), más adelante (gris). El texto dice lo mismo.
+function claseFecha(t) {
+  if (hecha(t) || !t.fecha) return 'lejos';
+  const n = diasEntre(hoy(), t.fecha);
+  return n < 0 ? 'vencida' : n === 0 ? 'hoy' : n === 1 ? 'manana' : n <= 7 ? 'semana' : 'lejos';
+}
+
+// Orden de las tareas dentro de una hoja (área, proyecto, sección, bandeja).
+const CRITERIOS = [
+  ['manual', 'Manual (arrastrando)'], ['fecha', 'Fecha de vencimiento'], ['creado', 'Fecha de creación'],
+  ['alfabetico', 'Alfabético'], ['modificado', 'Última modificación'],
+];
+function ordenarPor(lista, por, sentido = 'asc') {
+  const s = sentido === 'desc' ? -1 : 1;
+  const cmp = {
+    fecha: (a, b) => (!a.fecha - !b.fecha) || s * ((a.fecha || '').localeCompare(b.fecha || '') || (a.hora || '99').localeCompare(b.hora || '99')) || a.creado - b.creado,
+    creado: (a, b) => s * (a.creado - b.creado),
+    alfabetico: (a, b) => s * a.titulo.localeCompare(b.titulo, 'es', { sensitivity: 'base' }),
+    modificado: (a, b) => s * ((a.modificado || 0) - (b.modificado || 0)),
+  }[por];
+  return cmp ? [...lista].sort(cmp) : lista;
+}
+
+// Repetición para las columnas del modo compacto: largo (PC) y corto (celular).
+const UNIDAD_CORTA = { diaria: 'días', semanal: 'sem.', mensual: 'meses', anual: 'años' };
+const NOMBRE_CORTO = { diaria: 'Diaria', 'dias-habiles': 'Hábiles', semanal: 'Semanal', mensual: 'Mensual', anual: 'Anual' };
+function repeticionCaja(rep) {
+  const cada = Number(rep.cada) || 1;
+  const largo = rep.tipo === 'dias-habiles' ? 'Días hábiles' : textoRepeticion(rep);
+  const corto = cada > 1 && UNIDAD_CORTA[rep.tipo] ? `c/${cada} ${UNIDAD_CORTA[rep.tipo]}` : (NOMBRE_CORTO[rep.tipo] || largo);
+  return { largo, corto };
+}
+
 const mostrarHechas = new Set();     // vistas donde se pidió ver las completadas
 const subPlegadas = new Set();       // tareas con las subtareas plegadas
 let verMasAdelante = false;          // en Hoy: mostrar también lo que viene después de 7 días
@@ -100,13 +137,29 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
   const plegada = subPlegadas.has(t.id);
 
   const meta = [];
-  if (t.fecha) meta.push(h('span', { class: vencida(t) ? 'tr-meta tr-fecha vencida' : 'tr-meta tr-fecha' }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
+  if (t.fecha) meta.push(h('span', { class: `tr-meta tr-fecha ${claseFecha(t)}` }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
   if (t.repeticion?.tipo) meta.push(h('span', { class: 'tr-meta tr-rep' }, ic('repetir'), textoRepeticion(t.repeticion)));
   if (t.duracion) meta.push(h('span', { class: 'tr-meta' }, ic('reloj'), textoDuracion(t.duracion)));
-  if (t.recordatorio) meta.push(h('span', { class: 'tr-meta', title: 'Recordatorio' }, ic('campana'), textoFecha(t.recordatorio.slice(0, 10)), ' ', t.recordatorio.slice(11, 16)));
-  if (t.adjuntos?.length) meta.push(h('span', { class: 'tr-meta', title: 'Adjuntos' }, ic('clip'), String(t.adjuntos.length)));
-  if (nComentarios) meta.push(h('span', { class: 'tr-meta', title: 'Comentarios' }, ic('comentario'), String(nComentarios)));
-  if (ubicacion) {
+
+  // Íconos justo después del título (como en Asana): notas, subtareas,
+  // adjuntos, comentarios y recordatorio.
+  const indic = [];
+  const ind = (icono, titulo, num = '', clase = '') => h('span', { class: `tr-ind ${clase}`, title: titulo }, ic(icono), num !== '' ? h('span', { class: 'tr-ind-num' }, String(num)) : null);
+  if (t.notas) indic.push(ind('nota', 'Tiene notas'));
+  if (subs.length) indic.push(ind('subtareas', `Subtareas: ${subs.filter(hecha).length} de ${subs.length} hechas`, `${subs.filter(hecha).length}/${subs.length}`, 'tr-ind-sub'));
+  if (t.adjuntos?.length) indic.push(ind('clip', `${t.adjuntos.length} adjunto${t.adjuntos.length > 1 ? 's' : ''}`, t.adjuntos.length));
+  if (nComentarios) indic.push(ind('comentario', `${nComentarios} comentario${nComentarios > 1 ? 's' : ''}`, nComentarios));
+  if (t.recordatorio) indic.push(ind('campana', `Recordatorio: ${textoFecha(t.recordatorio.slice(0, 10))} ${t.recordatorio.slice(11, 16)}`));
+
+  // Columnas del modo compacto: Repetición y Fecha.
+  const rc = t.repeticion?.tipo ? repeticionCaja(t.repeticion) : null;
+  const columnas = [
+    h('span', { class: 'tr-col tr-col-rep' }, rc ? h('span', { class: 'tr-caja tr-caja-rep', title: textoRepeticion(t.repeticion) },
+      h('span', { class: 'largo' }, rc.largo), h('span', { class: 'corto' }, rc.corto)) : null),
+    h('span', { class: 'tr-col tr-col-fecha' }, t.fecha ? h('span', { class: `tr-caja tr-caja-fecha ${claseFecha(t)}`, title: `${textoFecha(t.fecha)}${t.hora ? ` ${t.hora}` : ''}` },
+      textoFecha(t.fecha), t.hora ? h('span', { class: 'tr-caja-hora' }, ` ${t.hora}`) : null) : null),
+  ];
+  if (ubicacion && !(ubicacion === 'proyecto' && !d.proyecto?.(t.proyectoId))) {
     const a = d.area?.(t.areaId), p = d.proyecto?.(t.proyectoId);
     meta.push(h('span', { class: 'tr-meta tr-ubic' }, ic(p?.icono || (p ? 'proyecto' : a?.icono || (a ? 'carpeta' : 'bandeja'))), p?.nombre || a?.nombre || 'Bandeja'));
   }
@@ -163,8 +216,10 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
     check,
     h('div', { class: 'tr-contenido' },
       h('button', { type: 'button', class: 'tr-cuerpo', onclick: (e) => { if (fila.dataset.deslizado) { e.preventDefault(); return; } abrirTarea(ctx, m, d, t); } },
-        h('span', { class: 'tr-titulo' }, t.titulo),
-        meta.length ? h('span', { class: 'tr-metas' }, meta) : null),
+        h('span', { class: 'tr-tit-ic' }, h('span', { class: 'tr-titulo' }, t.titulo),
+          indic.length ? h('span', { class: 'tr-indic' }, indic) : null),
+        meta.length ? h('span', { class: 'tr-metas' }, meta) : null,
+        columnas),
       bloqueSub ? bloqueSub.alternar : null));
   const fondo = h('div', { class: 'tr-desliza', 'aria-hidden': 'true' }, h('span', { class: 'izq' }, '✓ Completar'), h('span', { class: 'der' }, 'Mañana →'));
   const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
@@ -360,6 +415,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // Lista común: ordenada por fecha. Con { manual: true } se ordena a mano y se puede arrastrar.
   function lista(tareas, opciones = {}) {
     if (!opciones.manual) return h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, { marcaMadre: true, ...opciones })));
+    // Orden elegido para esta hoja: si no es manual, no se arrastra.
+    if (ordenVista.por !== 'manual' || opciones.sinArrastre) {
+      const por = ordenVista.por === 'manual' ? 'fecha' : ordenVista.por;
+      const sentido = ordenVista.por === 'manual' ? 'asc' : ordenVista.sentido;
+      return h('ul', { class: 'tr-lista' }, ordenarPor(tareas, por, sentido).map(t => filaTarea(ctx, m, d, t, { ...opciones, manual: false })));
+    }
     const ordenadas = ordenarManual(tareas);
     const ul = h('ul', { class: 'tr-lista' }, ordenadas.map(t => filaTarea(ctx, m, d, t, { ...opciones, ordenable: true })));
     hacerOrdenable(ul, (id, antes, despues) => {
@@ -753,13 +814,79 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const todas = principales(d.tareas.filter(t => !t.areaId));
     const pend = todas.filter(t => !hecha(t)), hechas = todas.filter(hecha);
     const ver = mostrarHechas.has('bandeja');
+    ordenVista = ordenDe('bandeja', 'lista');
+    const porFechaG = ordenVista.agrupar === 'fecha';
     return [
-      tituloVista('bandeja', 'Bandeja de entrada', null, chipHechas('bandeja', hechas.length)),
+      tituloVista('bandeja', 'Bandeja de entrada', null, botonOrden('bandeja', 'lista'), chipHechas('bandeja', hechas.length)),
       lineaRapida({}),
       h('p', { class: 'nota' }, 'Lo que capturás desde Inicio llega acá. Abrí cada tarea y asignale un área cuando puedas.'),
-      pend.length ? lista(pend, { ubicacion: false, manual: true }) : nada('Bandeja vacía.'),
+      pend.length ? (porFechaG ? porGruposDeFecha(pend, { ubicacion: false }) : lista(pend, { ubicacion: false, manual: true })) : nada('Bandeja vacía.'),
       ver && hechas.length ? lista(hechas, { ubicacion: false, manual: true }) : null,
     ];
+  }
+
+  // ── Ordenar y agrupar (cada hoja recuerda lo suyo, por dispositivo) ──
+  let ordenVista = { por: 'manual', sentido: 'asc', agrupar: '' };
+  const AGRUPAR = {
+    area: [['proyecto', 'Por proyecto'], ['fecha', 'Por fecha'], ['ninguno', 'Sin agrupar']],
+    proyecto: [['seccion', 'Por sección'], ['fecha', 'Por fecha'], ['ninguno', 'Sin agrupar']],
+    lista: [['ninguno', 'Sin agrupar'], ['fecha', 'Por fecha']],
+  };
+  function ordenDe(clave, tipo) {
+    const g = d.ajuste(claveHojas())?.ordenes?.[clave] || {};
+    const agrupables = AGRUPAR[tipo].map(x => x[0]);
+    return {
+      por: CRITERIOS.some(c => c[0] === g.por) ? g.por : 'manual',
+      sentido: g.sentido === 'desc' ? 'desc' : 'asc',
+      agrupar: agrupables.includes(g.agrupar) ? g.agrupar : agrupables[0],
+    };
+  }
+  function botonOrden(clave, tipo) {
+    const o = ordenDe(clave, tipo);
+    const cambiado = o.por !== 'manual' || o.agrupar !== AGRUPAR[tipo][0][0];
+    const etiqueta = o.por === 'alfabetico' ? (o.sentido === 'desc' ? 'Z-A' : 'A-Z')
+      : o.por !== 'manual' ? `${{ fecha: 'Por fecha', creado: 'Por creación', modificado: 'Por modificación' }[o.por]} ${o.sentido === 'desc' ? '↓' : '↑'}`
+        : (cambiado ? AGRUPAR[tipo].find(x => x[0] === o.agrupar)[1] : null);
+    return h('button', { type: 'button', class: `tr-orden${cambiado ? ' activo' : ''}`, title: 'Ordenar y agrupar', 'aria-label': 'Ordenar y agrupar', onclick: () => abrirOrden(clave, tipo) },
+      ic('ordenar'), etiqueta ? h('span', {}, etiqueta) : null);
+  }
+  function abrirOrden(clave, tipo) {
+    const o = ordenDe(clave, tipo);
+    const contenido = h('div', { class: 'tr-config' });
+    const guardar = async () => {
+      const ordenes = { ...(d.ajuste(claveHojas())?.ordenes || {}), [clave]: { ...o } };
+      await m.guardarHojas(claveHojas(), { ordenes });
+    };
+    const seg = (opciones, actual, alElegir, desactivado = false) => h('span', { class: `tr-seg${desactivado ? ' desactivado' : ''}` }, opciones.map(([v, t]) =>
+      h('button', { type: 'button', class: v === actual ? 'activo' : '', disabled: desactivado, 'aria-pressed': String(v === actual), onclick: () => alElegir(v) }, t)));
+    function pintar() {
+      poner(contenido,
+        h('h3', {}, 'Ordenar por'),
+        h('div', { class: 'tr-orden-lista' }, CRITERIOS.map(([v, t]) => h('button', {
+          type: 'button', class: `tr-orden-opcion${o.por === v ? ' activo' : ''}`, 'aria-pressed': String(o.por === v),
+          onclick: async () => { o.por = v; pintar(); await guardar(); },
+        }, h('span', { class: 'tr-orden-punto' }), t))),
+        h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Sentido'),
+          seg([['asc', o.por === 'alfabetico' ? 'A → Z' : 'Ascendente'], ['desc', o.por === 'alfabetico' ? 'Z → A' : 'Descendente']], o.sentido, async (v) => { o.sentido = v; pintar(); await guardar(); }, o.por === 'manual')),
+        o.por === 'manual' ? h('p', { class: 'nota' }, 'En orden manual movés las tareas arrastrando la manija ⋮⋮.') : h('p', { class: 'nota' }, 'Con este orden no se arrastran: se acomodan solas. Las tareas sin fecha van al final.'),
+        h('h3', {}, 'Agrupar'),
+        seg(AGRUPAR[tipo], o.agrupar, async (v) => { o.agrupar = v; pintar(); await guardar(); }));
+    }
+    pintar();
+    ventana('Ordenar y agrupar', contenido);
+  }
+
+  // Grupos por fecha: Vencidas, Hoy, Mañana, Esta semana, Más adelante, Sin fecha.
+  function porGruposDeFecha(ts, opciones) {
+    const tramos = [['vencida', 'Vencidas'], ['hoy', 'Hoy'], ['manana', 'Mañana'], ['semana', 'Esta semana'], ['lejos', 'Más adelante'], ['sin', 'Sin fecha']];
+    const tramo = (t) => (!t.fecha ? 'sin' : claseFecha(t));
+    return tramos.map(([k, titulo]) => {
+      const del = ts.filter(t => tramo(t) === k);
+      if (!del.length) return null;
+      return h('section', { class: `tr-grupo-fecha ${k}` },
+        h('p', { class: 'tr-grupo-fecha-titulo' }, titulo, h('span', { class: 'tr-grupo-n' }, String(del.filter(t => !hecha(t)).length))),
+        lista(del, { ...opciones, manual: true, sinArrastre: true }));
+    });
   }
 
   const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrir(null, base) }, icono('mas'), 'Agregar tarea');
@@ -808,9 +935,15 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const visibles = mostrarHechas.has(clave) ? delArea : delArea.filter(t => !hecha(t));
     const proys = proyectosDe(a.id);
     const sueltas = visibles.filter(t => !t.proyectoId || !proys.some(p => p.id === t.proyectoId));
-    return [
-      tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), chipHechas(clave, delArea.filter(hecha).length)),
+    ordenVista = ordenDe(clave, 'area');
+    const cabecera = [
+      tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), botonOrden(clave, 'area'), chipHechas(clave, delArea.filter(hecha).length)),
       lineaRapida({ areaId: a.id }),
+    ];
+    if (ordenVista.agrupar === 'fecha') return [...cabecera, visibles.length ? porGruposDeFecha(visibles, { ubicacion: 'proyecto' }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
+    if (ordenVista.agrupar === 'ninguno') return [...cabecera, visibles.length ? lista(visibles, { ubicacion: 'proyecto', manual: true }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
+    return [
+      ...cabecera,
       sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : (proys.length ? null : nada('Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')),
       agregarEn({ areaId: a.id }),
       proys.map(p => {
@@ -836,11 +969,15 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
     const cfg = configHojas();
     const esHoja = cfg.lista.some(x => x.id === `p:${p.id}` && x.vis);
+    ordenVista = ordenDe(clave, 'proyecto');
+    const cuerpoP = ordenVista.agrupar === 'fecha' ? porGruposDeFecha(visibles, { ubicacion: false })
+      : ordenVista.agrupar === 'ninguno' ? lista(visibles, { ubicacion: false, manual: true })
+        : cuerpoProyecto(p, visibles);
     return [
       esHoja ? null : volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
-      tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), chipHechas(clave, tareas.filter(hecha).length)),
+      tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), botonOrden(clave, 'proyecto'), chipHechas(clave, tareas.filter(hecha).length)),
       lineaRapida({ areaId: p.areaId, proyectoId: p.id }),
-      cuerpoProyecto(p, visibles),
+      cuerpoP,
       agregarEn({ areaId: p.areaId, proyectoId: p.id }),
       seccionesDe(p.id).length ? null : h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'),
     ];
@@ -854,12 +991,13 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     if (!s || !p) return [vacio('Esta sección no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
     const tareas = principales(d.tareas.filter(t => t.seccionId === s.id));
     const clave = `seccion-${s.id}`;
+    ordenVista = ordenDe(clave, 'lista');
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
     return [
       volver(`#/tareas/proyecto/${p.id}`, p.nombre),
-      tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), chipHechas(clave, tareas.filter(hecha).length)),
+      tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), botonOrden(clave, 'lista'), chipHechas(clave, tareas.filter(hecha).length)),
       lineaRapida({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
-      visibles.length ? lista(visibles, { ubicacion: false, manual: true }) : nada('Sin tareas pendientes en esta sección.'),
+      visibles.length ? (ordenVista.agrupar === 'fecha' ? porGruposDeFecha(visibles, { ubicacion: false }) : lista(visibles, { ubicacion: false, manual: true })) : nada('Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
     ];
   }
@@ -914,6 +1052,20 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     filtro: vistaFiltro, buscar: vistaBuscar,
   };
 
+  // Modo compacto: encabezado "Repetición · Fecha" arriba de la primera lista.
+  function ponerEncabezadoColumnas() {
+    const fila = cuerpo.querySelector('.tr-tarea');
+    if (!fila) return;
+    let listaRaiz = fila.closest('.tr-lista');
+    while (listaRaiz?.parentElement?.closest('.tr-lista')) listaRaiz = listaRaiz.parentElement.closest('.tr-lista');
+    if (!listaRaiz) return;
+    const enc = h('span', { class: 'tr-col-enc', 'aria-hidden': 'true' }, h('span', { class: 'tr-col-rep' }, 'Repetición'), h('span', { class: 'tr-col-fecha' }, 'Fecha'));
+    const antes = listaRaiz.previousElementSibling;
+    if (antes && antes.matches('.tr-grupo-cabecera, .tr-grupo-fecha-titulo, .tr-seccion-cabecera, .tr-proyecto-cabecera')) {
+      antes.classList.add('con-columnas'); antes.append(enc);
+    } else listaRaiz.before(h('div', { class: 'tr-col-cab' }, enc));
+  }
+
   let primeraVez = true;
   function dibujar() {
     const cfg = configHojas();
@@ -921,7 +1073,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     cuerpo.classList.toggle('tr-compacto', cfg.compacto);
     if (vista === 'buscar' && !primeraVez) { dibujarResultados(); return; }
     const scroll = window.scrollY;
+    ordenVista = { por: 'manual', sentido: 'asc', agrupar: '' };
     poner(cuerpo, (VISTAS[vista] || VISTAS.inicio)());
+    if (cfg.compacto) ponerEncabezadoColumnas();
     marcarActiva();
     if (primeraVez && ancla) {
       // Desde Inicio: bajar hasta Vencidas, Hoy o Próximos.
