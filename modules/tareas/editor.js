@@ -13,6 +13,8 @@ import { REPETICIONES, FECHAS_FILTRO } from './modelo.js';
 export const poner = (el, ...items) => el.replaceChildren(...items.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
 
 const ICONO_CLIP = '<path d="M15.5 7.5 9 14a2 2 0 0 0 2.8 2.8l7-7a4 4 0 0 0-5.6-5.6l-7.3 7.2a6 6 0 0 0 8.5 8.5L20 14.5"/>';
+const ICONO_PORTAPAPELES = '<rect x="6" y="4.5" width="12" height="16" rx="2"/><path d="M9.5 4.5V3.5h5v1M9 10h6M9 14h4"/>';
+const ICONO_ENVIAR = '<path d="M4 12h14M13 6l6 6-6 6"/>';
 const ICONO_DRIVE = '<path d="M8.5 4h7l5.5 9.5-3.5 6h-11L3 13.5Z"/><path d="M8.5 4 12 10l-3.5 6M15.5 4 12 10M3 13.5h18"/>';
 function icSvg(trazo) {
   const s = document.createElement('span');
@@ -121,7 +123,6 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   let cerrado = false;
   let ctrl;
 
-  const tactil = matchMedia('(pointer: coarse)').matches;
   const opcion = (valor, texto, actual) => h('option', { value: valor, selected: String(valor) === String(actual ?? '') }, texto);
   const fila = (texto, ...controles) => h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, texto), ...controles);
   const bloque = (texto, ...contenido) => h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, texto), ...contenido);
@@ -269,7 +270,17 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
 
   // ── Comentarios (se guardan al instante, cada uno por separado; pueden llevar imágenes) ──
   const zonaComentarios = h('div', { class: 'tr-comentarios' });
-  const nuevoCom = h('textarea', { rows: 2, placeholder: 'Escribí un comentario (podés pegar imágenes)', 'aria-label': 'Nuevo comentario' });
+  const nuevoCom = h('textarea', { rows: 1, class: 'tr-com-campo', placeholder: 'Escribí un comentario…', 'aria-label': 'Nuevo comentario' });
+  // Ctrl+Enter (o Cmd+Enter) comenta.
+  nuevoCom.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarComentario(); } });
+  async function enviarComentario() {
+    if (!tarea) return;
+    if (subiendoCom) { ctx.aviso('Esperá a que terminen de subirse las imágenes.'); return; }
+    if (!nuevoCom.value.trim() && !borrador.length) return;
+    await m.comentar(tarea.id, nuevoCom.value, borrador);
+    nuevoCom.value = ''; borrador = []; dibujarBorrador();
+    dibujarComentarios();
+  }
   const imgsBorrador = h('div', { class: 'tr-miniaturas chicas' });
   let borrador = [];
   let subiendoCom = 0;
@@ -319,18 +330,11 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
           otros.length ? h('ul', { class: 'tr-adjuntos' }, otros.map(a => h('li', {}, icSvg(ICONO_CLIP),
             a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener', class: 'tr-adjunto-nombre' }, a.nombre) : h('span', { class: 'tr-adjunto-nombre' }, a.nombre)))) : null);
       })) : null,
-      h('div', { class: 'tr-nuevo-comentario' }, nuevoCom, imgsBorrador,
-        h('div', { class: 'tr-com-botones' },
-        navigator.clipboard?.read ? h('button', { type: 'button', class: 'tr-link', onclick: () => pegarDesdeBoton(subirAlComentario) }, '📋 Pegar imagen') : null,
-        h('button', {
-          type: 'button', class: 'boton', onclick: async () => {
-            if (subiendoCom) { ctx.aviso('Esperá a que terminen de subirse las imágenes.'); return; }
-            if (!nuevoCom.value.trim() && !borrador.length) return;
-            await m.comentar(tarea.id, nuevoCom.value, borrador);
-            nuevoCom.value = ''; borrador = []; dibujarBorrador();
-            dibujarComentarios();
-          },
-        }, 'Comentar'))));
+      h('div', { class: 'tr-nuevo-comentario' },
+        imgsBorrador,
+        h('div', { class: 'tr-com-linea' }, nuevoCom,
+          navigator.clipboard?.read ? h('button', { type: 'button', class: 'tr-com-icono', title: 'Pegar imagen copiada', 'aria-label': 'Pegar imagen copiada', onclick: () => pegarDesdeBoton(subirAlComentario) }, icSvg(ICONO_PORTAPAPELES)) : null,
+          h('button', { type: 'button', class: 'tr-com-enviar', title: 'Comentar (Ctrl+Enter)', 'aria-label': 'Comentar', onclick: enviarComentario }, icSvg(ICONO_ENVIAR)))));
   }
   dibujarComentarios();
 
@@ -404,13 +408,10 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
       filaArea,
       h('div', { class: 'tr-dos' }, filaProyecto, filaSeccion),
       bloque('Adjuntos', listaAdj,
-        h('p', { class: 'tr-pegar' }, '📋 ', tactil
-          ? 'Para pegar una imagen o captura, tocá «Pegar imagen».'
-          : h('span', {}, 'Pegá una imagen con ', h('kbd', {}, 'Ctrl'), '+', h('kbd', {}, 'V'), ' o arrastrala acá.')),
-        h('div', { class: 'botonera' },
-          h('button', { type: 'button', class: 'boton', onclick: () => elegirArchivo.click() }, icSvg(ICONO_CLIP), 'Subir archivo'),
+        h('div', { class: `tr-adj-botones${navigator.clipboard?.read ? ' con-pegar' : ''}` },
+          h('button', { type: 'button', class: 'boton', title: 'Subir archivo (también podés pegar con Ctrl+V o arrastrar)', onclick: () => elegirArchivo.click() }, icSvg(ICONO_CLIP), 'Subir archivo'),
           h('button', { type: 'button', class: 'boton', onclick: elegirDeDrive }, icSvg(ICONO_DRIVE), 'Elegir de Drive'),
-          navigator.clipboard?.read ? h('button', { type: 'button', class: 'boton', onclick: () => pegarDesdeBoton(subirAdjuntos) }, '📋 Pegar imagen') : null),
+          navigator.clipboard?.read ? h('button', { type: 'button', class: 'boton tr-adj-pegar', title: 'Pegar imagen copiada', 'aria-label': 'Pegar imagen copiada', onclick: () => pegarDesdeBoton(subirAdjuntos) }, icSvg(ICONO_PORTAPAPELES)) : null),
         elegirArchivo),
       h('details', { class: 'tr-mas', open: !!tieneExtras },
         h('summary', {}, 'Más opciones'),

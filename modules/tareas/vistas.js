@@ -41,6 +41,8 @@ const TRAZOS = {
   archivo: '<rect x="3.5" y="5" width="17" height="4" rx="1"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/>',
   mas: '<path d="M12 5v14M5 12h14"/>',
   ordenar: '<path d="M7 5v14M4 16l3 3 3-3"/><path d="M17 19V5M14 8l3-3 3 3"/>',
+  alerta: '<path d="M12 4 2.8 19.5h18.4Z"/><path d="M12 10v4.5M12 17v.01"/>',
+  circulo: '<circle cx="12" cy="12" r="7.5"/>',
   nota: '<path d="M6 3.5h8.5L18 7v13.5H6Z"/><path d="M9 11h6M9 14.5h6M9 18h3.5"/>',
   subtareas: '<path d="m4 6.5 1.5 1.5L8 5.5"/><path d="M11 7h9"/><path d="m4 15.5 1.5 1.5L8 14.5"/><path d="M11 16h9"/>',
   // Para Inicio, Hoy y para elegir el ícono de áreas y proyectos.
@@ -469,10 +471,16 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       lista.push({ ...x, vis: g.vis !== false, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
     }
     for (const x of base) if (!lista.some(y => y.id === x.id)) lista.push(x);
-    return { lista, compacto: !!guardado.compacto, limite: Number(guardado.limite) || 0 };
+    return {
+      lista, compacto: !!guardado.compacto, limite: Number(guardado.limite) || 0,
+      contador: guardado.contador !== false,                                   // número en las pestañas
+      inicioCont: ['simbolo', 'color', 'nada'].includes(guardado.inicioCont) ? guardado.inicioCont : 'simbolo',
+      leyenda: guardado.leyenda !== false,
+    };
   }
   const guardarConfig = (cfg, cambios = {}) => m.guardarHojas(claveHojas(), {
-    lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite, ...cambios,
+    lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite,
+    contador: cfg.contador, inicioCont: cfg.inicioCont, leyenda: cfg.leyenda, ...cambios,
   });
 
   function hojaActual(cfg) {
@@ -491,7 +499,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const mostrar = cfg.limite && vis.length > cfg.limite ? vis.slice(0, cfg.limite) : vis;
     const resto = vis.filter(x => !mostrar.includes(x));
     const marca = (x) => {
-      if (!x.filtro) return null;
+      if (!x.filtro || !cfg.contador) return null;
       const ts = pendientes().filter(x.filtro);
       const n = x.id === 'hoy' ? ts.length : ts.filter(t => t.fecha && t.fecha <= hoy()).length;
       return n ? h('span', { class: `tr-marca${ts.some(vencida) ? ' alerta' : ''}` }, String(n)) : null;
@@ -572,6 +580,14 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Modo de las listas'),
           seg([[false, 'Normal'], [true, 'Compacto']], cfg.compacto, async (v) => { cfg.compacto = v; pintar(); await guardar(); })),
         h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Hojas visibles a la vez'), limite),
+        h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Contador en las pestañas'),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': String(cfg.contador), 'aria-label': 'Contador en las pestañas', class: `tr-switch${cfg.contador ? ' on' : ''}`,
+            onclick: async () => { cfg.contador = !cfg.contador; pintar(); await guardar(); } })),
+        h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Contadores en Inicio'),
+          seg([['simbolo', 'Símbolo', 'Número con símbolo'], ['color', 'Color', 'Solo número con color'], ['nada', 'Nada', 'Solo el total de pendientes']], cfg.inicioCont, async (v) => { cfg.inicioCont = v; pintar(); await guardar(); })),
+        cfg.inicioCont !== 'nada' ? h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Leyenda en Inicio'),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': String(cfg.leyenda), 'aria-label': 'Leyenda en Inicio', class: `tr-switch${cfg.leyenda ? ' on' : ''}`,
+            onclick: async () => { cfg.leyenda = !cfg.leyenda; pintar(); await guardar(); } })) : null,
         h('p', { class: 'nota' }, `Esto se guarda por separado en el celular y en la PC (ahora estás en ${esPC() ? 'la PC' : 'el celular'}).`),
         h('h3', {}, 'Hojas'),
         h('p', { class: 'nota' }, 'Prendé las que quieras ver arriba y elegí cómo se muestra cada una: solo ícono, ícono y nombre, o solo nombre.'),
@@ -759,11 +775,24 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const venc = porFecha(pendientes().filter(vencida)), deHoyL = porFecha(pendientes().filter(deHoy));
     const semana = porFecha(pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana()));
     const cuadro = (n, texto, ancla2, clase = '') => h('a', { href: `#/tareas/hoy/${ancla2}`, class: `tr-cuadrito ${clase}` }, h('b', {}, String(n)), h('span', {}, texto));
-    const nodo = (href, icNombre, nombre, total, deHoyN, clase = '') => h('a', { href, class: `tr-nodo ${clase}` },
-      ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre),
-      deHoyN ? h('span', { class: 'tr-nodo-hoy' }, `${deHoyN} hoy`) : null,
-      h('span', { class: 'tr-nodo-n' }, total ? String(total) : ''));
-    const hoyEn = (f) => cuenta(t => f(t) && t.fecha && t.fecha <= hoy());
+    // Contadores de cada área/proyecto: vencidas (rojo), para hoy (verde) y total (gris).
+    // Cómo se ven se elige en Configuración: con símbolo, solo color o nada (solo el total).
+    const cfg = configHojas();
+    const modoCont = cfg.inicioCont;
+    const contador = (clase, icNombre, n, titulo) => h('span', { class: `tr-cont ${clase}`, title: titulo }, modoCont === 'simbolo' ? ic(icNombre) : null, String(n));
+    const nodo = (href, icNombre, nombre, f, clase = '') => {
+      const total = cuenta(f), v = cuenta(t => f(t) && vencida(t)), hy = cuenta(t => f(t) && deHoy(t));
+      return h('a', { href, class: `tr-nodo ${clase}` },
+        ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre),
+        h('span', { class: `tr-conts modo-${modoCont}` },
+          modoCont !== 'nada' && v ? contador('venc', 'alerta', v, `${v} vencida${v > 1 ? 's' : ''}`) : null,
+          modoCont !== 'nada' && hy ? contador('hoy', 'sol', hy, `${hy} para hoy`) : null,
+          total ? contador('total', 'circulo', total, `${total} pendiente${total > 1 ? 's' : ''} en total`) : null));
+    };
+    const leyendaItem = (clase, icNombre, texto) => h('span', { class: `tr-ley ${clase}` }, modoCont === 'simbolo' ? ic(icNombre) : h('i', {}), texto);
+    const leyenda = modoCont !== 'nada' && cfg.leyenda
+      ? h('div', { class: 'tr-leyenda' }, leyendaItem('venc', 'alerta', 'vencidas'), leyendaItem('hoy', 'sol', 'para hoy'), leyendaItem('total', 'circulo', 'pendientes'))
+      : null;
     const crearArea = async () => { const n = await pedirNombre(ctx, 'Nueva área', '', 'Crear área'); if (n) { await m.crearArea(n); ctx.aviso(`Área "${n}" creada`); } };
     return [
       h('div', { class: 'tr-cuadritos' }, cuadro(venc.length, 'Vencidas', 'vencidas', venc.length ? 'alerta' : ''), cuadro(deHoyL.length, 'Para hoy', 'hoy'), cuadro(semana.length, 'Esta semana', 'proximos')),
@@ -772,11 +801,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         deHoyL.length ? lista(deHoyL) : nada(venc.length ? `Nada para hoy. Tenés ${venc.length} vencida${venc.length > 1 ? 's' : ''}.` : 'Nada para hoy.')),
       h('section', { class: 'tr-tarjeta' },
         h('div', { class: 'tr-tarjeta-cab' }, h('h2', {}, 'Áreas'), h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': 'Nueva área', onclick: crearArea }, icono('mas'))),
+        leyenda,
         h('nav', { class: 'tr-arbol', 'aria-label': 'Áreas' },
-          nodo('#/tareas/bandeja', 'bandeja', 'Bandeja de entrada', cuenta(t => !t.areaId), hoyEn(t => !t.areaId), 'tr-nodo-area'),
+          nodo('#/tareas/bandeja', 'bandeja', 'Bandeja de entrada', t => !t.areaId, 'tr-nodo-area'),
           areasActivas().map(a => [
-            nodo(`#/tareas/area/${a.id}`, iconoArea(a), a.nombre, cuenta(t => t.areaId === a.id), hoyEn(t => t.areaId === a.id), 'tr-nodo-area'),
-            proyectosDe(a.id).map(p => nodo(`#/tareas/proyecto/${p.id}`, iconoProyecto(p), p.nombre, cuenta(t => t.proyectoId === p.id), hoyEn(t => t.proyectoId === p.id), 'tr-nodo-proyecto')),
+            nodo(`#/tareas/area/${a.id}`, iconoArea(a), a.nombre, t => t.areaId === a.id, 'tr-nodo-area'),
+            proyectosDe(a.id).map(p => nodo(`#/tareas/proyecto/${p.id}`, iconoProyecto(p), p.nombre, t => t.proyectoId === p.id, 'tr-nodo-proyecto')),
           ])),
         areasActivas().length ? null : h('p', { class: 'nota' }, 'Creá tu primera área con el botón +. Un área es una parte permanente de tu vida, como el trabajo o la casa.')),
     ];
@@ -792,12 +822,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
     const porDia = (ts) => [...new Set(ts.map(t => t.fecha))].sort().map(f => [h('p', { class: 'tr-dia-nombre' }, textoFecha(f)), lista(ts.filter(t => t.fecha === f))]);
     return [
-      lineaRapida({ fecha: hoy() }, 'Agregar tarea para hoy…'),
       venc.length ? h('section', { class: 'tr-grupo tr-grupo-vencidas', id: 'tr-ancla-vencidas' },
         h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Vencidas', h('span', { class: 'tr-grupo-n' }, String(venc.length)))), lista(venc)) : h('span', { id: 'tr-ancla-vencidas' }),
       h('section', { class: 'tr-grupo', id: 'tr-ancla-hoy' },
         h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Hoy', h('span', { class: 'tr-grupo-n' }, fechaHoy))),
         deHoyL.length ? lista(deHoyL) : nada('Nada para hoy.'),
+        lineaRapida({ fecha: hoy() }, 'Agregar tarea para hoy…'),
         hechasHoy.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Completadas hoy (${hechasHoy.length})`), lista(hechasHoy)) : null),
       h('section', { class: 'tr-proximos', id: 'tr-ancla-proximos' },
         h('h2', {}, 'Próximos 7 días'),
@@ -818,9 +848,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const porFechaG = ordenVista.agrupar === 'fecha';
     return [
       tituloVista('bandeja', 'Bandeja de entrada', null, botonOrden('bandeja', 'lista'), chipHechas('bandeja', hechas.length)),
-      lineaRapida({}),
       h('p', { class: 'nota' }, 'Lo que capturás desde Inicio llega acá. Abrí cada tarea y asignale un área cuando puedas.'),
       pend.length ? (porFechaG ? porGruposDeFecha(pend, { ubicacion: false }) : lista(pend, { ubicacion: false, manual: true })) : nada('Bandeja vacía.'),
+      lineaRapida({}),
       ver && hechas.length ? lista(hechas, { ubicacion: false, manual: true }) : null,
     ];
   }
@@ -938,7 +968,6 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     ordenVista = ordenDe(clave, 'area');
     const cabecera = [
       tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), botonOrden(clave, 'area'), chipHechas(clave, delArea.filter(hecha).length)),
-      lineaRapida({ areaId: a.id }),
     ];
     if (ordenVista.agrupar === 'fecha') return [...cabecera, visibles.length ? porGruposDeFecha(visibles, { ubicacion: 'proyecto' }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
     if (ordenVista.agrupar === 'ninguno') return [...cabecera, visibles.length ? lista(visibles, { ubicacion: 'proyecto', manual: true }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
@@ -976,7 +1005,6 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return [
       esHoja ? null : volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
       tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), botonOrden(clave, 'proyecto'), chipHechas(clave, tareas.filter(hecha).length)),
-      lineaRapida({ areaId: p.areaId, proyectoId: p.id }),
       cuerpoP,
       agregarEn({ areaId: p.areaId, proyectoId: p.id }),
       seccionesDe(p.id).length ? null : h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'),
@@ -996,7 +1024,6 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return [
       volver(`#/tareas/proyecto/${p.id}`, p.nombre),
       tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), botonOrden(clave, 'lista'), chipHechas(clave, tareas.filter(hecha).length)),
-      lineaRapida({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
       visibles.length ? (ordenVista.agrupar === 'fecha' ? porGruposDeFecha(visibles, { ubicacion: false }) : lista(visibles, { ubicacion: false, manual: true })) : nada('Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
     ];

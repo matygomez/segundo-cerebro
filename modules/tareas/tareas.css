@@ -254,7 +254,7 @@ a.tr-adjunto-nombre { color: var(--laton); }
 .tr-tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta); padding: 0.5rem 0.85rem; }
 .tr-tarjeta-cab { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; min-height: 2.2rem; }
 .tr-tarjeta-cab h2 { font-size: 1rem; }
-.tr-nodo { grid-template-columns: auto 1fr auto auto; padding: 0.5rem 0.35rem; }
+.tr-nodo { grid-template-columns: auto minmax(0, 1fr) auto; padding: 0.5rem 0.35rem; }
 .tr-nodo-area { margin-top: 0; border-top: 1px solid var(--linea); border-radius: 0; }
 .tr-arbol > .tr-nodo:first-child { border-top: 0; }
 .tr-nodo-hoy { font-size: 0.75rem; font-weight: 600; color: var(--rojo); }
@@ -392,7 +392,7 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-tarea.abierta > .tr-fila { background: var(--laton-fondo); border-radius: var(--radio-control); }
 
 /* Alta rápida arriba de cada lista: una línea fina, sutil, a todo el ancho */
-.tr-rapida { display: flex; align-items: center; gap: 0.45rem; border: 0; border-bottom: 1px solid var(--linea); border-radius: 0; padding: 0 0.15rem; background: transparent; margin-top: -0.4rem; }
+.tr-rapida { display: flex; align-items: center; gap: 0.45rem; border: 0; border-bottom: 1px solid var(--linea); border-radius: 0; padding: 0 0.15rem; background: transparent; margin-top: 0.1rem; }
 .tr-rapida:focus-within { border-bottom-color: var(--laton); }
 .tr-rapida .icono { color: var(--laton); width: 0.95rem; height: 0.95rem; flex: none; opacity: 0.8; }
 .tr-rapida input.tr-rapida-campo { border: 0; background: transparent; min-height: 2rem; padding: 0.25rem 0; outline: none; font-size: 0.86rem; }
@@ -530,9 +530,33 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-pegar { margin: 0; border: 1px dashed var(--linea); border-radius: 10px; padding: 0.45rem 0.65rem; font-size: 0.8rem; color: var(--tinta-2); }
 .tr-pegar kbd { font-family: inherit; font-size: 0.74rem; border: 1px solid var(--linea); border-radius: 5px; padding: 0 0.3rem; background: var(--superficie-2); }
 .tr-editor.soltando { outline: 2px dashed var(--laton); outline-offset: -6px; }
-.tr-com-botones { display: flex; gap: 0.75rem; align-items: center; justify-content: flex-end; }
-.tr-nuevo-comentario .tr-miniaturas { justify-self: stretch; }
-.tr-nuevo-comentario textarea { justify-self: stretch; }
+/* Botones de adjuntos: a todo el ancho, el de pegar solo ícono */
+.tr-adj-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.tr-adj-botones.con-pegar { grid-template-columns: 1fr 1fr 2.9rem; }
+.tr-adj-botones .boton { justify-content: center; min-height: 2.6rem; padding: 0.4rem 0.6rem; font-size: 0.9rem; white-space: nowrap; min-width: 0; }
+.tr-adj-botones .boton .icono { width: 1rem; height: 1rem; }
+.tr-adj-pegar { padding: 0 !important; }
+/* Comentario nuevo: una línea que crece al escribir */
+.tr-nuevo-comentario { justify-items: stretch; }
+.tr-com-linea { display: flex; align-items: flex-end; gap: 0.25rem; border: 1px solid var(--linea); border-radius: var(--radio-control); padding: 0.2rem 0.25rem 0.2rem 0.65rem; background: var(--superficie); }
+.tr-com-linea:focus-within { border-color: var(--laton); }
+.tr-com-linea textarea.tr-com-campo { flex: 1; min-width: 0; border: 0 !important; background: transparent; box-shadow: none !important; outline: none; resize: none; min-height: 2.1rem; height: 2.1rem; padding: 0.4rem 0; font: inherit; color: inherit; transition: height 0.15s; }
+.tr-com-linea:focus-within textarea.tr-com-campo, .tr-com-linea textarea.tr-com-campo:not(:placeholder-shown) { height: 4.6rem; }
+.tr-com-icono, .tr-com-enviar { flex: none; width: 2.1rem; height: 2.1rem; border-radius: 8px; border: 0; display: grid; place-items: center; cursor: pointer; padding: 0; }
+.tr-com-icono { background: transparent; color: var(--tinta-2); }
+.tr-com-icono:hover { background: var(--superficie-2); color: var(--tinta); }
+.tr-com-enviar { background: var(--tinta); color: var(--superficie); }
+.tr-com-icono .icono, .tr-com-enviar .icono { width: 1.05rem; height: 1.05rem; }
+
+/* Borrar · Cancelar · Guardar: siempre visibles abajo del detalle */
+.tr-editor .tr-botones {
+  position: sticky; bottom: 0; z-index: 3; background: var(--superficie);
+  border-top: 1px solid var(--linea); margin: 1rem -1.1rem 0; padding: 0.7rem 1.1rem calc(0.7rem + env(safe-area-inset-bottom));
+  box-shadow: 0 -6px 14px rgb(10 15 18 / 0.05);
+}
+dialog.tr-hoja-editor { padding-bottom: 0; }
+.tr-editor.en-panel .tr-botones { margin: 1rem -1.25rem 0; padding: 0.7rem 1.25rem; }
+.tr-panel-contenido:has(.tr-editor) { padding-bottom: 0; }
 
 /* Visor de imágenes */
 .tr-visor {
@@ -558,3 +582,19 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-visor-flecha.der { right: 0.75rem; }
 .tr-visor-flecha[hidden] { display: none; }
 @media (max-width: 600px) { .tr-visor-foto { padding: 3.5rem 0.5rem 0; } .tr-visor-flecha { top: auto; bottom: 4.5rem; transform: none; } }
+
+/* ── Contadores del Inicio (vencidas, para hoy, total) ── */
+.tr-conts { display: inline-flex; align-items: center; gap: 0.3rem; flex: none; font-size: 0.76rem; font-weight: 500; font-variant-numeric: tabular-nums; }
+.tr-cont { display: inline-flex; align-items: center; gap: 0.2rem; border-radius: 999px; padding: 0.05rem 0.45rem; line-height: 1.35; }
+.tr-cont .icono { width: 0.8rem; height: 0.8rem; }
+.modo-simbolo .tr-cont { padding-left: 0.35rem; }
+.tr-cont.venc { background: var(--rojo-fondo); color: var(--rojo); }
+.tr-cont.hoy { background: var(--tr-verde-f); color: var(--tr-verde); }
+.tr-cont.total { color: var(--tinta-2); font-weight: 400; padding-right: 0.1rem; }
+.tr-nodo-proyecto .tr-conts { font-size: 0.72rem; }
+.tr-leyenda { display: flex; flex-wrap: wrap; gap: 0.25rem 0.85rem; font-size: 0.74rem; color: var(--tinta-2); padding: 0 0.35rem 0.35rem; }
+.tr-ley { display: inline-flex; align-items: center; gap: 0.25rem; }
+.tr-ley .icono { width: 0.8rem; height: 0.8rem; }
+.tr-ley.venc .icono { color: var(--rojo); } .tr-ley.hoy .icono { color: var(--tr-verde); }
+.tr-ley i { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; background: var(--tinta-2); }
+.tr-ley.venc i { background: var(--rojo); } .tr-ley.hoy i { background: var(--tr-verde); }

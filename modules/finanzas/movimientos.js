@@ -178,10 +178,18 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
       const imp = importe(x);
       const abierto = x.id === estado.elegido;
       return [
-        h('button', { type: 'button', class: `fz-mov${abierto ? ' sel' : ''}`, onclick: () => { estado.elegido = abierto ? null : x.id; pintar(); } },
-          h('span', { class: 'fz-mov-l1' }, h('span', {}, h('span', { class: 'nota num' }, fechaCorta(x.fecha)), ' ', h('span', { class: `fz-tipo ${tipoDe(x).clase}` }, tipoDe(x).texto)), h('b', { class: `num ${imp.clase}` }, imp.txt)),
-          h('span', { class: 'fz-mov-l2' }, [cuentaTexto(x), x.categoriaId ? categoriaTexto(x) : null, cuotasTexto(x) || null].filter(Boolean).join(' · ')),
-          x.descripcion ? h('span', { class: 'fz-mov-l3' }, x.descripcion) : null),
+        // Celular: un renglón por movimiento. El punto de color es el tipo
+        // (rojo gasto, verde ingreso, azul transferencia); tocándolo se ve todo.
+        h('button', { type: 'button', class: `fz-mov${abierto ? ' sel' : ''}`, title: tipoDe(x).texto, onclick: () => { estado.elegido = abierto ? null : x.id; pintar(); } },
+          h('span', { class: 'fz-mov-fecha nota num' }, fechaCorta(x.fecha)),
+          h('span', { class: `fz-punto ${tipoDe(x).clase}`, 'aria-label': tipoDe(x).texto }),
+          h('span', { class: 'fz-mov-texto' },
+            x.descripcion || (x.categoriaId ? categoriaTexto(x) : tipoDe(x).texto.replace('⇄ ', '')),
+            (() => {
+              const resto = [x.descripcion && x.categoriaId ? categoriaTexto(x) : null, cuentaTexto(x), cuotasTexto(x) || null].filter(Boolean);
+              return resto.length ? h('small', {}, ` · ${resto.join(' · ')}`) : null;
+            })()),
+          h('b', { class: `fz-mov-imp num ${imp.clase}` }, imp.txt)),
         abierto ? h('div', { class: 'fz-detalle-cel' }, detalle(x)) : null,
       ];
     }) : vacio);
