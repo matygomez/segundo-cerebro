@@ -20,7 +20,7 @@
 //     (cuotasPagadas: versión anterior, por cantidad; se sigue respetando.)
 //     tipo: 'gasto' | 'ingreso' | 'transferencia' | 'rendimiento' | 'prestamo'
 //   prestamos   { persona, sentido: 'me-deben' | 'debo', monto, fecha, cuentaId, notas, archivado }
-//   ajustes     { clave: 'panel', orden: [...], columnas: [[...], [...], [...]] }
+//   ajustes     { clave: 'panel', columnas: [[...], [...], [...]] (PC), celular: [...], orden: [...] (versión vieja) }
 //               { clave: 'credito-reparto', meses: { 'AAAA-MM': monto } }
 //               (cuánto del vencimiento de ese mes se paga con la plata de ese mes
 //                y no con la del mes anterior)
@@ -29,6 +29,10 @@
 // ─────────────────────────────────────────────────────────────
 
 export const AJUSTE = 'ajuste';   // categoría virtual "Ajuste sin detalle"
+
+// Cuadros del panel y cómo se acomodan la primera vez.
+export const CUADROS_PANEL = { cuentas: 'Cuentas', fijos: 'Gastos fijos', credito: 'Crédito', variables: 'Gastos variables', inversiones: 'Inversiones', prestamos: 'Préstamos' };
+export const COLUMNAS_INICIALES = [['cuentas', 'credito'], ['fijos', 'variables'], ['inversiones', 'prestamos']];
 
 // ── Fechas y formato ────────────────────────────────────────
 
@@ -112,9 +116,10 @@ export function crearModelo(ctx) {
       return col.ajustes.crear({ clave: 'credito-reparto', meses });
     },
 
-    async guardarOrdenPanel(orden, columnas = null) {
+    // cambios: { columnas: [[…],[…],[…]] } para la PC y/o { celular: […] } para el celular.
+    async guardarPanel(cambios) {
       const existente = (await col.ajustes.listar()).find(a => a.clave === 'panel');
-      const cambios = columnas ? { orden, columnas } : { orden };
+      if (cambios.columnas) cambios = { ...cambios, orden: cambios.columnas.flat() };
       if (existente) return col.ajustes.actualizar(existente.id, cambios);
       return col.ajustes.crear({ clave: 'panel', ...cambios });
     },
@@ -205,7 +210,29 @@ export class Datos {
   grupo(id) { return this._indice.grupos.get(id); }
   prestamo(id) { return this._indice.prestamos.get(id); }
   panel() { return this.ajustes.find(a => a.clave === 'panel')?.orden || null; }
-  panelColumnas() { return this.ajustes.find(a => a.clave === 'panel')?.columnas || null; }
+  // Panel en la PC: tres columnas. Si venías del orden viejo (cuadrícula), se reparte igual que se veía.
+  panelPC() {
+    const guardado = this.ajustes.find(a => a.clave === 'panel') || {};
+    let cols;
+    if (Array.isArray(guardado.columnas)) cols = guardado.columnas.slice(0, 3).map(c => (Array.isArray(c) ? c : []));
+    else if (Array.isArray(guardado.orden)) { const o = guardado.orden; cols = [0, 1, 2].map(i => o.filter((_, j) => j % 3 === i)); }
+    else cols = COLUMNAS_INICIALES.map(c => [...c]);
+    while (cols.length < 3) cols.push([]);
+    const vistos = new Set();
+    cols = cols.map(c => c.filter(k => CUADROS_PANEL[k] && !vistos.has(k) && vistos.add(k)));
+    for (const k of Object.keys(CUADROS_PANEL)) if (!vistos.has(k)) cols[2].push(k);
+    return cols;
+  }
+
+  // Panel en el celular: una sola lista. Hasta que la acomodes, sigue el orden de la PC (columna 1, 2 y 3).
+  panelCelular() {
+    const guardado = this.ajustes.find(a => a.clave === 'panel')?.celular;
+    const base = Array.isArray(guardado) ? guardado : this.panelPC().flat();
+    const vistos = new Set();
+    const lista = base.filter(k => CUADROS_PANEL[k] && !vistos.has(k) && vistos.add(k));
+    for (const k of Object.keys(CUADROS_PANEL)) if (!vistos.has(k)) lista.push(k);
+    return lista;
+  }
   repartos() { return this.ajustes.find(a => a.clave === 'credito-reparto')?.meses || {}; }
 
   nombreCredito(c) { return c ? `${c.nombre} (crédito)` : '—'; }

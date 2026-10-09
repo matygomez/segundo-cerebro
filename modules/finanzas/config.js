@@ -5,7 +5,7 @@
 // borrarse, así no se pierde el historial.
 // ─────────────────────────────────────────────────────────────
 
-import { plata, mesActual, redondear } from './modelo.js';
+import { plata, mesActual, redondear, CUADROS_PANEL, COLUMNAS_INICIALES } from './modelo.js';
 import { poner, hoja, campo, inputImporte, hacerOrdenable, ic } from './comun.js';
 
 export function vistaConfig(cuerpo, ctx, m, d) {
@@ -212,7 +212,48 @@ export function vistaConfig(cuerpo, ctx, m, d) {
         h('button', { type: 'button', class: 'boton chico', onclick: () => m.actualizar(col, item.id, cambios) }, 'Restaurar'))));
   }
 
-  const grilla = h('div', { class: 'fz-det-grilla' }, seccionCuentas(), seccionCredito(), seccionFijos(), seccionVariables(), seccionIngresos(), seccionInversiones());
+  // ── Orden del panel: uno para la PC (3 columnas) y otro para el celular (1 columna) ──
+  function seccionPanel() {
+    const pc = d.panelPC();
+    const cel = d.panelCelular();
+    const boton = (texto, titulo, accion, deshabilitado) => h('button', { type: 'button', title: titulo, 'aria-label': titulo, disabled: deshabilitado, onclick: accion }, texto);
+    const guardarPC = (cols) => m.guardarPanel({ columnas: cols });
+    const moverPC = (ci, i, dc, di) => {
+      const cols = pc.map(c => [...c]);
+      const [k] = cols[ci].splice(i, 1);
+      if (dc === 0) cols[ci].splice(i + di, 0, k);
+      else cols[ci + dc].push(k);
+      return guardarPC(cols);
+    };
+    const moverCel = (i, di) => {
+      const l = [...cel];
+      const [k] = l.splice(i, 1);
+      l.splice(i + di, 0, k);
+      return m.guardarPanel({ celular: l });
+    };
+    const sec = seccion('Orden del panel',
+      h('span', { class: 'botonera' },
+        h('button', { type: 'button', class: 'boton chico', onclick: () => m.guardarPanel({ celular: pc.flat() }) }, 'Copiar PC → celular'),
+        h('button', { type: 'button', class: 'boton chico', onclick: () => guardarPC(COLUMNAS_INICIALES.map(c => [...c])) }, 'Restablecer PC')),
+      h('div', { class: 'fz-panel-conf' },
+        h('h3', { class: 'fz-h3' }, 'En la PC (3 columnas)'),
+        h('div', { class: 'fz-panel-cols' }, pc.map((col, ci) => h('div', { class: 'fz-panel-col', 'data-col': String(ci) },
+          h('h3', {}, `Columna ${ci + 1}${ci === 0 ? ' (debajo del Disponible)' : ''}`),
+          col.map((k, i) => h('div', { class: 'fz-panel-item', 'data-cuadro': k }, h('span', {}, CUADROS_PANEL[k]),
+            boton('↑', 'Subir', () => moverPC(ci, i, 0, -1), i === 0),
+            boton('↓', 'Bajar', () => moverPC(ci, i, 0, 1), i === col.length - 1),
+            boton('←', 'A la columna de la izquierda', () => moverPC(ci, i, -1, 0), ci === 0),
+            boton('→', 'A la columna de la derecha', () => moverPC(ci, i, 1, 0), ci === 2)))))),
+        h('h3', { class: 'fz-h3' }, 'En el celular (1 columna)'),
+        h('div', { class: 'fz-panel-col fz-panel-cel' }, cel.map((k, i) => h('div', { class: 'fz-panel-item', 'data-cuadro': k }, h('span', {}, CUADROS_PANEL[k]),
+          boton('↑', 'Subir', () => moverCel(i, -1), i === 0),
+          boton('↓', 'Bajar', () => moverCel(i, 1), i === cel.length - 1)))),
+        h('p', { class: 'nota' }, 'También podés arrastrar los cuadros desde ⋮⋮ en el panel: lo que muevas en la PC cambia el orden de la PC y lo que muevas en el celular, el del celular.')));
+    sec.classList.add('fz-seccion-panel');
+    return sec;
+  }
+
+  const grilla = h('div', { class: 'fz-det-grilla' }, seccionCuentas(), seccionCredito(), seccionFijos(), seccionVariables(), seccionIngresos(), seccionInversiones(), seccionPanel());
   hacerOrdenable(grilla, (lista, ids) => m.reordenar(lista.dataset.coleccion, ids));
   poner(cuerpo,
     h('a', { href: '#/finanzas', class: 'fz-volver' }, '← Panel'),
