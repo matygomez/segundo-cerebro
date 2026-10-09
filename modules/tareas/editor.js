@@ -82,7 +82,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}) {
       const proys = d.proyectos.filter(p => p.areaId === areaId && (!p.archivado || p.id === proyectoId));
       poner(proyecto, opcion('', 'Ninguno', proyectoId), proys.map(p => opcion(p.id, p.nombre, proyectoId)));
       filaProyecto.hidden = !areaId || !proys.length;
-      const secs = d.secciones.filter(s => s.proyectoId === proyectoId);
+      const secs = d.secciones.filter(s => s.proyectoId === proyectoId && (!s.archivada || s.id === seccionId));
       poner(seccion, opcion('', 'Ninguna', seccionId), secs.map(s => opcion(s.id, s.nombre, seccionId)));
       filaSeccion.hidden = filaProyecto.hidden || !proyectoId || !secs.length;
     }

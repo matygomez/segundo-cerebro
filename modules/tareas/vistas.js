@@ -1,25 +1,29 @@
 // ─────────────────────────────────────────────────────────────
 // Tareas: pantallas.
 //
-// Pantalla principal (#/tareas): Hoy (con las vencidas) o Próximos,
-// y debajo, separado por una línea, el árbol de Áreas
-// (Bandeja de entrada → áreas → proyectos → secciones).
+// Arriba, una fila de "hojas" (como en Finanzas): Inicio, Hoy,
+// Bandeja, cada área y los proyectos que elijas. Cuáles se ven, en qué
+// orden, si muestran ícono, nombre o ambos, el modo compacto y el
+// límite se configuran con el engranaje, por separado en PC y celular.
 //
 // Rutas:
-//   #/tareas  o  #/tareas/hoy      #/tareas/proximos
-//   #/tareas/bandeja               #/tareas/area/<id>
-//   #/tareas/proyecto/<id>         #/tareas/seccion/<id>
-//   #/tareas/buscar                #/tareas/filtro/<id>
+//   #/tareas                      Inicio (resumen)
+//   #/tareas/hoy[/vencidas|hoy|proximos]   Vencidas, Hoy y Próximos
+//   #/tareas/proximos             igual que /hoy/proximos
+//   #/tareas/bandeja              #/tareas/area/<id>
+//   #/tareas/proyecto/<id>        #/tareas/seccion/<id>
+//   #/tareas/buscar               #/tareas/filtro/<id>
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, hoy, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
+import { crearModelo, hoy, sumarDias, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
 import { hacerOrdenable } from './arrastre.js';
 
-// Íconos propios del módulo.
+// Íconos propios del módulo (mismo estilo de línea que el resto de la app).
 const TRAZOS = {
   buscar: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
   filtro: '<path d="M4 5.5h16l-6 7.5v5l-4 1.5v-6.5Z"/>',
+  engranaje: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
   repetir: '<path d="M4 12a7 7 0 0 1 12-5l2 2"/><path d="M18 5v4h-4"/><path d="M20 12a7 7 0 0 1-12 5l-2-2"/><path d="M6 19v-4h4"/>',
   campana: '<path d="M6 16V11a6 6 0 1 1 12 0v5l1.5 2h-15Z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
   puntos: '<circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/>',
@@ -33,13 +37,38 @@ const TRAZOS = {
   clip: '<path d="M15.5 7.5 9 14a2 2 0 0 0 2.8 2.8l7-7a4 4 0 0 0-5.6-5.6l-7.3 7.2a6 6 0 0 0 8.5 8.5L20 14.5"/>',
   asa: '<circle cx="9" cy="6.5" r="1.2"/><circle cx="15" cy="6.5" r="1.2"/><circle cx="9" cy="12" r="1.2"/><circle cx="15" cy="12" r="1.2"/><circle cx="9" cy="17.5" r="1.2"/><circle cx="15" cy="17.5" r="1.2"/>',
   comentario: '<path d="M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v8a1.5 1.5 0 0 1-1.5 1.5H10l-4.5 3.5V16.5H5A1.5 1.5 0 0 1 3.5 15V7A1.5 1.5 0 0 1 5 5.5Z"/>',
+  papelera: '<path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"/>',
+  archivo: '<rect x="3.5" y="5" width="17" height="4" rx="1"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/>',
+  mas: '<path d="M12 5v14M5 12h14"/>',
+  // Para Inicio, Hoy y para elegir el ícono de áreas y proyectos.
+  inicio: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/><path d="M10 19v-5h4v5"/>',
+  sol: '<circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6 18 18M6 18l1.4-1.4M16.6 7.4 18 6"/>',
+  persona: '<circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5a7 7 0 0 1 14 0"/>',
+  maletin: '<rect x="3.5" y="7.5" width="17" height="11.5" rx="2"/><path d="M9 7.5V6a1.5 1.5 0 0 1 1.5-1.5h3A1.5 1.5 0 0 1 15 6v1.5M3.5 12.5h17"/>',
+  casa: '<path d="M4 11.5 12 5l8 6.5"/><path d="M6.5 10v9h11v-9"/>',
+  diana: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/>',
+  libro: '<path d="M5 5.5A1.5 1.5 0 0 1 6.5 4H19v14H6.5A1.5 1.5 0 0 0 5 19.5Z"/><path d="M5 19.5A1.5 1.5 0 0 0 6.5 21H19v-3"/>',
+  corazon: '<path d="M12 19s-7-4.3-7-9.5A3.8 3.8 0 0 1 12 7a3.8 3.8 0 0 1 7 2.5C19 14.7 12 19 12 19Z"/>',
+  auto: '<path d="M5 16.5V12l1.8-4.2A2 2 0 0 1 8.6 6.5h6.8a2 2 0 0 1 1.8 1.3L19 12v4.5"/><path d="M4 12h16v4.5H4Z"/><circle cx="7.5" cy="18" r="1.5"/><circle cx="16.5" cy="18" r="1.5"/>',
+  carrito: '<path d="M4 5h2l2 10h10l2-7H7"/><circle cx="9" cy="19" r="1.3"/><circle cx="17" cy="19" r="1.3"/>',
+  plata: '<rect x="3.5" y="6" width="17" height="12" rx="2.5"/><circle cx="12" cy="12" r="2.5"/>',
+  estrella: '<path d="m12 4 2.4 5 5.4.6-4 3.7 1.1 5.4L12 16l-4.9 2.7 1.1-5.4-4-3.7 5.4-.6Z"/>',
+  avion: '<path d="M10 14 4 12l1-1.5 6 .5 4-5a1.6 1.6 0 0 1 2.4 2l-4 5 .5 6-1.5 1-2-6Z"/>',
+  calendario: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
+  hoja: '<path d="M5 19c0-8 5-13 14-14-1 9-6 14-14 14Z"/><path d="M5 19l7-7"/>',
+  herramienta: '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3Z"/>',
+  musica: '<path d="M9 17V6l10-2v11"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="15" r="2"/>',
+  grafico: '<path d="M5 19V5M5 19h14"/><path d="M8.5 15l3.5-4 3 2.5 4-5.5"/>',
+  regalo: '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M4 12.5h16M12 9v11M12 9c-1.5-3-5-3-5-1s3.5 1 5 1c1.5 0 5 1 5-1s-3.5-2-5 1"/>',
+  escuela: '<path d="m3 9 9-4.5L21 9l-9 4.5Z"/><path d="M7 11v4.5c3 2 7 2 10 0V11"/>',
 };
+const ICONOS_ELEGIBLES = ['carpeta', 'proyecto', 'persona', 'maletin', 'casa', 'diana', 'libro', 'escuela', 'corazon', 'auto', 'carrito', 'plata', 'estrella', 'avion', 'calendario', 'hoja', 'herramienta', 'musica', 'grafico', 'regalo'];
 
 function ic(nombre) {
   const s = document.createElement('span');
   s.className = 'icono';
   s.setAttribute('aria-hidden', 'true');
-  s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${TRAZOS[nombre]}</svg>`;
+  s.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${TRAZOS[nombre] || TRAZOS.carpeta}</svg>`;
   return s;
 }
 
@@ -52,8 +81,9 @@ export function cargarEstilos() {
   document.head.append(l);
 }
 
-const mostrarHechas = new Set();     // vistas donde se pidió ver las hechas
+const mostrarHechas = new Set();     // vistas donde se pidió ver las completadas
 const subPlegadas = new Set();       // tareas con las subtareas plegadas
+let verMasAdelante = false;          // en Hoy: mostrar también lo que viene después de 7 días
 
 // ── Fila de una tarea (se usa también en el bloque de Inicio) ──
 
@@ -64,28 +94,34 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
   const plegada = subPlegadas.has(t.id);
 
   const meta = [];
-  if (t.fecha) meta.push(h('span', { class: vencida(t) ? 'tr-meta vencida' : 'tr-meta' }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
-  if (t.repeticion?.tipo) meta.push(h('span', { class: 'tr-meta' }, ic('repetir'), textoRepeticion(t.repeticion)));
+  if (t.fecha) meta.push(h('span', { class: vencida(t) ? 'tr-meta tr-fecha vencida' : 'tr-meta tr-fecha' }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
+  if (t.repeticion?.tipo) meta.push(h('span', { class: 'tr-meta tr-rep' }, ic('repetir'), textoRepeticion(t.repeticion)));
   if (t.duracion) meta.push(h('span', { class: 'tr-meta' }, ic('reloj'), textoDuracion(t.duracion)));
   if (t.recordatorio) meta.push(h('span', { class: 'tr-meta', title: 'Recordatorio' }, ic('campana'), textoFecha(t.recordatorio.slice(0, 10)), ' ', t.recordatorio.slice(11, 16)));
   if (t.adjuntos?.length) meta.push(h('span', { class: 'tr-meta', title: 'Adjuntos' }, ic('clip'), String(t.adjuntos.length)));
   if (nComentarios) meta.push(h('span', { class: 'tr-meta', title: 'Comentarios' }, ic('comentario'), String(nComentarios)));
   if (ubicacion) {
-    const partes = [d.area(t.areaId)?.nombre, d.proyecto(t.proyectoId)?.nombre].filter(Boolean);
-    meta.push(h('span', { class: 'tr-meta tr-ubic' }, partes.length ? partes.join(' / ') : 'Bandeja'));
+    const a = d.area?.(t.areaId), p = d.proyecto?.(t.proyectoId);
+    meta.push(h('span', { class: 'tr-meta tr-ubic' }, ic(p?.icono || (p ? 'proyecto' : a?.icono || (a ? 'carpeta' : 'bandeja'))), p?.nombre || a?.nombre || 'Bandeja'));
   }
   for (const e of t.etiquetas || []) meta.push(h('span', { class: 'tr-etiqueta' }, `#${e}`));
+
+  const completar = async () => {
+    if (hecha(t)) { await m.reabrir(t); return; }
+    const prox = await m.completar(t);
+    if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
+    else ctx.aviso(`Completada: "${t.titulo}"`, { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }), duracion: 6000 });
+  };
+  const aManana = async () => {
+    const antes = t.fecha || '';
+    await m.cambiarFecha(t, sumarDias(hoy(), 1));
+    ctx.aviso(`"${t.titulo}" pasó a mañana`, { accion: 'Deshacer', alTocar: () => m.cambiarFecha(t, antes), duracion: 6000 });
+  };
 
   const check = h('button', {
     type: 'button', class: `tr-check${hecha(t) ? ' hecha' : ''}`,
     'aria-label': hecha(t) ? `Reabrir "${t.titulo}"` : `Completar "${t.titulo}"`,
-    onclick: async (e) => {
-      e.currentTarget.disabled = true;
-      if (hecha(t)) { await m.reabrir(t); return; }
-      const prox = await m.completar(t);
-      if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
-      else ctx.aviso('Tarea hecha', { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }) });
-    },
+    onclick: async (e) => { e.currentTarget.disabled = true; await completar(); },
   }, h('span', { class: 'tr-check-marca' }));
 
   // Subtareas: desplegadas por defecto; con un toque se pliegan.
@@ -110,14 +146,52 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
     bloqueSub = h('div', { class: 'tr-sub' }, alternar, lista);
   }
 
-  return h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}`, 'data-id': t.id },
+  const fila = h('div', { class: 'tr-fila' },
     ordenable ? h('button', { type: 'button', class: 'tr-asa', 'aria-label': `Mover "${t.titulo}" (arrastrá, o usá las flechas)` }, ic('asa')) : null,
     check,
     h('div', { class: 'tr-contenido' },
-      h('button', { type: 'button', class: 'tr-cuerpo', onclick: () => abrirEditor(ctx, m, d, t) },
+      h('button', { type: 'button', class: 'tr-cuerpo', onclick: (e) => { if (fila.dataset.deslizado) { e.preventDefault(); return; } abrirEditor(ctx, m, d, t); } },
         h('span', { class: 'tr-titulo' }, t.titulo),
         meta.length ? h('span', { class: 'tr-metas' }, meta) : null),
       bloqueSub));
+  const fondo = h('div', { class: 'tr-desliza', 'aria-hidden': 'true' }, h('span', { class: 'izq' }, '✓ Completar'), h('span', { class: 'der' }, 'Mañana →'));
+  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}`, 'data-id': t.id }, fondo, fila);
+
+  // Deslizar con el dedo: a la derecha completa, a la izquierda pasa a mañana.
+  if (!hecha(t)) {
+    let x0 = null, y0 = 0, dx = 0, horizontal = false;
+    fila.addEventListener('pointerdown', (e) => {
+      if (e.pointerType !== 'touch' || e.target.closest('.tr-asa, .tr-check, .tr-sub')) return;
+      x0 = e.clientX; y0 = e.clientY; dx = 0; horizontal = false; delete fila.dataset.deslizado;
+    });
+    fila.addEventListener('pointermove', (e) => {
+      if (x0 === null) return;
+      dx = e.clientX - x0;
+      if (!horizontal) {
+        if (Math.abs(e.clientY - y0) > 12) { x0 = null; return; }   // es un scroll
+        if (Math.abs(dx) < 12) return;
+        horizontal = true;
+        li.classList.add('deslizando');
+      }
+      fila.style.transform = `translateX(${dx}px)`;
+      li.classList.toggle('a-la-derecha', dx > 0);
+    });
+    const soltar = async () => {
+      if (x0 === null) return;
+      x0 = null;
+      if (!horizontal) return;
+      fila.dataset.deslizado = '1';
+      setTimeout(() => delete fila.dataset.deslizado, 300);
+      fila.style.transition = 'transform 0.15s';
+      fila.style.transform = '';
+      setTimeout(() => { fila.style.transition = ''; li.classList.remove('deslizando'); }, 160);
+      if (dx > 80) await completar();
+      else if (dx < -80) await aManana();
+    };
+    fila.addEventListener('pointerup', soltar);
+    fila.addEventListener('pointercancel', () => { x0 = null; fila.style.transform = ''; li.classList.remove('deslizando'); });
+  }
+  return li;
 }
 
 // ── Pantalla ──
@@ -126,23 +200,31 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h, icono } = ctx;
   const m = crearModelo(ctx);
-  let vista = sub[0] || 'hoy';
-  if (vista === 'vencidas') vista = 'hoy';
+  let vista = sub[0] || 'inicio';
+  let ancla = '';
+  if (vista === 'proximos') { vista = 'hoy'; ancla = 'proximos'; }
+  if (vista === 'vencidas') { vista = 'hoy'; ancla = 'vencidas'; }
   if (vista === 'sin-area') vista = 'bandeja';
-  const idRuta = sub[1] || '';
+  if (vista === 'hoy' && sub[1]) ancla = sub[1];
+  const idRuta = vista === 'hoy' ? '' : sub[1] || '';
   let d = await m.cargar();
   let consulta = '';
 
+  const esPC = () => window.matchMedia('(min-width: 900px)').matches;
+  const claveHojas = () => (esPC() ? 'hojas-pc' : 'hojas-cel');
+
   const cuerpo = h('div', { class: 'tr-cuerpo-vista' });
+  const barraHojas = h('nav', { class: 'tr-hojas', 'aria-label': 'Hojas de Tareas' });
   const nueva = h('button', { type: 'button', class: 'tr-fab', 'aria-label': 'Nueva tarea', onclick: () => abrirEditor(ctx, m, d, null, valoresPorDefecto()) }, icono('mas'), h('span', {}, 'Nueva tarea'));
 
   contenedor.replaceChildren(
     h('header', { class: 'cabecera-pantalla tr-cabecera' },
       h('h1', {}, 'Tareas'),
       h('div', { class: 'tr-herramientas' },
-        h('a', { href: '#/tareas/buscar', class: 'boton-icono', 'aria-label': 'Buscar tareas' }, ic('buscar')),
-        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Filtros guardados', onclick: abrirFiltros }, ic('filtro')))),
-    cuerpo, nueva);
+        h('a', { href: '#/tareas/buscar', class: 'boton-icono', 'aria-label': 'Buscar tareas', title: 'Buscar' }, ic('buscar')),
+        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Filtros guardados', title: 'Filtros', onclick: abrirFiltros }, ic('filtro')),
+        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Tareas', title: 'Configurar Tareas', onclick: abrirConfig }, ic('engranaje')))),
+    barraHojas, cuerpo, nueva);
 
   function valoresPorDefecto() {
     if (vista === 'hoy') return { fecha: hoy() };
@@ -154,6 +236,13 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   const pendientes = () => d.tareas.filter(t => !hecha(t));
   const cuenta = (filtro) => pendientes().filter(filtro).length;
+  const areasActivas = () => d.areas.filter(a => !a.archivada);
+  const proyectosDe = (areaId) => d.proyectos.filter(p => p.areaId === areaId && !p.archivado);
+  const seccionesDe = (proyectoId) => d.secciones.filter(s => s.proyectoId === proyectoId && !s.archivada);
+  const iconoArea = (a) => a?.icono || 'carpeta';
+  const iconoProyecto = (p) => p?.icono || 'proyecto';
+  const finSemana = () => sumarDias(hoy(), 7);
+
   // Lista común: ordenada por fecha. Con { manual: true } se ordena a mano y se puede arrastrar.
   function lista(tareas, opciones = {}) {
     if (!opciones.manual) return h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, opciones)));
@@ -166,28 +255,93 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return ul;
   }
 
-  function grupo(titulo, tareas, { clase = '', opciones } = {}) {
-    return h('section', { class: `tr-grupo ${clase}` },
-      h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, titulo, h('span', { class: 'tr-grupo-n' }, String(tareas.length)))),
-      tareas.length ? lista(tareas, opciones) : null);
-  }
-
   const vacio = (titulo, texto, ...botones) => h('div', { class: 'vacio' }, h('h2', {}, titulo), texto ? h('p', {}, texto) : null, botones.length ? h('div', { class: 'botonera' }, botones) : null);
   const volver = (href, texto) => h('a', { href, class: 'tr-miga' }, `← ${texto}`);
+  const nada = (texto) => h('p', { class: 'nota tr-nada' }, texto);
 
-  function interruptorHechas(clave, n) {
+  function chipHechas(clave, n) {
     if (!n) return null;
     const visible = mostrarHechas.has(clave);
-    return h('button', { type: 'button', class: 'tr-link', onclick: () => { visible ? mostrarHechas.delete(clave) : mostrarHechas.add(clave); dibujar(); } },
-      visible ? 'Ocultar hechas' : `Mostrar hechas (${n})`);
+    return h('button', { type: 'button', class: `tr-chip${visible ? ' activo' : ''}`, onclick: () => { visible ? mostrarHechas.delete(clave) : mostrarHechas.add(clave); dibujar(); } },
+      visible ? `Ocultar completadas (${n})` : `Ver completadas (${n})`);
   }
 
-  function tituloVista(texto, opciones, extra = null) {
-    return h('div', { class: 'tr-titulo-vista' }, h('h2', {}, texto, extra),
-      opciones ? h('button', { type: 'button', class: 'boton-icono', 'aria-label': `Opciones de ${texto}`, onclick: opciones }, ic('puntos')) : null);
+  function tituloVista(icNombre, texto, opciones, ...extra) {
+    return h('div', { class: 'tr-titulo-vista' },
+      h('h2', {}, icNombre ? ic(icNombre) : null, h('span', {}, texto)),
+      h('div', { class: 'tr-titulo-acc' }, extra,
+        opciones ? h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de ${texto}`, onclick: opciones }, ic('puntos')) : null));
   }
 
-  // ── Filtros guardados (ícono arriba a la derecha) ──
+  // ── Hojas de arriba ──
+
+  function configHojas() {
+    const guardado = d.ajuste(claveHojas()) || {};
+    const base = [
+      { id: 'inicio', nombre: 'Inicio', icono: 'inicio', href: '#/tareas', fija: true, vis: true, modo: 'icono' },
+      { id: 'hoy', nombre: 'Hoy', icono: 'sol', href: '#/tareas/hoy', vis: true, modo: 'ambos', filtro: (t) => t.fecha && t.fecha <= hoy() },
+      { id: 'bandeja', nombre: 'Bandeja', icono: 'bandeja', href: '#/tareas/bandeja', vis: true, modo: 'icono', filtro: (t) => !t.areaId },
+    ];
+    for (const a of areasActivas()) {
+      base.push({ id: `a:${a.id}`, nombre: a.nombre, icono: iconoArea(a), href: `#/tareas/area/${a.id}`, vis: true, modo: 'ambos', filtro: (t) => t.areaId === a.id });
+      for (const p of proyectosDe(a.id)) base.push({ id: `p:${p.id}`, nombre: p.nombre, icono: iconoProyecto(p), href: `#/tareas/proyecto/${p.id}`, vis: false, modo: 'ambos', proyecto: true, filtro: (t) => t.proyectoId === p.id });
+    }
+    const porId = new Map(base.map(x => [x.id, x]));
+    const lista = [porId.get('inicio')];
+    for (const g of guardado.lista || []) {
+      const x = porId.get(g.id);
+      if (!x || x.fija || lista.includes(x)) continue;
+      lista.push({ ...x, vis: g.vis !== false, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
+    }
+    for (const x of base) if (!lista.some(y => y.id === x.id)) lista.push(x);
+    return { lista, compacto: !!guardado.compacto, limite: Number(guardado.limite) || 0 };
+  }
+  const guardarConfig = (cfg, cambios = {}) => m.guardarHojas(claveHojas(), {
+    lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite, ...cambios,
+  });
+
+  function hojaActual(cfg) {
+    const visibles = new Set(cfg.lista.filter(x => x.vis).map(x => x.id));
+    if (vista === 'inicio') return 'inicio';
+    if (vista === 'hoy' || vista === 'bandeja') return vista;
+    const area = vista === 'area' ? idRuta : vista === 'proyecto' ? d.proyecto(idRuta)?.areaId : vista === 'seccion' ? d.proyecto(d.seccion(idRuta)?.proyectoId)?.areaId : null;
+    const proy = vista === 'proyecto' ? idRuta : vista === 'seccion' ? d.seccion(idRuta)?.proyectoId : null;
+    if (proy && visibles.has(`p:${proy}`)) return `p:${proy}`;
+    return area ? `a:${area}` : null;
+  }
+
+  function dibujarHojas(cfg) {
+    const actual = hojaActual(cfg);
+    const vis = cfg.lista.filter(x => x.vis);
+    const mostrar = cfg.limite && vis.length > cfg.limite ? vis.slice(0, cfg.limite) : vis;
+    const resto = vis.filter(x => !mostrar.includes(x));
+    const marca = (x) => {
+      if (!x.filtro) return null;
+      const ts = pendientes().filter(x.filtro);
+      const n = x.id === 'hoy' ? ts.length : ts.filter(t => t.fecha && t.fecha <= hoy()).length;
+      return n ? h('span', { class: `tr-marca${ts.some(vencida) ? ' alerta' : ''}` }, String(n)) : null;
+    };
+    const pestaña = (x) => h('a', {
+      href: x.href, class: `tr-hoja${x.id === actual ? ' activa' : ''}${x.modo === 'icono' ? ' solo-icono' : ''}`,
+      'aria-current': x.id === actual ? 'page' : false, title: x.nombre, 'aria-label': x.nombre,
+    }, x.modo !== 'nombre' ? ic(x.icono) : null, x.modo !== 'icono' ? h('span', {}, x.nombre) : null, marca(x));
+    poner(barraHojas, mostrar.map(pestaña),
+      resto.length ? h('button', {
+        type: 'button', class: `tr-hoja${resto.some(x => x.id === actual) ? ' activa' : ''}`,
+        onclick: () => menu(ctx, 'Más hojas', resto.map(x => ({ texto: x.nombre, accion: () => { location.hash = x.href; } }))),
+      }, h('span', {}, 'Más'), ic('abajo')) : null);
+    // Que la hoja activa quede a la vista si la fila se desliza.
+    // (se mueve solo la fila, sin desplazar la página)
+    requestAnimationFrame(() => {
+      const el = barraHojas.querySelector('.activa');
+      if (!el) return;
+      const izq = el.offsetLeft - barraHojas.offsetLeft, der = izq + el.offsetWidth;
+      if (izq < barraHojas.scrollLeft) barraHojas.scrollLeft = izq - 8;
+      else if (der > barraHojas.scrollLeft + barraHojas.clientWidth) barraHojas.scrollLeft = der - barraHojas.clientWidth + 8;
+    });
+  }
+
+  // ── Filtros guardados ──
 
   function abrirFiltros() {
     menu(ctx, 'Filtros guardados', [
@@ -199,65 +353,282 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     ]);
   }
 
-  // ── Principal: Hoy o Próximos + árbol de Áreas ──
+  // ── Ventana genérica ──
 
-  function principal(modo) {
-    const nVenc = cuenta(vencida);
-    const nHoy = cuenta(deHoy) + nVenc;
-    const selector = h('div', { class: 'tr-selector', role: 'tablist' },
-      h('a', { href: '#/tareas/hoy', role: 'tab', class: 'tr-sel', 'aria-selected': String(modo === 'hoy') },
-        'Hoy', nHoy ? h('span', { class: nVenc ? 'tr-cuenta alerta' : 'tr-cuenta' }, String(nHoy)) : null),
-      h('a', { href: '#/tareas/proximos', role: 'tab', class: 'tr-sel', 'aria-selected': String(modo === 'proximos') }, 'Próximos'));
-
-    const contenido = [];
-    if (modo === 'hoy') {
-      const venc = pendientes().filter(vencida);
-      const deHoyL = pendientes().filter(deHoy);
-      const hechasHoy = d.tareas.filter(t => hecha(t) && t.completada && new Date(t.completada).toDateString() === new Date().toDateString());
-      if (venc.length) contenido.push(grupo('Vencidas', venc, { clase: 'tr-grupo-vencidas' }));
-      if (deHoyL.length) contenido.push(venc.length ? grupo('Hoy', deHoyL) : lista(deHoyL));
-      if (!venc.length && !deHoyL.length) contenido.push(h('p', { class: 'nota tr-nada' }, 'Nada pendiente para hoy.'));
-      if (hechasHoy.length) contenido.push(h('details', { class: 'tr-hechas' }, h('summary', {}, `Hechas hoy (${hechasHoy.length})`), lista(hechasHoy)));
-    } else {
-      const futuras = pendientes().filter(t => t.fecha && t.fecha > hoy());
-      if (!futuras.length) contenido.push(h('p', { class: 'nota tr-nada' }, 'Sin tareas con fecha a partir de mañana.'));
-      for (const f of [...new Set(futuras.map(t => t.fecha))].sort()) contenido.push(grupo(textoFecha(f), futuras.filter(t => t.fecha === f)));
-    }
-
-    return [selector, h('div', { class: 'tr-dia' }, contenido), h('hr', { class: 'tr-separador' }), ...arbolAreas()];
+  function ventana(titulo, contenido, { botones = null } = {}) {
+    const dlg = h('dialog', { class: 'hoja tr-ventana' },
+      h('header', { class: 'hoja-cabecera' }, h('h2', {}, titulo),
+        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
+      h('div', { class: 'tr-ventana-cuerpo' }, contenido),
+      botones ? h('div', { class: 'hoja-botones' }, botones) : null);
+    // Si cambia la pantalla (por ejemplo, con el botón atrás), la ventana se cierra.
+    const alNavegar = () => { if (dlg.open) dlg.close(); };
+    window.addEventListener('hashchange', alNavegar);
+    dlg.addEventListener('close', () => { window.removeEventListener('hashchange', alNavegar); dlg.remove(); });
+    document.body.append(dlg);
+    dlg.showModal();
+    return dlg;
   }
 
-  function arbolAreas() {
-    const nodo = (href, icNombre, nombre, n, clase, extra = null) => h('a', { href, class: `tr-nodo ${clase}` },
-      ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre, extra), n ? h('span', { class: 'tr-cuenta' }, String(n)) : null);
+  // ── Configuración (engranaje) ──
 
-    const crear = async () => {
-      const nombre = await pedirNombre(ctx, 'Nueva área', '', 'Crear área');
-      if (nombre) { await m.crearArea(nombre); ctx.aviso(`Área "${nombre}" creada`); }
+  function abrirConfig() {
+    let cfg = configHojas();
+    const contenido = h('div', { class: 'tr-config' });
+    const guardar = async (cambios = {}) => { await guardarConfig(cfg, cambios); };
+    const seg = (opciones, actual, alElegir) => h('span', { class: 'tr-seg' }, opciones.map(([v, etiqueta, titulo]) =>
+      h('button', { type: 'button', class: v === actual ? 'activo' : '', title: titulo || '', 'aria-label': titulo || (typeof etiqueta === 'string' ? etiqueta : ''), 'aria-pressed': String(v === actual), onclick: () => alElegir(v) }, etiqueta)));
+    function pintar() {
+      const filas = cfg.lista.map((x, i) => h('div', { class: `tr-cfg-hoja${x.proyecto ? ' proyecto' : ''}${x.vis ? '' : ' oculta'}` },
+        h('span', { class: 'tr-cfg-nombre' }, ic(x.icono), h('span', {}, x.nombre)),
+        x.fija ? h('small', { class: 'nota' }, 'siempre') : h('button', {
+          type: 'button', role: 'switch', 'aria-checked': String(x.vis), 'aria-label': `Mostrar ${x.nombre}`, class: `tr-switch${x.vis ? ' on' : ''}`,
+          onclick: async () => { x.vis = !x.vis; pintar(); await guardar(); },
+        }),
+        seg([['icono', ic(x.icono), 'Solo ícono'], ['ambos', 'Ambos', 'Ícono y nombre'], ['nombre', 'Aa', 'Solo nombre']], x.modo, async (v) => { x.modo = v; pintar(); await guardar(); }),
+        h('button', { type: 'button', class: 'tr-mini', 'aria-label': `Subir ${x.nombre}`, disabled: i <= 1, onclick: async () => { [cfg.lista[i - 1], cfg.lista[i]] = [cfg.lista[i], cfg.lista[i - 1]]; pintar(); await guardar(); } }, '↑'),
+        h('button', { type: 'button', class: 'tr-mini', 'aria-label': `Bajar ${x.nombre}`, disabled: x.fija || i === cfg.lista.length - 1, onclick: async () => { [cfg.lista[i + 1], cfg.lista[i]] = [cfg.lista[i], cfg.lista[i + 1]]; pintar(); await guardar(); } }, '↓')));
+      const limite = h('select', { 'aria-label': 'Hojas visibles a la vez', onchange: async (e) => { cfg.limite = Number(e.target.value); await guardar(); } },
+        [0, 3, 4, 5, 6, 8].map(n => h('option', { value: String(n), selected: cfg.limite === n }, n ? `${n} (el resto en "Más")` : 'Sin límite')));
+      const enPapelera = gruposPapelera().length;
+      const archivados = d.areas.filter(a => a.archivada).length + d.proyectos.filter(p => p.archivado).length + d.secciones.filter(s => s.archivada).length;
+      poner(contenido,
+        h('h3', {}, 'Vista'),
+        h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Modo de las listas'),
+          seg([[false, 'Normal'], [true, 'Compacto']], cfg.compacto, async (v) => { cfg.compacto = v; pintar(); await guardar(); })),
+        h('div', { class: 'tr-cfg-fila' }, h('span', {}, 'Hojas visibles a la vez'), limite),
+        h('p', { class: 'nota' }, `Esto se guarda por separado en el celular y en la PC (ahora estás en ${esPC() ? 'la PC' : 'el celular'}).`),
+        h('h3', {}, 'Hojas'),
+        h('p', { class: 'nota' }, 'Prendé las que quieras ver arriba y elegí cómo se muestra cada una: solo ícono, ícono y nombre, o solo nombre.'),
+        filas,
+        h('h3', {}, 'Más'),
+        h('button', { type: 'button', class: 'tr-cfg-item', onclick: () => { dlg.close(); abrirPapelera(); } }, ic('papelera'), h('span', {}, 'Papelera'), h('small', {}, String(enPapelera))),
+        h('button', { type: 'button', class: 'tr-cfg-item', onclick: () => { dlg.close(); abrirArchivados(); } }, ic('archivo'), h('span', {}, 'Archivados'), h('small', {}, String(archivados))));
+    }
+    pintar();
+    const dlg = ventana('Configurar Tareas', contenido);
+  }
+
+  // ── Papelera y archivados ──
+
+  function gruposPapelera() {
+    const grupos = new Map();
+    const peso = { areas: 0, proyectos: 1, secciones: 2, tareas: 3 };
+    for (const x of d.papelera) {
+      const g = x.item.papeleraGrupo || x.item.id;
+      if (!grupos.has(g)) grupos.set(g, { grupo: g, items: [] });
+      grupos.get(g).items.push(x);
+    }
+    return [...grupos.values()].map(g => {
+      g.items.sort((a, b) => peso[a.tipo] - peso[b.tipo]);
+      g.raiz = g.items[0];
+      g.cuando = g.raiz.item.enPapelera;
+      return g;
+    }).sort((a, b) => b.cuando - a.cuando);
+  }
+
+  function abrirPapelera() {
+    const contenido = h('div', { class: 'tr-config' });
+    let dlg;
+    function pintar() {
+      const grupos = gruposPapelera();
+      const icTipo = { areas: (x) => iconoArea(x), proyectos: (x) => iconoProyecto(x), secciones: () => 'seccion', tareas: () => 'proyecto' };
+      poner(contenido,
+        h('p', { class: 'nota' }, 'Lo eliminado queda acá 30 días y después se borra solo.'),
+        grupos.length ? grupos.map(g => {
+          const quedan = Math.max(1, 30 - Math.floor((Date.now() - g.cuando) / 86_400_000));
+          const nT = g.items.filter(x => x.tipo === 'tareas').length;
+          return h('div', { class: 'tr-pap' }, ic(icTipo[g.raiz.tipo](g.raiz.item)),
+            h('span', {}, g.raiz.item.nombre || g.raiz.item.titulo, nT && g.raiz.tipo !== 'tareas' ? h('small', {}, ` · con ${nT} tarea${nT > 1 ? 's' : ''}`) : null),
+            h('small', {}, `${quedan} día${quedan > 1 ? 's' : ''}`),
+            h('button', { type: 'button', class: 'tr-chip', onclick: async () => { await m.recuperar(g.grupo); ctx.aviso('Recuperado'); dlg.close(); } }, 'Recuperar'));
+        }) : nada('La papelera está vacía.'));
+    }
+    pintar();
+    dlg = ventana('Papelera', contenido, {
+      botones: d.papelera.length ? [h('button', { type: 'button', class: 'boton peligro', onclick: async () => {
+        if (await ctx.confirmar('¿Vaciar la papelera? Lo que está ahí se borra para siempre.', { si: 'Vaciar', peligro: true })) { await m.vaciarPapelera(); ctx.aviso('Papelera vacía'); dlg.close(); }
+      } }, 'Vaciar papelera')] : null,
+    });
+  }
+
+  function abrirArchivados() {
+    const items = [
+      ...d.areas.filter(a => a.archivada).map(a => ({ ic: iconoArea(a), nombre: a.nombre, detalle: 'Área', restaurar: () => m.archivarArea(a.id, false) })),
+      ...d.proyectos.filter(p => p.archivado).map(p => ({ ic: iconoProyecto(p), nombre: p.nombre, detalle: `Proyecto de ${d.area(p.areaId)?.nombre || '—'}`, restaurar: () => m.archivarProyecto(p.id, false) })),
+      ...d.secciones.filter(s => s.archivada).map(s => ({ ic: 'seccion', nombre: s.nombre, detalle: `Sección de ${d.proyecto(s.proyectoId)?.nombre || '—'}`, restaurar: () => m.archivarSeccion(s.id, false) })),
+    ];
+    const dlg = ventana('Archivados', h('div', { class: 'tr-config' },
+      h('p', { class: 'nota' }, 'Lo archivado no se ve en las listas, pero sus tareas con fecha siguen apareciendo en Hoy.'),
+      items.length ? items.map(x => h('div', { class: 'tr-pap' }, ic(x.ic), h('span', {}, x.nombre, h('small', {}, ` · ${x.detalle}`)),
+        h('button', { type: 'button', class: 'tr-chip', onclick: async () => { await x.restaurar(); ctx.aviso(`"${x.nombre}" restaurado`); dlg.close(); } }, 'Restaurar'))) : nada('No hay nada archivado.')));
+  }
+
+  // ── Menús de área, proyecto y sección ──
+
+  function elegirIcono(tipo, x) {
+    const dlg = ventana(`Ícono de ${x.nombre}`, h('div', { class: 'tr-iconos' }, ICONOS_ELEGIBLES.map(n =>
+      h('button', { type: 'button', class: (x.icono || (tipo === 'areas' ? 'carpeta' : 'proyecto')) === n ? 'activo' : '', 'aria-label': n, onclick: async () => { await m.ponerIcono(tipo, x.id, n); dlg.close(); } }, ic(n)))));
+  }
+
+  function opcionesArea(a) {
+    const hermanas = areasActivas();
+    menu(ctx, a.nombre, [
+      { texto: 'Nuevo proyecto', accion: async () => { const n = await pedirNombre(ctx, 'Nuevo proyecto', '', 'Crear proyecto'); if (n) { await m.crearProyecto(a.id, n); ctx.aviso(`Proyecto "${n}" creado`); } } },
+      { texto: 'Renombrar', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar área', a.nombre); if (n) await m.renombrarArea(a.id, n); } },
+      { texto: 'Cambiar ícono', accion: () => elegirIcono('areas', a) },
+      { texto: 'Subir en la lista', desactivado: a.archivada || hermanas[0]?.id === a.id, accion: () => m.mover('areas', a.id, -1, hermanas) },
+      { texto: 'Bajar en la lista', desactivado: a.archivada || hermanas.at(-1)?.id === a.id, accion: () => m.mover('areas', a.id, 1, hermanas) },
+      a.archivada
+        ? { texto: 'Restaurar', accion: () => m.archivarArea(a.id, false) }
+        : { texto: 'Archivar', accion: async () => { await m.archivarArea(a.id); avisoArchivado(a.nombre, () => m.archivarArea(a.id, false)); if (vista === 'area') ctx.navegar('tareas'); } },
+      { texto: 'Eliminar', peligro: true, accion: () => eliminar('areas', a) },
+    ]);
+  }
+
+  function opcionesProyecto(p) {
+    const hermanos = proyectosDe(p.areaId);
+    menu(ctx, p.nombre, [
+      { texto: 'Nueva sección', accion: async () => { const n = await pedirNombre(ctx, 'Nueva sección', '', 'Crear sección'); if (n) await m.crearSeccion(p.id, n); } },
+      { texto: 'Renombrar', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar proyecto', p.nombre); if (n) await m.renombrarProyecto(p.id, n); } },
+      { texto: 'Cambiar ícono', accion: () => elegirIcono('proyectos', p) },
+      { texto: 'Subir en la lista', desactivado: p.archivado || hermanos[0]?.id === p.id, accion: () => m.mover('proyectos', p.id, -1, hermanos) },
+      { texto: 'Bajar en la lista', desactivado: p.archivado || hermanos.at(-1)?.id === p.id, accion: () => m.mover('proyectos', p.id, 1, hermanos) },
+      p.archivado
+        ? { texto: 'Restaurar', accion: () => m.archivarProyecto(p.id, false) }
+        : { texto: 'Archivar', accion: async () => { await m.archivarProyecto(p.id); avisoArchivado(p.nombre, () => m.archivarProyecto(p.id, false)); if (vista === 'proyecto') ctx.navegar(`tareas/area/${p.areaId}`); } },
+      { texto: 'Eliminar', peligro: true, accion: () => eliminar('proyectos', p) },
+    ]);
+  }
+
+  function opcionesSeccion(s) {
+    const hermanas = seccionesDe(s.proyectoId);
+    menu(ctx, s.nombre, [
+      { texto: 'Renombrar', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar sección', s.nombre); if (n) await m.renombrarSeccion(s.id, n); } },
+      { texto: 'Subir', desactivado: hermanas[0]?.id === s.id, accion: () => m.mover('secciones', s.id, -1, hermanas) },
+      { texto: 'Bajar', desactivado: hermanas.at(-1)?.id === s.id, accion: () => m.mover('secciones', s.id, 1, hermanas) },
+      { texto: 'Archivar', accion: async () => { await m.archivarSeccion(s.id); avisoArchivado(s.nombre, () => m.archivarSeccion(s.id, false)); if (vista === 'seccion') ctx.navegar(`tareas/proyecto/${s.proyectoId}`); } },
+      { texto: 'Eliminar', peligro: true, accion: () => eliminar('secciones', s) },
+    ]);
+  }
+
+  const avisoArchivado = (nombre, deshacer) => ctx.aviso(`"${nombre}" archivado`, { accion: 'Deshacer', alTocar: deshacer, duracion: 6000 });
+
+  // ── Eliminar: si tiene algo adentro, se elige reubicar o eliminar todo ──
+
+  function eliminar(tipo, x) {
+    const tareas = d.tareas.filter(t => (tipo === 'areas' ? t.areaId === x.id : tipo === 'proyectos' ? t.proyectoId === x.id : t.seccionId === x.id));
+    const nPend = tareas.filter(t => !hecha(t)).length, nHechas = tareas.filter(hecha).length;
+    const nProy = tipo === 'areas' ? d.proyectos.filter(p => p.areaId === x.id).length : 0;
+    const nSec = tipo === 'proyectos' ? d.secciones.filter(s => s.proyectoId === x.id).length : 0;
+    const despues = async (deshacer) => {
+      ctx.aviso(`"${x.nombre}" se fue a la papelera`, { accion: 'Deshacer', alTocar: deshacer, duracion: 7000 });
+      if ((vista === 'area' && tipo === 'areas' && idRuta === x.id) || (vista === 'proyecto' && tipo === 'proyectos' && idRuta === x.id) || (vista === 'seccion' && idRuta === x.id)) {
+        ctx.navegar(tipo === 'secciones' ? `tareas/proyecto/${x.proyectoId}` : tipo === 'proyectos' ? `tareas/area/${x.areaId}` : 'tareas');
+      }
     };
-    const activas = d.areas.filter(a => !a.archivada);
-    const archivadas = d.areas.filter(a => a.archivada);
+    if (!nPend && !nHechas && !nProy && !nSec) { m.eliminar(tipo, x.id, { modo: 'todo' }).then(despues); return; }
 
-    const arbol = h('nav', { class: 'tr-arbol', 'aria-label': 'Áreas' },
-      nodo('#/tareas/bandeja', 'bandeja', 'Bandeja de entrada', cuenta(t => !t.areaId), 'tr-nodo-area tr-nodo-bandeja', h('span', { class: 'tr-predeterminada' }, 'por defecto')),
-      activas.map(a => [
-        nodo(`#/tareas/area/${a.id}`, 'carpeta', a.nombre, cuenta(t => t.areaId === a.id), 'tr-nodo-area'),
-        d.proyectos.filter(p => p.areaId === a.id && !p.archivado).map(p => [
-          nodo(`#/tareas/proyecto/${p.id}`, 'proyecto', p.nombre, cuenta(t => t.proyectoId === p.id), 'tr-nodo-proyecto'),
-          d.secciones.filter(s => s.proyectoId === p.id).map(s =>
-            nodo(`#/tareas/seccion/${s.id}`, 'seccion', s.nombre, cuenta(t => t.seccionId === s.id), 'tr-nodo-seccion')),
-        ]),
-      ]));
+    // A dónde pueden ir las tareas.
+    const opciones = [];
+    const p = tipo === 'secciones' ? d.proyecto(x.proyectoId) : tipo === 'proyectos' ? x : null;
+    const areaPropia = tipo === 'areas' ? null : d.area(tipo === 'proyectos' ? x.areaId : p?.areaId);
+    if (tipo === 'secciones' && p) {
+      opciones.push(['p:' + p.id, `${p.nombre}, sin sección`]);
+      for (const s of seccionesDe(p.id).filter(s => s.id !== x.id)) opciones.push(['s:' + s.id, `${p.nombre} › ${s.nombre}`]);
+    }
+    if (areaPropia) opciones.push(['a:' + areaPropia.id, `Sueltas en ${areaPropia.nombre}`]);
+    opciones.push(['', 'Bandeja de entrada']);
+    for (const a of areasActivas().filter(a => a.id !== x.id)) {
+      if (a.id !== areaPropia?.id) opciones.push(['a:' + a.id, a.nombre]);
+      for (const pr of proyectosDe(a.id).filter(pr => pr.id !== x.id && pr.id !== p?.id)) opciones.push(['p:' + pr.id, `— ${pr.nombre}`]);
+    }
+    const destino = h('select', { 'aria-label': 'Reubicar en' }, opciones.map(([v, t]) => h('option', { value: v }, t)));
+    let modo = 'reubicar', completadas = 'mover';
+    const opcion = (valor, titulo, texto, ...extra) => h('label', { class: `tr-opcion${modo === valor ? ' activa' : ''}`, 'data-valor': valor },
+      h('input', { type: 'radio', name: 'tr-eliminar', value: valor, checked: modo === valor, onchange: () => { modo = valor; marcar(); } }),
+      h('b', {}, titulo), h('small', {}, texto), extra);
+    const segHechas = nHechas ? h('div', { class: 'tr-opcion-extra' }, h('small', {}, nHechas > 1 ? `Las ${nHechas} completadas:` : 'La completada:'),
+      h('span', { class: 'tr-seg' },
+        h('button', { type: 'button', class: 'activo', onclick: (e) => { completadas = 'mover'; e.currentTarget.classList.add('activo'); e.currentTarget.nextElementSibling.classList.remove('activo'); } }, 'Moverlas también'),
+        h('button', { type: 'button', onclick: (e) => { completadas = 'eliminar'; e.currentTarget.classList.add('activo'); e.currentTarget.previousElementSibling.classList.remove('activo'); } }, 'Eliminarlas'))) : null;
+    const contiene = [
+      nProy ? `${nProy} proyecto${nProy > 1 ? 's' : ''}` : '', nSec ? `${nSec} sección${nSec > 1 ? 'es' : ''}` : '',
+      nPend ? `${nPend} tarea${nPend > 1 ? 's' : ''} pendiente${nPend > 1 ? 's' : ''}` : '', nHechas ? `${nHechas} completada${nHechas > 1 ? 's' : ''}` : '',
+    ].filter(Boolean).join(', ');
+    const queMueve = tipo === 'areas' ? 'Las tareas pasan a: (si elegís otra área, los proyectos pasan enteros)' : 'Las tareas pasan a:';
+    const op1 = opcion('reubicar', 'Reubicar', queMueve, destino, segHechas);
+    const op2 = opcion('todo', 'Eliminar todo', 'Se va a la papelera con todo lo que tiene. Lo podés recuperar durante 30 días.');
+    function marcar() { op1.classList.toggle('activa', modo === 'reubicar'); op2.classList.toggle('activa', modo === 'todo'); }
+    const dlg = ventana(`Eliminar ${x.nombre}`, [h('p', { class: 'nota' }, `Contiene ${contiene}. ¿Qué hacemos con lo que tiene adentro?`), op1, op2], {
+      botones: [
+        h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, 'Cancelar'),
+        h('button', { type: 'button', class: 'boton peligro', onclick: async (e) => {
+          e.currentTarget.disabled = true;
+          const v = destino.value;
+          let dest = {};
+          if (v.startsWith('a:')) dest = { areaId: v.slice(2) };
+          else if (v.startsWith('p:')) { const pr = d.proyecto(v.slice(2)); dest = { areaId: pr?.areaId, proyectoId: pr?.id }; }
+          else if (v.startsWith('s:')) { const s = d.seccion(v.slice(2)); const pr = d.proyecto(s?.proyectoId); dest = { areaId: pr?.areaId, proyectoId: pr?.id, seccionId: s?.id }; }
+          const deshacer = await m.eliminar(tipo, x.id, { modo, destino: dest, completadas });
+          dlg.close();
+          despues(deshacer);
+        } }, 'Eliminar'),
+      ],
+    });
+  }
 
+  // ── Inicio: resumen de todo ──
+
+  function vistaInicio() {
+    const venc = pendientes().filter(vencida), deHoyL = pendientes().filter(deHoy);
+    const semana = pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana());
+    const cuadro = (n, texto, ancla2, clase = '') => h('a', { href: `#/tareas/hoy/${ancla2}`, class: `tr-cuadrito ${clase}` }, h('b', {}, String(n)), h('span', {}, texto));
+    const nodo = (href, icNombre, nombre, total, deHoyN, clase = '') => h('a', { href, class: `tr-nodo ${clase}` },
+      ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre),
+      deHoyN ? h('span', { class: 'tr-nodo-hoy' }, `${deHoyN} hoy`) : null,
+      h('span', { class: 'tr-nodo-n' }, total ? String(total) : ''));
+    const hoyEn = (f) => cuenta(t => f(t) && t.fecha && t.fecha <= hoy());
+    const crearArea = async () => { const n = await pedirNombre(ctx, 'Nueva área', '', 'Crear área'); if (n) { await m.crearArea(n); ctx.aviso(`Área "${n}" creada`); } };
     return [
-      h('div', { class: 'tr-grupo-cabecera tr-areas-cabecera' },
-        h('h2', {}, 'Áreas'),
-        h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': 'Nueva área', onclick: crear }, icono('mas'))),
-      arbol,
-      activas.length ? null : h('p', { class: 'nota' }, 'Creá tu primera área con el botón +. Un área es una parte permanente de tu vida, como el trabajo o la casa.'),
-      archivadas.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Áreas archivadas (${archivadas.length})`),
-        h('ul', { class: 'tr-archivo' }, archivadas.map(a => h('li', {}, h('span', {}, a.nombre),
-          h('button', { class: 'tr-link', onclick: () => m.archivarArea(a.id, false) }, 'Restaurar'))))) : null,
+      h('div', { class: 'tr-cuadritos' }, cuadro(venc.length, 'Vencidas', 'vencidas', venc.length ? 'alerta' : ''), cuadro(deHoyL.length, 'Para hoy', 'hoy'), cuadro(semana.length, 'Esta semana', 'proximos')),
+      h('section', { class: 'tr-tarjeta' },
+        h('div', { class: 'tr-tarjeta-cab' }, h('h2', {}, 'Hoy'), h('a', { href: '#/tareas/hoy/hoy', class: 'tr-link' }, 'Ver todo ›')),
+        deHoyL.length ? lista(deHoyL) : nada(venc.length ? `Nada para hoy. Tenés ${venc.length} vencida${venc.length > 1 ? 's' : ''}.` : 'Nada para hoy.')),
+      h('section', { class: 'tr-tarjeta' },
+        h('div', { class: 'tr-tarjeta-cab' }, h('h2', {}, 'Áreas'), h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': 'Nueva área', onclick: crearArea }, icono('mas'))),
+        h('nav', { class: 'tr-arbol', 'aria-label': 'Áreas' },
+          nodo('#/tareas/bandeja', 'bandeja', 'Bandeja de entrada', cuenta(t => !t.areaId), hoyEn(t => !t.areaId), 'tr-nodo-area'),
+          areasActivas().map(a => [
+            nodo(`#/tareas/area/${a.id}`, iconoArea(a), a.nombre, cuenta(t => t.areaId === a.id), hoyEn(t => t.areaId === a.id), 'tr-nodo-area'),
+            proyectosDe(a.id).map(p => nodo(`#/tareas/proyecto/${p.id}`, iconoProyecto(p), p.nombre, cuenta(t => t.proyectoId === p.id), hoyEn(t => t.proyectoId === p.id), 'tr-nodo-proyecto')),
+          ])),
+        areasActivas().length ? null : h('p', { class: 'nota' }, 'Creá tu primera área con el botón +. Un área es una parte permanente de tu vida, como el trabajo o la casa.')),
+    ];
+  }
+
+  // ── Hoy: vencidas, hoy y próximos ──
+
+  function vistaHoy() {
+    const venc = pendientes().filter(vencida), deHoyL = pendientes().filter(deHoy);
+    const prox = pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana());
+    const despues = pendientes().filter(t => t.fecha && t.fecha > finSemana());
+    const hechasHoy = d.tareas.filter(t => hecha(t) && t.completada && new Date(t.completada).toDateString() === new Date().toDateString());
+    const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const porDia = (ts) => [...new Set(ts.map(t => t.fecha))].sort().map(f => [h('p', { class: 'tr-dia-nombre' }, textoFecha(f)), lista(ts.filter(t => t.fecha === f))]);
+    return [
+      venc.length ? h('section', { class: 'tr-grupo tr-grupo-vencidas', id: 'tr-ancla-vencidas' },
+        h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Vencidas', h('span', { class: 'tr-grupo-n' }, String(venc.length)))), lista(venc)) : h('span', { id: 'tr-ancla-vencidas' }),
+      h('section', { class: 'tr-grupo', id: 'tr-ancla-hoy' },
+        h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Hoy', h('span', { class: 'tr-grupo-n' }, fechaHoy))),
+        deHoyL.length ? lista(deHoyL) : nada('Nada para hoy.'),
+        hechasHoy.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Completadas hoy (${hechasHoy.length})`), lista(hechasHoy)) : null),
+      h('section', { class: 'tr-proximos', id: 'tr-ancla-proximos' },
+        h('h2', {}, 'Próximos 7 días'),
+        prox.length ? porDia(prox) : nada('Nada en los próximos 7 días.'),
+        despues.length ? h('button', { type: 'button', class: 'tr-link', onclick: () => { verMasAdelante = !verMasAdelante; dibujar(); } },
+          verMasAdelante ? 'Ocultar lo que viene después' : `Más adelante (${despues.length})`) : null,
+        verMasAdelante && despues.length ? porDia(despues) : null),
     ];
   }
 
@@ -266,123 +637,80 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   function vistaBandeja() {
     const todas = d.tareas.filter(t => !t.areaId);
     const pend = todas.filter(t => !hecha(t)), hechas = todas.filter(hecha);
+    const ver = mostrarHechas.has('bandeja');
     return [
-      volver('#/tareas', 'Tareas'),
-      tituloVista('Bandeja de entrada'),
+      tituloVista('bandeja', 'Bandeja de entrada', null, chipHechas('bandeja', hechas.length)),
       h('p', { class: 'nota' }, 'Lo que capturás desde Inicio llega acá. Abrí cada tarea y asignale un área cuando puedas.'),
-      pend.length ? lista(pend, { ubicacion: false, manual: true }) : vacio('Bandeja vacía', null),
-      interruptorHechas('bandeja', hechas.length),
-      mostrarHechas.has('bandeja') ? lista(hechas, { ubicacion: false, manual: true }) : null,
+      pend.length ? lista(pend, { ubicacion: false, manual: true }) : nada('Bandeja vacía.'),
+      ver && hechas.length ? lista(hechas, { ubicacion: false, manual: true }) : null,
     ];
   }
-
-  // ── Área: tareas sueltas y un grupo por proyecto ──
-
-  function vistaArea() {
-    const a = d.area(idRuta);
-    if (!a) return [vacio('Esta área no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
-    const hermanas = d.areas.filter(x => !x.archivada);
-    const opciones = () => menu(ctx, a.nombre, [
-      { texto: 'Nuevo proyecto', accion: async () => { const n = await pedirNombre(ctx, 'Nuevo proyecto', '', 'Crear proyecto'); if (n) { await m.crearProyecto(a.id, n); ctx.aviso(`Proyecto "${n}" creado`); } } },
-      { texto: 'Renombrar área', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar área', a.nombre); if (n) await m.renombrarArea(a.id, n); } },
-      { texto: 'Subir en la lista', desactivado: hermanas[0]?.id === a.id, accion: () => m.mover('areas', a.id, -1, hermanas) },
-      { texto: 'Bajar en la lista', desactivado: hermanas.at(-1)?.id === a.id, accion: () => m.mover('areas', a.id, 1, hermanas) },
-      a.archivada
-        ? { texto: 'Restaurar área', accion: () => m.archivarArea(a.id, false) }
-        : { texto: 'Archivar área', peligro: true, accion: async () => { if (await ctx.confirmar(`¿Archivar "${a.nombre}"? Deja de verse en la lista, pero sus tareas con fecha siguen apareciendo en Hoy y Próximos. Podés restaurarla cuando quieras.`, { si: 'Archivar' })) { await m.archivarArea(a.id); ctx.navegar('tareas'); } } },
-    ]);
-    const clave = `area-${a.id}`;
-    const delArea = d.tareas.filter(t => t.areaId === a.id);
-    const visibles = mostrarHechas.has(clave) ? delArea : delArea.filter(t => !hecha(t));
-    const proys = d.proyectos.filter(p => p.areaId === a.id && !p.archivado);
-    const proysArch = d.proyectos.filter(p => p.areaId === a.id && p.archivado);
-    const sueltas = visibles.filter(t => !t.proyectoId || !d.proyecto(t.proyectoId) || d.proyecto(t.proyectoId).archivado);
-
-    const partes = [
-      volver('#/tareas', 'Tareas'),
-      tituloVista(a.nombre, opciones, a.archivada ? h('span', { class: 'tr-archivada' }, ' (archivada)') : null),
-      h('div', { class: 'tr-acciones-vista' }, interruptorHechas(clave, delArea.filter(hecha).length)),
-    ];
-    if (sueltas.length || !proys.length) {
-      partes.push(h('section', { class: 'tr-grupo' },
-        proys.length ? h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Sin proyecto')) : null,
-        sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')));
-    }
-    for (const p of proys) {
-      const ts = visibles.filter(t => t.proyectoId === p.id);
-      partes.push(h('section', { class: 'tr-grupo tr-seccion' },
-        h('div', { class: 'tr-grupo-cabecera' },
-          h('a', { href: `#/tareas/proyecto/${p.id}`, class: 'tr-grupo-link' }, h('h2', {}, p.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))), ic('flecha'))),
-        ts.length ? lista(ts, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas pendientes.')));
-    }
-    if (proysArch.length) {
-      partes.push(h('details', { class: 'tr-hechas' }, h('summary', {}, `Proyectos archivados (${proysArch.length})`),
-        h('ul', { class: 'tr-archivo' }, proysArch.map(p => h('li', {}, h('span', {}, p.nombre),
-          h('button', { class: 'tr-link', onclick: () => m.archivarProyecto(p.id, false) }, 'Restaurar'))))));
-    }
-    return partes;
-  }
-
-  // ── Proyecto: un grupo por sección ──
-
-  const opcionesSeccion = (s, secciones) => menu(ctx, s.nombre, [
-    { texto: 'Renombrar sección', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar sección', s.nombre); if (n) await m.renombrarSeccion(s.id, n); } },
-    { texto: 'Subir', desactivado: secciones[0]?.id === s.id, accion: () => m.mover('secciones', s.id, -1, secciones) },
-    { texto: 'Bajar', desactivado: secciones.at(-1)?.id === s.id, accion: () => m.mover('secciones', s.id, 1, secciones) },
-    { texto: 'Borrar sección', peligro: true, accion: async () => {
-      if (await ctx.confirmar(`¿Borrar la sección "${s.nombre}"? Sus tareas no se borran: quedan en el proyecto sin sección.`, { si: 'Borrar sección', peligro: true })) {
-        await m.borrarSeccion(s.id);
-        if (vista === 'seccion') ctx.navegar(`tareas/proyecto/${s.proyectoId}`);
-      }
-    } },
-  ]);
 
   const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrirEditor(ctx, m, d, null, base) }, icono('mas'), 'Agregar tarea');
 
+  // Tareas de un proyecto: sin sección primero y después cada sección.
+  function cuerpoProyecto(p, visibles, { conMenuSeccion = true } = {}) {
+    const secciones = seccionesDe(p.id);
+    const base = { areaId: p.areaId, proyectoId: p.id };
+    const sinSeccion = visibles.filter(t => !t.seccionId || !secciones.some(s => s.id === t.seccionId));
+    return [
+      sinSeccion.length ? lista(sinSeccion, { ubicacion: false, manual: true }) : null,
+      secciones.map(s => {
+        const ts = visibles.filter(t => t.seccionId === s.id);
+        return h('section', { class: 'tr-seccion' },
+          h('div', { class: 'tr-seccion-cab' },
+            h('a', { href: `#/tareas/seccion/${s.id}`, class: 'tr-seccion-nombre' }, s.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
+            conMenuSeccion ? h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de la sección ${s.nombre}`, onclick: () => opcionesSeccion(s) }, ic('puntos')) : null),
+          ts.length ? lista(ts, { ubicacion: false, manual: true }) : null,
+          agregarEn({ ...base, seccionId: s.id }));
+      }),
+    ];
+  }
+
+  // ── Área: tareas sueltas y cada proyecto con sus secciones ──
+
+  function vistaArea() {
+    const a = d.area(idRuta);
+    if (!a) return [vacio('Esta área no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
+    const clave = `area-${a.id}`;
+    const delArea = d.tareas.filter(t => t.areaId === a.id);
+    const visibles = mostrarHechas.has(clave) ? delArea : delArea.filter(t => !hecha(t));
+    const proys = proyectosDe(a.id);
+    const sueltas = visibles.filter(t => !t.proyectoId || !proys.some(p => p.id === t.proyectoId));
+    return [
+      tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), chipHechas(clave, delArea.filter(hecha).length)),
+      sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : (proys.length ? null : nada('Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')),
+      agregarEn({ areaId: a.id }),
+      proys.map(p => {
+        const ts = visibles.filter(t => t.proyectoId === p.id);
+        return h('section', { class: 'tr-proyecto' },
+          h('div', { class: 'tr-proyecto-cab' },
+            h('a', { href: `#/tareas/proyecto/${p.id}`, class: 'tr-proyecto-nombre' }, ic(iconoProyecto(p)), h('span', {}, p.nombre), h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
+            h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de ${p.nombre}`, onclick: () => opcionesProyecto(p) }, ic('puntos'))),
+          cuerpoProyecto(p, ts),
+          seccionesDe(p.id).length ? null : agregarEn({ areaId: a.id, proyectoId: p.id }));
+      }),
+    ];
+  }
+
+  // ── Proyecto ──
+
   function vistaProyecto() {
     const p = d.proyecto(idRuta);
-    if (!p) return [vacio('Este proyecto no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
+    if (!p) return [vacio('Este proyecto no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
     const a = d.area(p.areaId);
-    const hermanos = d.proyectos.filter(x => x.areaId === p.areaId && !x.archivado);
-    const secciones = d.secciones.filter(s => s.proyectoId === p.id);
     const tareas = d.tareas.filter(t => t.proyectoId === p.id);
     const clave = `proyecto-${p.id}`;
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
-
-    const opciones = () => menu(ctx, p.nombre, [
-      { texto: 'Nueva sección', accion: async () => { const n = await pedirNombre(ctx, 'Nueva sección', '', 'Crear sección'); if (n) await m.crearSeccion(p.id, n); } },
-      { texto: 'Renombrar proyecto', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar proyecto', p.nombre); if (n) await m.renombrarProyecto(p.id, n); } },
-      { texto: 'Subir en la lista', desactivado: hermanos[0]?.id === p.id, accion: () => m.mover('proyectos', p.id, -1, hermanos) },
-      { texto: 'Bajar en la lista', desactivado: hermanos.at(-1)?.id === p.id, accion: () => m.mover('proyectos', p.id, 1, hermanos) },
-      p.archivado
-        ? { texto: 'Restaurar proyecto', accion: () => m.archivarProyecto(p.id, false) }
-        : { texto: 'Archivar proyecto', peligro: true, accion: async () => { if (await ctx.confirmar(`¿Archivar "${p.nombre}"? Deja de verse en el área, pero sus tareas con fecha siguen en Hoy y Próximos.`, { si: 'Archivar' })) { await m.archivarProyecto(p.id); ctx.navegar(`tareas/area/${p.areaId}`); } } },
-    ]);
-
-    const base = { areaId: p.areaId, proyectoId: p.id };
-    const sinSeccion = visibles.filter(t => !t.seccionId || !d.seccion(t.seccionId));
-    const partes = [
-      volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
-      tituloVista(p.nombre, opciones, p.archivado ? h('span', { class: 'tr-archivada' }, ' (archivado)') : null),
-      h('div', { class: 'tr-acciones-vista' }, interruptorHechas(clave, tareas.filter(hecha).length)),
+    const cfg = configHojas();
+    const esHoja = cfg.lista.some(x => x.id === `p:${p.id}` && x.vis);
+    return [
+      esHoja ? null : volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
+      tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), chipHechas(clave, tareas.filter(hecha).length)),
+      cuerpoProyecto(p, visibles),
+      agregarEn({ areaId: p.areaId, proyectoId: p.id }),
+      seccionesDe(p.id).length ? null : h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'),
     ];
-    if (sinSeccion.length || !secciones.length) {
-      partes.push(h('section', { class: 'tr-grupo' },
-        secciones.length ? h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Sin sección')) : null,
-        sinSeccion.length ? lista(sinSeccion, { ubicacion: false, manual: true }) : null,
-        agregarEn({ ...base, seccionId: '' })));
-    }
-    for (const s of secciones) {
-      const ts = visibles.filter(t => t.seccionId === s.id);
-      partes.push(h('section', { class: 'tr-grupo tr-seccion' },
-        h('div', { class: 'tr-grupo-cabecera' },
-          h('a', { href: `#/tareas/seccion/${s.id}`, class: 'tr-grupo-link' }, h('h2', {}, s.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length)))),
-          h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de la sección ${s.nombre}`, onclick: () => opcionesSeccion(s, secciones) }, ic('puntos'))),
-        ts.length ? lista(ts, { ubicacion: false, manual: true }) : null,
-        agregarEn({ ...base, seccionId: s.id })));
-    }
-    if (!secciones.length) partes.push(h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'));
-    return partes;
   }
 
   // ── Sección ──
@@ -390,16 +718,14 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   function vistaSeccion() {
     const s = d.seccion(idRuta);
     const p = s && d.proyecto(s.proyectoId);
-    if (!s || !p) return [vacio('Esta sección no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
-    const secciones = d.secciones.filter(x => x.proyectoId === p.id);
+    if (!s || !p) return [vacio('Esta sección no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
     const tareas = d.tareas.filter(t => t.seccionId === s.id);
     const clave = `seccion-${s.id}`;
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
     return [
       volver(`#/tareas/proyecto/${p.id}`, p.nombre),
-      tituloVista(s.nombre, () => opcionesSeccion(s, secciones)),
-      h('div', { class: 'tr-acciones-vista' }, interruptorHechas(clave, tareas.filter(hecha).length)),
-      visibles.length ? lista(visibles, { ubicacion: false, manual: true }) : h('p', { class: 'nota' }, 'Sin tareas pendientes en esta sección.'),
+      tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), chipHechas(clave, tareas.filter(hecha).length)),
+      visibles.length ? lista(visibles, { ubicacion: false, manual: true }) : nada('Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
     ];
   }
@@ -417,10 +743,10 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const pend = resultado.filter(t => !hecha(t)), hechas = resultado.filter(hecha);
     return [
       volver('#/tareas', 'Tareas'),
-      tituloVista(f.nombre, opciones),
+      tituloVista('filtro', f.nombre, opciones),
       resultado.length ? null : h('p', { class: 'nota' }, 'Ninguna tarea cumple este filtro por ahora.'),
       pend.length ? lista(pend) : null,
-      hechas.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Hechas (${hechas.length})`), lista(hechas)) : null,
+      hechas.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Completadas (${hechas.length})`), lista(hechas)) : null,
     ];
   }
 
@@ -434,7 +760,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     poner(zonaResultados,
       encontradas.length ? null : h('p', { class: 'nota' }, 'No hay tareas que coincidan.'),
       pend.length ? lista(pend) : null,
-      hechas.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Hechas (${hechas.length})`), lista(hechas)) : null);
+      hechas.length ? h('details', { class: 'tr-hechas' }, h('summary', {}, `Completadas (${hechas.length})`), lista(hechas)) : null);
   }
   function vistaBuscar() {
     const campo = h('input', {
@@ -449,16 +775,27 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // ── Dibujo ──
 
   const VISTAS = {
-    hoy: () => principal('hoy'), proximos: () => principal('proximos'),
+    inicio: vistaInicio, hoy: vistaHoy,
     bandeja: vistaBandeja, area: vistaArea, proyecto: vistaProyecto, seccion: vistaSeccion,
     filtro: vistaFiltro, buscar: vistaBuscar,
   };
 
   let primeraVez = true;
   function dibujar() {
+    const cfg = configHojas();
+    dibujarHojas(cfg);
+    cuerpo.classList.toggle('tr-compacto', cfg.compacto);
     if (vista === 'buscar' && !primeraVez) { dibujarResultados(); return; }
+    const scroll = window.scrollY;
+    poner(cuerpo, (VISTAS[vista] || VISTAS.inicio)());
+    if (primeraVez && ancla) {
+      // Desde Inicio: bajar hasta Vencidas, Hoy o Próximos.
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`tr-ancla-${ancla}`);
+        if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 70, behavior: 'smooth' });
+      });
+    } else if (!primeraVez) window.scrollTo(0, scroll);
     primeraVez = false;
-    poner(cuerpo, (VISTAS[vista] || VISTAS.hoy)());
   }
 
   let espera = null;
@@ -466,7 +803,11 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     clearTimeout(espera);
     espera = setTimeout(async () => { d = await m.cargar(); dibujar(); }, 60);
   });
+  // Al girar el celular o cambiar el ancho, la configuración puede ser otra (PC o celular).
+  let eraPC = esPC();
+  const alCambiarAncho = () => { if (esPC() !== eraPC) { eraPC = esPC(); dibujar(); } };
+  window.addEventListener('resize', alCambiarAncho);
 
   dibujar();
-  return () => { quitar(); clearTimeout(espera); };
+  return () => { quitar(); clearTimeout(espera); window.removeEventListener('resize', alCambiarAncho); };
 }

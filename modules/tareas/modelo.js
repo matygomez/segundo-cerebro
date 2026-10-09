@@ -2,15 +2,20 @@
 // Tareas: modelo de datos.
 //
 // Colecciones (cada una es un archivo en Drive, dentro de /tareas):
-//   areas      { nombre, orden, archivada }
-//   proyectos  { nombre, areaId, orden, archivado }
-//   secciones  { nombre, proyectoId, orden }
+//   areas      { nombre, icono, orden, archivada }
+//   proyectos  { nombre, icono, areaId, orden, archivado }
+//   secciones  { nombre, proyectoId, orden, archivada }
 //   tareas     { titulo, notas, fecha, hora, inicio, estado ('pendiente' | 'hecha'),
 //                repeticion: { tipo, cada }, etiquetas: [], subtareas: [],
 //                adjuntos: [], duracion, recordatorio, areaId, proyectoId,
 //                seccionId, completada, ultimaCompletada }
 //   comentarios { tareaId, texto, editado }   (uno por registro: no se pisan)
 //   filtros     { nombre, texto, areaId, proyectoId, fecha, incluirHechas }
+//   ajustes     { clave: 'hojas-pc' | 'hojas-cel', lista: [{ id, vis, modo }], compacto, limite }
+//
+// Papelera: lo eliminado no se borra enseguida. Queda marcado con
+// enPapelera (cuándo) y papeleraGrupo (todo lo que se eliminó junto),
+// se puede recuperar, y a los 30 días se borra de verdad.
 //
 // Fechas como texto 'AAAA-MM-DD' (sin zona horaria, como en un calendario).
 // ─────────────────────────────────────────────────────────────
@@ -144,16 +149,33 @@ export function crearModelo(ctx) {
     tareas: ctx.datos('tareas'),
     comentarios: ctx.datos('comentarios'),
     filtros: ctx.datos('filtros'),
+    ajustes: ctx.datos('ajustes'),
   };
+  const DIAS_PAPELERA = 30;
+  const enPapelera = (x) => !!x.enPapelera;
 
   async function cargar() {
-    const [areas, proyectos, secciones, tareas, comentarios, filtros] = await Promise.all(
+    const [todasAreas, todosProyectos, todasSecciones, todasTareas, comentarios, filtros, ajustes] = await Promise.all(
       [col.areas.listar(), col.proyectos.listar(), col.secciones.listar(), col.tareas.listar(),
-        col.comentarios.listar(), col.filtros.listar()]);
+        col.comentarios.listar(), col.filtros.listar(), col.ajustes.listar()]);
+    // Lo que está en la papelera no se ve en ningún lado; lo que pasó los 30 días se borra.
+    const vence = Date.now() - DIAS_PAPELERA * 86_400_000;
+    const papelera = [];
+    for (const [tipo, lista] of [['areas', todasAreas], ['proyectos', todosProyectos], ['secciones', todasSecciones], ['tareas', todasTareas]]) {
+      for (const x of lista.filter(enPapelera)) {
+        if (x.enPapelera < vence) col[tipo].borrar(x.id).catch(() => {});
+        else papelera.push({ tipo, item: x });
+      }
+    }
+    const areas = todasAreas.filter(x => !enPapelera(x));
+    const proyectos = todosProyectos.filter(x => !enPapelera(x));
+    const secciones = todasSecciones.filter(x => !enPapelera(x));
+    const tareas = todasTareas.filter(x => !enPapelera(x));
     areas.sort(porOrden); proyectos.sort(porOrden); secciones.sort(porOrden);
     comentarios.sort((a, b) => a.creado - b.creado);
     filtros.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    const d = { areas, proyectos, secciones, tareas, comentarios, filtros };
+    const d = { areas, proyectos, secciones, tareas, comentarios, filtros, ajustes, papelera };
+    d.ajuste = (clave) => ajustes.find(a => a.clave === clave);
     d.comentariosDe = (tareaId) => comentarios.filter(c => c.tareaId === tareaId);
     d.filtro = (id) => filtros.find(f => f.id === id);
     d.area = (id) => areas.find(a => a.id === id);
@@ -300,6 +322,103 @@ export function crearModelo(ctx) {
       }
       return col.secciones.borrar(id);
     },
+
+    // Ícono de un área o proyecto.
+    ponerIcono: (tipo, id, icono) => col[tipo].actualizar(id, { icono }),
+    archivarSeccion: (id, archivada = true) => col.secciones.actualizar(id, { archivada }),
+
+    // Hojas de arriba, modo compacto y límite: se guardan por dispositivo (PC o celular).
+    async guardarHojas(clave, cambios) {
+      const existente = (await col.ajustes.listar()).find(a => a.clave === clave);
+      if (existente) return col.ajustes.actualizar(existente.id, cambios);
+      return col.ajustes.crear({ clave, ...cambios });
+    },
+
+    // ── Eliminar con papelera ──
+    // tipo: 'areas' | 'proyectos' | 'secciones'.
+    // modo: 'todo' (se elimina con todo lo que tiene) o 'reubicar'.
+    // destino (si reubica): { areaId, proyectoId, seccionId } donde van las tareas.
+    //   Si es un área sin proyecto, los proyectos del área eliminada pasan enteros a esa área.
+    // completadas (si reubica): 'mover' o 'eliminar'.
+    // Devuelve una función para deshacer.
+    async eliminar(tipo, id, { modo = 'todo', destino = null, completadas = 'mover' } = {}) {
+      const grupo = `g${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+      const marca = { enPapelera: Date.now(), papeleraGrupo: grupo };
+      const [areas, proyectos, secciones, tareas] = await Promise.all([col.areas.listar(), col.proyectos.listar(), col.secciones.listar(), col.tareas.listar()]);
+      const vivos = (l) => l.filter(x => !enPapelera(x));
+      // Lo que cuelga del elemento.
+      let proys = [], secs = [], ts = [];
+      if (tipo === 'areas') {
+        proys = vivos(proyectos).filter(p => p.areaId === id);
+        secs = vivos(secciones).filter(x => proys.some(p => p.id === x.proyectoId));
+        ts = vivos(tareas).filter(t => t.areaId === id);
+      } else if (tipo === 'proyectos') {
+        secs = vivos(secciones).filter(x => x.proyectoId === id);
+        ts = vivos(tareas).filter(t => t.proyectoId === id);
+      } else {
+        ts = vivos(tareas).filter(t => t.seccionId === id);
+      }
+      const deshacer = [];
+      const papeleraDe = async (coleccion, x) => { await col[coleccion].actualizar(x.id, marca); deshacer.push(() => col[coleccion].actualizar(x.id, { enPapelera: null, papeleraGrupo: null })); };
+      const mover = async (t, cambios) => {
+        const antes = { areaId: t.areaId || '', proyectoId: t.proyectoId || '', seccionId: t.seccionId || '' };
+        await col.tareas.actualizar(t.id, cambios);
+        deshacer.push(() => col.tareas.actualizar(t.id, antes));
+      };
+
+      await papeleraDe(tipo, { id });
+      if (modo === 'todo' || !destino) {
+        for (const p of proys) await papeleraDe('proyectos', p);
+        for (const x of secs) await papeleraDe('secciones', x);
+        for (const t of ts) await papeleraDe('tareas', t);
+      } else {
+        const d = { areaId: destino.areaId || '', proyectoId: destino.proyectoId || '', seccionId: destino.seccionId || '' };
+        // Un área entera a otra área: los proyectos pasan con sus secciones y sus tareas.
+        const proyectosPasan = tipo === 'areas' && d.areaId && !d.proyectoId;
+        for (const p of proys) {
+          if (proyectosPasan) {
+            await col.proyectos.actualizar(p.id, { areaId: d.areaId });
+            deshacer.push(() => col.proyectos.actualizar(p.id, { areaId: id }));
+          } else {
+            await papeleraDe('proyectos', p);
+            for (const x of secs.filter(x => x.proyectoId === p.id)) await papeleraDe('secciones', x);
+          }
+        }
+        if (!proyectosPasan) for (const x of secs.filter(x => !proys.length || !proys.some(p => p.id === x.proyectoId))) await papeleraDe('secciones', x);
+        for (const t of ts) {
+          if (hecha(t) && completadas === 'eliminar') { await papeleraDe('tareas', t); continue; }
+          if (proyectosPasan && t.proyectoId && proys.some(p => p.id === t.proyectoId)) await mover(t, { areaId: d.areaId });
+          else await mover(t, d);
+        }
+      }
+      return async () => { for (const f of deshacer.reverse()) await f(); };
+    },
+
+    // Recupera todo lo que se eliminó junto.
+    async recuperar(grupo) {
+      for (const tipo of ['areas', 'proyectos', 'secciones', 'tareas']) {
+        const lista = await col[tipo].listar();
+        for (const x of lista.filter(x => x.papeleraGrupo === grupo)) {
+          await col[tipo].actualizar(x.id, { enPapelera: null, papeleraGrupo: null });
+          // Si su área o proyecto también está en la papelera, vuelve con él.
+          const padre = tipo === 'proyectos' ? ['areas', x.areaId] : tipo === 'secciones' ? ['proyectos', x.proyectoId] : null;
+          if (padre) {
+            const p = (await col[padre[0]].listar()).find(y => y.id === padre[1]);
+            if (p?.enPapelera) await col[padre[0]].actualizar(p.id, { enPapelera: null, papeleraGrupo: null });
+          }
+        }
+      }
+    },
+
+    // Borra de verdad lo que está en la papelera (todo, o un grupo).
+    async vaciarPapelera(grupo = null) {
+      for (const tipo of ['tareas', 'secciones', 'proyectos', 'areas']) {
+        for (const x of (await col[tipo].listar()).filter(x => x.enPapelera && (!grupo || x.papeleraGrupo === grupo))) await col[tipo].borrar(x.id);
+      }
+    },
+
+    // Pasa una tarea a otra fecha (deslizar a la izquierda = mañana).
+    cambiarFecha: (t, fecha) => col.tareas.actualizar(t.id, { fecha }),
 
     // Mueve un elemento un lugar arriba (-1) o abajo (+1) entre sus hermanos.
     async mover(tipo, id, direccion, hermanos) {
