@@ -244,42 +244,46 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   const cuerpo = h('div', { class: 'tr-cuerpo-vista' });
   const barraHojas = h('nav', { class: 'tr-hojas', 'aria-label': 'Hojas de Tareas' });
-  // Detalle en la PC: entra desde el borde derecho, encima de la lista (la lista
-  // no se mueve). Tiene su propio scroll y una manija para cambiar el ancho.
+  // Detalle en la PC: al abrirlo, la lista se achica desde la derecha (el borde
+  // izquierdo no se mueve) y el detalle queda al lado, con su propio scroll y
+  // una manija para cambiar el ancho.
   const panelContenido = h('div', { class: 'tr-panel-contenido' });
   const asaPanel = h('div', { class: 'tr-panel-asa', role: 'separator', 'aria-orientation': 'vertical', 'aria-label': 'Cambiar el ancho del detalle', title: 'Arrastrá para cambiar el ancho' });
   const panel = h('aside', { class: 'tr-panel', hidden: true, 'aria-label': 'Detalle de la tarea' }, asaPanel, panelContenido);
-  const zona = h('div', { class: 'tr-zona' }, cuerpo, panel);
+  const columnaLista = h('div', { class: 'tr-columna' });
+  const zona = h('div', { class: 'tr-zona' }, columnaLista, panel);
   const ANCHO_MIN = 360;
-  const anchoMax = () => Math.max(ANCHO_MIN, window.innerWidth - 420);
-  const ponerAncho = (px) => { const w = Math.round(Math.min(anchoMax(), Math.max(ANCHO_MIN, px))); panel.style.setProperty('--tr-ancho-panel', `${w}px`); return w; };
+  const anchoMax = () => Math.max(ANCHO_MIN, (zona.getBoundingClientRect().width || window.innerWidth) - 420);
+  const ponerAncho = (px) => { const w = Math.round(Math.min(anchoMax(), Math.max(ANCHO_MIN, px))); zona.style.setProperty('--tr-ancho-panel', `${w}px`); return w; };
   try { ponerAncho(Number(localStorage.getItem('tr-ancho-panel')) || 520); } catch { ponerAncho(520); }
   asaPanel.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     panel.classList.add('ajustando');
-    const mover = (ev) => ponerAncho(window.innerWidth - ev.clientX);
+    const borde = panel.getBoundingClientRect().right;
+    const mover = (ev) => ponerAncho(borde - ev.clientX);
     const soltar = (ev) => {
       window.removeEventListener('pointermove', mover);
       window.removeEventListener('pointerup', soltar);
       panel.classList.remove('ajustando');
-      try { localStorage.setItem('tr-ancho-panel', String(ponerAncho(window.innerWidth - ev.clientX))); } catch { /* sin almacenamiento */ }
+      try { localStorage.setItem('tr-ancho-panel', String(ponerAncho(borde - ev.clientX))); } catch { /* sin almacenamiento */ }
     };
     window.addEventListener('pointermove', mover);
     window.addEventListener('pointerup', soltar);
   });
-  // Que arranque justo debajo de la barra de arriba de la app.
-  const ubicarPanel = () => { const b = document.querySelector('.barra'); panel.style.top = `${b ? Math.max(0, b.getBoundingClientRect().bottom) : 0}px`; };
+  // Queda fijo justo debajo de la barra de arriba de la app mientras bajás la lista.
+  const ubicarPanel = () => { const b = document.querySelector('.barra'); panel.style.setProperty('--tr-arriba', `${b ? Math.max(0, b.getBoundingClientRect().bottom) : 0}px`); };
   let cierrePanel = null;
   function mostrarPanel() {
     clearTimeout(cierrePanel);
     ubicarPanel();
     panel.hidden = false;
-    requestAnimationFrame(() => requestAnimationFrame(() => panel.classList.add('abierto')));
+    zona.classList.add('con-detalle');
+    ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 520);
   }
   function ocultarPanel() {
-    panel.classList.remove('abierto');
-    clearTimeout(cierrePanel);
-    cierrePanel = setTimeout(() => { if (!editor) { panel.hidden = true; panelContenido.replaceChildren(); } }, 220);
+    zona.classList.remove('con-detalle');
+    panel.hidden = true;
+    panelContenido.replaceChildren();
   }
   const nueva = h('button', { type: 'button', class: 'tr-fab', 'aria-label': 'Nueva tarea', onclick: () => abrir(null, valoresPorDefecto()) }, icono('mas'), h('span', {}, 'Nueva tarea'));
 
@@ -316,7 +320,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   };
   document.addEventListener('pointerdown', alTocarAfuera, true);
 
-  contenedor.replaceChildren(
+  columnaLista.replaceChildren(
     h('header', { class: 'cabecera-pantalla tr-cabecera' },
       h('h1', {}, 'Tareas'),
       h('div', { class: 'tr-herramientas' },
@@ -324,7 +328,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Filtros guardados', title: 'Filtros', onclick: abrirFiltros }, ic('filtro')),
         h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Tareas', title: 'Configurar Tareas', onclick: abrirConfig }, ic('engranaje')),
         h('button', { type: 'button', class: 'boton principal tr-nueva-arriba', onclick: () => abrir(null, valoresPorDefecto()) }, icono('mas'), 'Nueva tarea'))),
-    barraHojas, zona, nueva);
+    barraHojas, cuerpo);
+  contenedor.replaceChildren(zona, nueva);
 
   function valoresPorDefecto() {
     if (vista === 'hoy') return { fecha: hoy() };
@@ -940,7 +945,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     eraPC = esPC();
     // El detalle al costado solo existe en la PC.
     if (!eraPC && editor) editor.cerrar();
-    if (eraPC) ponerAncho(parseFloat(panel.style.getPropertyValue('--tr-ancho-panel')) || 520);
+    if (eraPC) ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 520);
     dibujar();
   };
   window.addEventListener('resize', alCambiarAncho);
