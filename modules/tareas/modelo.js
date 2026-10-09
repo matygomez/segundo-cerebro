@@ -8,7 +8,11 @@
 //   tareas     { titulo, notas, fecha, hora, inicio, estado ('pendiente' | 'hecha'),
 //                repeticion: { tipo, cada }, etiquetas: [], subtareas: [],
 //                adjuntos: [], duracion, recordatorio, areaId, proyectoId,
-//                seccionId, completada, ultimaCompletada }
+//                seccionId, completada, ultimaCompletada, padreId }
+//                padreId: si es una subtarea, la tarea madre. Las subtareas son
+//                tareas completas (fecha, notas, adjuntos, comentarios…).
+//                (subtareas: lista simple de la versión anterior; al cargar se
+//                 convierten en subtareas de verdad y la lista queda vacía.)
 //   comentarios { tareaId, texto, editado }   (uno por registro: no se pisan)
 //   filtros     { nombre, texto, areaId, proyectoId, fecha, incluirHechas }
 //   ajustes     { clave: 'hojas-pc' | 'hojas-cel', lista: [{ id, vis, modo }], compacto, limite }
@@ -141,6 +145,8 @@ export function aplicarFiltro(tareas, f) {
 
 // ── Operaciones ─────────────────────────────────────────────
 
+const migrandoAhora = new Set();   // evita convertir dos veces si se carga en paralelo
+
 export function crearModelo(ctx) {
   const col = {
     areas: ctx.datos('areas'),
@@ -170,7 +176,35 @@ export function crearModelo(ctx) {
     const areas = todasAreas.filter(x => !enPapelera(x));
     const proyectos = todosProyectos.filter(x => !enPapelera(x));
     const secciones = todasSecciones.filter(x => !enPapelera(x));
-    const tareas = todasTareas.filter(x => !enPapelera(x));
+    let tareas = todasTareas.filter(x => !enPapelera(x));
+    // Subtareas viejas (lista simple) → tareas hijas. Si dos dispositivos las
+    // convirtieron a la vez, quedan duplicadas: se deja una sola.
+    const migradas = new Map();
+    for (const t of [...tareas].sort((a, b) => a.creado - b.creado)) {
+      if (!t.migradaDe) continue;
+      if (migradas.has(t.migradaDe)) { col.tareas.borrar(t.id).catch(() => {}); tareas = tareas.filter(x => x !== t); }
+      else migradas.set(t.migradaDe, t);
+    }
+    for (const t of tareas.filter(t => (t.subtareas || []).length)) {
+      let orden = Date.now();
+      for (const sub of t.subtareas) {
+        const clave = `${t.id}:${sub.id}`;
+        if (!migradas.has(clave) && !migrandoAhora.has(clave) && String(sub.texto || '').trim()) {
+          migrandoAhora.add(clave);
+          const nueva = {
+            titulo: String(sub.texto).trim(), estado: sub.hecha ? 'hecha' : 'pendiente', padreId: t.id, migradaDe: clave,
+            areaId: t.areaId || '', proyectoId: t.proyectoId || '', seccionId: t.seccionId || '',
+            fecha: '', hora: '', notas: '', etiquetas: [], subtareas: [], adjuntos: [], orden: orden++,
+            completada: null,
+          };
+          const id = await col.tareas.crear(nueva);
+          migradas.set(clave, true);
+          tareas.push({ ...nueva, id, creado: Date.now(), modificado: Date.now() });
+        }
+      }
+      await col.tareas.actualizar(t.id, { subtareas: [] });
+      t.subtareas = [];
+    }
     areas.sort(porOrden); proyectos.sort(porOrden); secciones.sort(porOrden);
     comentarios.sort((a, b) => a.creado - b.creado);
     filtros.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -181,7 +215,19 @@ export function crearModelo(ctx) {
     d.area = (id) => areas.find(a => a.id === id);
     d.proyecto = (id) => proyectos.find(p => p.id === id);
     d.seccion = (id) => secciones.find(s => s.id === id);
+    d.tarea = (id) => tareas.find(t => t.id === id);
+    d.hijas = (id) => ordenarManual(tareas.filter(t => t.padreId === id));
+    d.padre = (t) => (t?.padreId ? tareas.find(x => x.id === t.padreId) || null : null);
     return d;
+  }
+
+  // Subtareas, subtareas de subtareas, etc.
+  async function descendientes(id) {
+    const todas = (await col.tareas.listar()).filter(t => !enPapelera(t));
+    const salida = [];
+    const juntar = (pid) => { for (const t of todas.filter(t => t.padreId === pid)) { salida.push(t); juntar(t.id); } };
+    juntar(id);
+    return salida;
   }
 
   const siguienteOrden = async (coleccion, filtro = () => true) =>
@@ -203,6 +249,7 @@ export function crearModelo(ctx) {
     if (!t.repeticion?.tipo) t.repeticion = null;
     if (!t.areaId) t.proyectoId = '';
     if (!t.proyectoId) t.seccionId = '';
+    t.padreId = t.padreId || '';
     return t;
   }
 
@@ -222,13 +269,26 @@ export function crearModelo(ctx) {
       if (!t.titulo) throw new Error('La tarea necesita un título');
       const antes = await col.tareas.obtener(id);
       t.estado = antes?.estado === 'hecha' ? 'hecha' : 'pendiente';
-      return col.tareas.actualizar(id, t);
+      if (antes?.padreId && !datos.padreId) t.padreId = antes.padreId;
+      await col.tareas.actualizar(id, t);
+      // Si la tarea cambió de lugar, sus subtareas la siguen.
+      if (antes && (antes.areaId !== t.areaId || antes.proyectoId !== t.proyectoId || antes.seccionId !== t.seccionId)) {
+        for (const h of await descendientes(id)) await col.tareas.actualizar(h.id, { areaId: t.areaId, proyectoId: t.proyectoId, seccionId: t.seccionId });
+      }
     },
 
     async borrarTarea(id) {
-      for (const c of (await col.comentarios.listar()).filter(c => c.tareaId === id)) await col.comentarios.borrar(c.id);
-      return col.tareas.borrar(id);
+      for (const x of [...await descendientes(id), { id }]) {
+        for (const c of (await col.comentarios.listar()).filter(c => c.tareaId === x.id)) await col.comentarios.borrar(c.id);
+        await col.tareas.borrar(x.id);
+      }
     },
+
+    // Subtarea nueva: hereda el lugar de la madre.
+    async crearSubtarea(madre, titulo) {
+      return this.crearTarea({ titulo, padreId: madre.id, areaId: madre.areaId || '', proyectoId: madre.proyectoId || '', seccionId: madre.seccionId || '' });
+    },
+    descendientes: (id) => descendientes(id),
 
     // Comentarios
     comentar(tareaId, texto) { return col.comentarios.crear({ tareaId, texto: texto.trim(), editado: false }); },
@@ -269,6 +329,11 @@ export function crearModelo(ctx) {
       }
       await col.tareas.actualizar(t.id, { ...t, estado: 'hecha', completada: Date.now() });
       return null;
+    },
+
+    // Completa las subtareas pendientes (las que se repiten pasan a su próxima fecha).
+    async completarSubtareas(t) {
+      for (const x of await descendientes(t.id)) if (!hecha(x)) await this.completar(x);
     },
 
     // Guarda el nuevo lugar de una tarea: queda entre "antes" y "despues".

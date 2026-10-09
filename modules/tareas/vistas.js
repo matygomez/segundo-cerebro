@@ -81,15 +81,21 @@ export function cargarEstilos() {
   document.head.append(l);
 }
 
+// Quién abre el detalle de una tarea. Dentro de Tareas (en la PC) lo abre al
+// costado; en el resto de la app, como ventana.
+let abridor = null;
+const abrirTarea = (ctx, m, d, t) => (abridor ? abridor(t) : abrirEditor(ctx, m, d, t));
+
 const mostrarHechas = new Set();     // vistas donde se pidió ver las completadas
 const subPlegadas = new Set();       // tareas con las subtareas plegadas
 let verMasAdelante = false;          // en Hoy: mostrar también lo que viene después de 7 días
 
 // ── Fila de una tarea (se usa también en el bloque de Inicio) ──
 
-export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } = {}) {
+export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, nivel = 0, marcaMadre = false } = {}) {
   const { h } = ctx;
-  const subs = t.subtareas || [];
+  const subs = d.hijas ? d.hijas(t.id) : [];
+  const madre = d.padre ? d.padre(t) : null;
   const nComentarios = d.comentariosDe ? d.comentariosDe(t.id).length : 0;
   const plegada = subPlegadas.has(t.id);
 
@@ -104,10 +110,18 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
     const a = d.area?.(t.areaId), p = d.proyecto?.(t.proyectoId);
     meta.push(h('span', { class: 'tr-meta tr-ubic' }, ic(p?.icono || (p ? 'proyecto' : a?.icono || (a ? 'carpeta' : 'bandeja'))), p?.nombre || a?.nombre || 'Bandeja'));
   }
+  if (marcaMadre && madre) meta.push(h('span', { class: 'tr-meta tr-de-madre', title: 'Es subtarea de' }, '↳ ', madre.titulo));
   for (const e of t.etiquetas || []) meta.push(h('span', { class: 'tr-etiqueta' }, `#${e}`));
 
   const completar = async () => {
     if (hecha(t)) { await m.reabrir(t); return; }
+    // Si tiene subtareas sin terminar, pregunta qué hacer con ellas.
+    const pendientes = subs.filter(x => !hecha(x)).length;
+    if (pendientes) {
+      const r = await preguntarSubtareas(ctx, t, pendientes);
+      if (!r) return false;
+      if (r === 'todas') await m.completarSubtareas(t);
+    }
     const prox = await m.completar(t);
     if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
     else ctx.aviso(`Completada: "${t.titulo}"`, { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }), duracion: 6000 });
@@ -121,18 +135,16 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
   const check = h('button', {
     type: 'button', class: `tr-check${hecha(t) ? ' hecha' : ''}`,
     'aria-label': hecha(t) ? `Reabrir "${t.titulo}"` : `Completar "${t.titulo}"`,
-    onclick: async (e) => { e.currentTarget.disabled = true; await completar(); },
+    onclick: async (e) => { const b = e.currentTarget; b.disabled = true; if (await completar() === false) b.disabled = false; },
   }, h('span', { class: 'tr-check-marca' }));
 
-  // Subtareas: desplegadas por defecto; con un toque se pliegan.
+  // Subtareas: tareas completas debajo de su madre. Desplegadas por defecto;
+  // con un toque se pliegan. Tocando una se abre su detalle.
   let bloqueSub = null;
   if (subs.length) {
-    const hechas = subs.filter(s => s.hecha).length;
-    const lista = h('ul', { class: 'tr-sub-lista', hidden: plegada },
-      subs.map(s => h('li', {},
-        h('label', {},
-          h('input', { type: 'checkbox', checked: !!s.hecha, onchange: () => m.alternarSubtarea(t, s.id) }),
-          h('span', { class: s.hecha ? 'tr-sub-texto hecha' : 'tr-sub-texto' }, s.texto)))));
+    const hechas = subs.filter(hecha).length;
+    const lista = h('ul', { class: 'tr-lista tr-hijas', hidden: plegada },
+      subs.map(x => filaTarea(ctx, m, d, x, { ubicacion: false, nivel: nivel + 1 })));
     const alternar = h('button', {
       type: 'button', class: plegada ? 'tr-sub-alternar plegada' : 'tr-sub-alternar', 'aria-expanded': String(!plegada),
       onclick: () => {
@@ -143,25 +155,25 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
         alternar.setAttribute('aria-expanded', String(!ocultar));
       },
     }, ic('abajo'), `Subtareas ${hechas}/${subs.length}`);
-    bloqueSub = h('div', { class: 'tr-sub' }, alternar, lista);
+    bloqueSub = { alternar, lista };
   }
 
   const fila = h('div', { class: 'tr-fila' },
     ordenable ? h('button', { type: 'button', class: 'tr-asa', 'aria-label': `Mover "${t.titulo}" (arrastrá, o usá las flechas)` }, ic('asa')) : null,
     check,
     h('div', { class: 'tr-contenido' },
-      h('button', { type: 'button', class: 'tr-cuerpo', onclick: (e) => { if (fila.dataset.deslizado) { e.preventDefault(); return; } abrirEditor(ctx, m, d, t); } },
+      h('button', { type: 'button', class: 'tr-cuerpo', onclick: (e) => { if (fila.dataset.deslizado) { e.preventDefault(); return; } abrirTarea(ctx, m, d, t); } },
         h('span', { class: 'tr-titulo' }, t.titulo),
         meta.length ? h('span', { class: 'tr-metas' }, meta) : null),
-      bloqueSub));
+      bloqueSub ? bloqueSub.alternar : null));
   const fondo = h('div', { class: 'tr-desliza', 'aria-hidden': 'true' }, h('span', { class: 'izq' }, '✓ Completar'), h('span', { class: 'der' }, 'Mañana →'));
-  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}`, 'data-id': t.id }, fondo, fila);
+  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
 
   // Deslizar con el dedo: a la derecha completa, a la izquierda pasa a mañana.
   if (!hecha(t)) {
     let x0 = null, y0 = 0, dx = 0, horizontal = false;
     fila.addEventListener('pointerdown', (e) => {
-      if (e.pointerType !== 'touch' || e.target.closest('.tr-asa, .tr-check, .tr-sub')) return;
+      if (e.pointerType !== 'touch' || e.target.closest('.tr-asa, .tr-check, .tr-sub-alternar')) return;
       x0 = e.clientX; y0 = e.clientY; dx = 0; horizontal = false; delete fila.dataset.deslizado;
     });
     fila.addEventListener('pointermove', (e) => {
@@ -185,13 +197,30 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false } 
       fila.style.transition = 'transform 0.15s';
       fila.style.transform = '';
       setTimeout(() => { fila.style.transition = ''; li.classList.remove('deslizando'); }, 160);
-      if (dx > 80) await completar();
+      if (dx > 80) { await completar(); }
       else if (dx < -80) await aManana();
     };
     fila.addEventListener('pointerup', soltar);
     fila.addEventListener('pointercancel', () => { x0 = null; fila.style.transform = ''; li.classList.remove('deslizando'); });
   }
   return li;
+}
+
+// Completar una tarea con subtareas sin terminar: ¿también las subtareas?
+function preguntarSubtareas(ctx, t, n) {
+  const { h } = ctx;
+  return new Promise((ok) => {
+    let r = null;
+    const dlg = h('dialog', { class: 'hoja' },
+      h('p', { class: 'hoja-texto' }, `"${t.titulo}" tiene ${n} subtarea${n > 1 ? 's' : ''} sin terminar. ¿Completarlas también?`),
+      h('div', { class: 'hoja-botones tr-botones-envolver' },
+        h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, 'Cancelar'),
+        h('button', { type: 'button', class: 'boton', onclick: () => { r = 'sola'; dlg.close(); } }, 'Solo esta tarea'),
+        h('button', { type: 'button', class: 'boton principal', onclick: () => { r = 'todas'; dlg.close(); } }, 'Completar todas')));
+    dlg.addEventListener('close', () => { dlg.remove(); ok(r); });
+    document.body.append(dlg);
+    dlg.showModal();
+  });
 }
 
 // ── Pantalla ──
@@ -215,7 +244,42 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   const cuerpo = h('div', { class: 'tr-cuerpo-vista' });
   const barraHojas = h('nav', { class: 'tr-hojas', 'aria-label': 'Hojas de Tareas' });
-  const nueva = h('button', { type: 'button', class: 'tr-fab', 'aria-label': 'Nueva tarea', onclick: () => abrirEditor(ctx, m, d, null, valoresPorDefecto()) }, icono('mas'), h('span', {}, 'Nueva tarea'));
+  const panel = h('aside', { class: 'tr-panel', hidden: true, 'aria-label': 'Detalle de la tarea' });
+  const zona = h('div', { class: 'tr-zona' }, cuerpo, panel);
+  const nueva = h('button', { type: 'button', class: 'tr-fab', 'aria-label': 'Nueva tarea', onclick: () => abrir(null, valoresPorDefecto()) }, icono('mas'), h('span', {}, 'Nueva tarea'));
+
+  // ── Detalle: al costado en la PC, como ventana en el celular ──
+  let editor = null;
+  function marcarActiva() {
+    for (const el of cuerpo.querySelectorAll('.tr-tarea.abierta')) el.classList.remove('abierta');
+    if (editor?.tareaId) cuerpo.querySelector(`.tr-tarea[data-id="${editor.tareaId}"]`)?.classList.add('abierta');
+  }
+  async function abrir(t, base = {}) {
+    if (!esPC()) { abrirEditor(ctx, m, d, t, base, { abrirOtra: (x) => abrir(x) }); return; }
+    if (editor && !await editor.intentarCerrar()) return;
+    contenedor.classList.add('tr-con-panel');
+    panel.hidden = false;
+    const este = abrirEditor(ctx, m, d, t, base, {
+      panel,
+      abrirOtra: (x) => abrir(x),
+      alCerrar: () => { if (editor === este) { editor = null; panel.hidden = true; contenedor.classList.remove('tr-con-panel'); marcarActiva(); } },
+    });
+    editor = este;
+    marcarActiva();
+  }
+  abridor = (t) => abrir(t);
+  // Tocar afuera del detalle: igual que cancelar (si hubo cambios, pregunta).
+  const alTocarAfuera = (e) => {
+    if (!editor || panel.contains(e.target) || e.target.closest('dialog, #avisos')) return;
+    if (e.target.closest('.tr-cuerpo, .tr-check, .tr-sub-alternar, .tr-asa, .tr-fab, .tr-nueva-arriba, .tr-rapida')) return;
+    if (!editor.sucio()) { editor.cerrar(); return; }
+    // Con cambios: se frena el toque (por ejemplo un link) y se pregunta.
+    const frenar = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
+    window.addEventListener('click', frenar, { capture: true, once: true });
+    setTimeout(() => window.removeEventListener('click', frenar, { capture: true }), 600);
+    editor.intentarCerrar();
+  };
+  document.addEventListener('pointerdown', alTocarAfuera, true);
 
   contenedor.replaceChildren(
     h('header', { class: 'cabecera-pantalla tr-cabecera' },
@@ -223,8 +287,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       h('div', { class: 'tr-herramientas' },
         h('a', { href: '#/tareas/buscar', class: 'boton-icono', 'aria-label': 'Buscar tareas', title: 'Buscar' }, ic('buscar')),
         h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Filtros guardados', title: 'Filtros', onclick: abrirFiltros }, ic('filtro')),
-        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Tareas', title: 'Configurar Tareas', onclick: abrirConfig }, ic('engranaje')))),
-    barraHojas, cuerpo, nueva);
+        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Tareas', title: 'Configurar Tareas', onclick: abrirConfig }, ic('engranaje')),
+        h('button', { type: 'button', class: 'boton principal tr-nueva-arriba', onclick: () => abrir(null, valoresPorDefecto()) }, icono('mas'), 'Nueva tarea'))),
+    barraHojas, zona, nueva);
 
   function valoresPorDefecto() {
     if (vista === 'hoy') return { fecha: hoy() };
@@ -235,6 +300,15 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   }
 
   const pendientes = () => d.tareas.filter(t => !hecha(t));
+  // En listas por lugar (bandeja, área, proyecto) las subtareas van debajo de su madre.
+  const principales = (ts) => ts.filter(t => !t.padreId || !d.tarea(t.padreId));
+  // En listas por fecha, una subtarea aparece suelta si su fecha es distinta a la de su madre
+  // (o la madre no tiene fecha, o ya está hecha); si no, se ve debajo de la madre.
+  const sueltaPorFecha = (t) => {
+    const madre = d.padre(t);
+    return !madre || hecha(madre) || !madre.fecha || madre.fecha !== t.fecha;
+  };
+  const porFecha = (ts) => ts.filter(sueltaPorFecha);
   const cuenta = (filtro) => pendientes().filter(filtro).length;
   const areasActivas = () => d.areas.filter(a => !a.archivada);
   const proyectosDe = (areaId) => d.proyectos.filter(p => p.areaId === areaId && !p.archivado);
@@ -245,7 +319,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   // Lista común: ordenada por fecha. Con { manual: true } se ordena a mano y se puede arrastrar.
   function lista(tareas, opciones = {}) {
-    if (!opciones.manual) return h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, opciones)));
+    if (!opciones.manual) return h('ul', { class: 'tr-lista' }, ordenar(tareas).map(t => filaTarea(ctx, m, d, t, { marcaMadre: true, ...opciones })));
     const ordenadas = ordenarManual(tareas);
     const ul = h('ul', { class: 'tr-lista' }, ordenadas.map(t => filaTarea(ctx, m, d, t, { ...opciones, ordenable: true })));
     hacerOrdenable(ul, (id, antes, despues) => {
@@ -322,12 +396,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       return n ? h('span', { class: `tr-marca${ts.some(vencida) ? ' alerta' : ''}` }, String(n)) : null;
     };
     const pestaña = (x) => h('a', {
-      href: x.href, class: `tr-hoja${x.id === actual ? ' activa' : ''}${x.modo === 'icono' ? ' solo-icono' : ''}`,
+      href: x.href, class: `tr-pest${x.id === actual ? ' activa' : ''}${x.modo === 'icono' ? ' solo-icono' : ''}`,
       'aria-current': x.id === actual ? 'page' : false, title: x.nombre, 'aria-label': x.nombre,
     }, x.modo !== 'nombre' ? ic(x.icono) : null, x.modo !== 'icono' ? h('span', {}, x.nombre) : null, marca(x));
     poner(barraHojas, mostrar.map(pestaña),
       resto.length ? h('button', {
-        type: 'button', class: `tr-hoja${resto.some(x => x.id === actual) ? ' activa' : ''}`,
+        type: 'button', class: `tr-pest${resto.some(x => x.id === actual) ? ' activa' : ''}`,
         onclick: () => menu(ctx, 'Más hojas', resto.map(x => ({ texto: x.nombre, accion: () => { location.hash = x.href; } }))),
       }, h('span', {}, 'Más'), ic('abajo')) : null);
     // Que la hoja activa quede a la vista si la fila se desliza.
@@ -581,8 +655,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // ── Inicio: resumen de todo ──
 
   function vistaInicio() {
-    const venc = pendientes().filter(vencida), deHoyL = pendientes().filter(deHoy);
-    const semana = pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana());
+    const venc = porFecha(pendientes().filter(vencida)), deHoyL = porFecha(pendientes().filter(deHoy));
+    const semana = porFecha(pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana()));
     const cuadro = (n, texto, ancla2, clase = '') => h('a', { href: `#/tareas/hoy/${ancla2}`, class: `tr-cuadrito ${clase}` }, h('b', {}, String(n)), h('span', {}, texto));
     const nodo = (href, icNombre, nombre, total, deHoyN, clase = '') => h('a', { href, class: `tr-nodo ${clase}` },
       ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre),
@@ -610,13 +684,14 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // ── Hoy: vencidas, hoy y próximos ──
 
   function vistaHoy() {
-    const venc = pendientes().filter(vencida), deHoyL = pendientes().filter(deHoy);
-    const prox = pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana());
-    const despues = pendientes().filter(t => t.fecha && t.fecha > finSemana());
-    const hechasHoy = d.tareas.filter(t => hecha(t) && t.completada && new Date(t.completada).toDateString() === new Date().toDateString());
+    const venc = porFecha(pendientes().filter(vencida)), deHoyL = porFecha(pendientes().filter(deHoy));
+    const prox = porFecha(pendientes().filter(t => t.fecha && t.fecha > hoy() && t.fecha <= finSemana()));
+    const despues = porFecha(pendientes().filter(t => t.fecha && t.fecha > finSemana()));
+    const hechasHoy = porFecha(d.tareas.filter(t => hecha(t) && t.completada && new Date(t.completada).toDateString() === new Date().toDateString()));
     const fechaHoy = new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
     const porDia = (ts) => [...new Set(ts.map(t => t.fecha))].sort().map(f => [h('p', { class: 'tr-dia-nombre' }, textoFecha(f)), lista(ts.filter(t => t.fecha === f))]);
     return [
+      lineaRapida({ fecha: hoy() }, 'Agregar tarea para hoy…'),
       venc.length ? h('section', { class: 'tr-grupo tr-grupo-vencidas', id: 'tr-ancla-vencidas' },
         h('div', { class: 'tr-grupo-cabecera' }, h('h2', {}, 'Vencidas', h('span', { class: 'tr-grupo-n' }, String(venc.length)))), lista(venc)) : h('span', { id: 'tr-ancla-vencidas' }),
       h('section', { class: 'tr-grupo', id: 'tr-ancla-hoy' },
@@ -635,18 +710,34 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // ── Bandeja ──
 
   function vistaBandeja() {
-    const todas = d.tareas.filter(t => !t.areaId);
+    const todas = principales(d.tareas.filter(t => !t.areaId));
     const pend = todas.filter(t => !hecha(t)), hechas = todas.filter(hecha);
     const ver = mostrarHechas.has('bandeja');
     return [
       tituloVista('bandeja', 'Bandeja de entrada', null, chipHechas('bandeja', hechas.length)),
+      lineaRapida({}),
       h('p', { class: 'nota' }, 'Lo que capturás desde Inicio llega acá. Abrí cada tarea y asignale un área cuando puedas.'),
       pend.length ? lista(pend, { ubicacion: false, manual: true }) : nada('Bandeja vacía.'),
       ver && hechas.length ? lista(hechas, { ubicacion: false, manual: true }) : null,
     ];
   }
 
-  const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrirEditor(ctx, m, d, null, base) }, icono('mas'), 'Agregar tarea');
+  const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrir(null, base) }, icono('mas'), 'Agregar tarea');
+
+  // Línea rápida arriba de cada lista (en la PC): se escribe y Enter.
+  function lineaRapida(base, ayuda = 'Agregar tarea…') {
+    const campo = h('input', { type: 'text', class: 'tr-rapida-campo', placeholder: ayuda, 'aria-label': 'Agregar tarea rápida', autocomplete: 'off', enterkeyhint: 'done' });
+    campo.addEventListener('keydown', async (e) => {
+      if (e.key !== 'Enter' || !campo.value.trim()) return;
+      e.preventDefault();
+      const titulo = campo.value.trim();
+      campo.value = '';
+      await m.crearTarea({ ...base, titulo });
+      ctx.aviso(`Tarea creada: "${titulo}"`);
+      setTimeout(() => cuerpo.querySelector('.tr-rapida-campo')?.focus(), 150);
+    });
+    return h('div', { class: 'tr-rapida' }, icono('mas'), campo);
+  }
 
   // Tareas de un proyecto: sin sección primero y después cada sección.
   function cuerpoProyecto(p, visibles, { conMenuSeccion = true } = {}) {
@@ -673,12 +764,13 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const a = d.area(idRuta);
     if (!a) return [vacio('Esta área no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
     const clave = `area-${a.id}`;
-    const delArea = d.tareas.filter(t => t.areaId === a.id);
+    const delArea = principales(d.tareas.filter(t => t.areaId === a.id));
     const visibles = mostrarHechas.has(clave) ? delArea : delArea.filter(t => !hecha(t));
     const proys = proyectosDe(a.id);
     const sueltas = visibles.filter(t => !t.proyectoId || !proys.some(p => p.id === t.proyectoId));
     return [
       tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), chipHechas(clave, delArea.filter(hecha).length)),
+      lineaRapida({ areaId: a.id }),
       sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : (proys.length ? null : nada('Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')),
       agregarEn({ areaId: a.id }),
       proys.map(p => {
@@ -699,7 +791,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const p = d.proyecto(idRuta);
     if (!p) return [vacio('Este proyecto no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
     const a = d.area(p.areaId);
-    const tareas = d.tareas.filter(t => t.proyectoId === p.id);
+    const tareas = principales(d.tareas.filter(t => t.proyectoId === p.id));
     const clave = `proyecto-${p.id}`;
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
     const cfg = configHojas();
@@ -707,6 +799,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return [
       esHoja ? null : volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
       tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), chipHechas(clave, tareas.filter(hecha).length)),
+      lineaRapida({ areaId: p.areaId, proyectoId: p.id }),
       cuerpoProyecto(p, visibles),
       agregarEn({ areaId: p.areaId, proyectoId: p.id }),
       seccionesDe(p.id).length ? null : h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'),
@@ -719,12 +812,13 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const s = d.seccion(idRuta);
     const p = s && d.proyecto(s.proyectoId);
     if (!s || !p) return [vacio('Esta sección no existe', 'Puede que se haya eliminado en otro dispositivo.', h('a', { href: '#/tareas', class: 'boton' }, 'Volver a Tareas'))];
-    const tareas = d.tareas.filter(t => t.seccionId === s.id);
+    const tareas = principales(d.tareas.filter(t => t.seccionId === s.id));
     const clave = `seccion-${s.id}`;
     const visibles = mostrarHechas.has(clave) ? tareas : tareas.filter(t => !hecha(t));
     return [
       volver(`#/tareas/proyecto/${p.id}`, p.nombre),
       tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), chipHechas(clave, tareas.filter(hecha).length)),
+      lineaRapida({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
       visibles.length ? lista(visibles, { ubicacion: false, manual: true }) : nada('Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
     ];
@@ -788,6 +882,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     if (vista === 'buscar' && !primeraVez) { dibujarResultados(); return; }
     const scroll = window.scrollY;
     poner(cuerpo, (VISTAS[vista] || VISTAS.inicio)());
+    marcarActiva();
     if (primeraVez && ancla) {
       // Desde Inicio: bajar hasta Vencidas, Hoy o Próximos.
       requestAnimationFrame(() => {
@@ -805,9 +900,20 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   });
   // Al girar el celular o cambiar el ancho, la configuración puede ser otra (PC o celular).
   let eraPC = esPC();
-  const alCambiarAncho = () => { if (esPC() !== eraPC) { eraPC = esPC(); dibujar(); } };
+  const alCambiarAncho = () => {
+    if (esPC() === eraPC) return;
+    eraPC = esPC();
+    // El detalle al costado solo existe en la PC.
+    if (!eraPC && editor) editor.cerrar();
+    dibujar();
+  };
   window.addEventListener('resize', alCambiarAncho);
 
   dibujar();
-  return () => { quitar(); clearTimeout(espera); window.removeEventListener('resize', alCambiarAncho); };
+  return () => {
+    quitar(); clearTimeout(espera); window.removeEventListener('resize', alCambiarAncho);
+    document.removeEventListener('pointerdown', alTocarAfuera, true);
+    if (abridor) abridor = null;
+    contenedor.classList.remove('tr-con-panel');
+  };
 }

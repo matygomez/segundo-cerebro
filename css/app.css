@@ -149,7 +149,7 @@ a { color: inherit; }
   }
   .menu-item:hover { background: var(--superficie-2); }
   .menu-item[aria-current='page'] { background: var(--superficie); }
-  #pantalla { margin: 0; padding: 2rem 2rem 3rem; }
+  #pantalla { margin: 0 auto; padding: 2rem 2rem 3rem; }
 }
 
 /* ── Indicador de sincronización ────────────────────────── */
