@@ -598,3 +598,9 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-ley.venc .icono { color: var(--rojo); } .tr-ley.hoy .icono { color: var(--tr-verde); }
 .tr-ley i { width: 0.55rem; height: 0.55rem; border-radius: 50%; display: inline-block; background: var(--tinta-2); }
 .tr-ley.venc i { background: var(--rojo); } .tr-ley.hoy i { background: var(--tr-verde); }
+
+/* Inicio: aviso de vencidas debajo de las tareas de hoy */
+.tr-inicio-vencidas { display: inline-block; font-size: 0.85rem; font-weight: 500; color: var(--rojo); text-decoration: none; padding: 0.15rem 0; }
+.tr-inicio-vencidas:hover { text-decoration: underline; }
+.tr-inicio-nada { margin: 0.2rem 0; }
+.tr-inicio-pie { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin-top: 0.4rem; }

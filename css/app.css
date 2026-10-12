@@ -156,11 +156,11 @@ a { color: inherit; }
 
 .barra-der { display: flex; align-items: center; gap: 0.4rem; }
 .barra-engranaje {
-  width: 2.2rem; height: 2.2rem; border-radius: 50%; border: 1px solid var(--linea); background: var(--superficie);
+  width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 1px solid var(--linea); background: var(--superficie);
   display: grid; place-items: center; color: var(--tinta-2); flex: none;
 }
 .barra-engranaje[hidden] { display: none; }
-.barra-engranaje .icono { width: 1.15rem; height: 1.15rem; }
+.barra-engranaje .icono { width: 1rem; height: 1rem; }
 .chip-sync {
   display: inline-flex; align-items: center; gap: 0.4rem;
   padding: 0.3rem 0.7rem 0.3rem 0.55rem; border-radius: 999px;

@@ -42,15 +42,22 @@ export default {
         async function pintar() {
           const d = await m.cargar();
           const pend = d.tareas.filter(t => !hecha(t));
-          const lista = [...ordenar(pend.filter(vencida)), ...ordenar(pend.filter(deHoy))];
-          if (!lista.length) {
-            contenedor.replaceChildren(h('p', { class: 'nota' }, 'Nada pendiente para hoy.'),
-              h('a', { href: '#/tareas/proximos', class: 'tr-link' }, 'Ver próximos días'));
-            return;
-          }
+          // Primero y siempre: las tareas de hoy. Las vencidas, solo como aviso abajo.
+          const deHoyL = ordenar(pend.filter(deHoy));
+          const nVenc = pend.filter(vencida).length;
+          const avisoVencidas = nVenc
+            ? h('a', { href: '#/tareas/hoy/vencidas', class: 'tr-inicio-vencidas' }, `+ ${nVenc} tarea${nVenc > 1 ? 's' : ''} vencida${nVenc > 1 ? 's' : ''}`)
+            : null;
+          const pie = h('div', { class: 'tr-inicio-pie' }, [
+            deHoyL.length > MAX ? h('a', { href: '#/tareas/hoy/hoy', class: 'tr-link' }, `Ver las ${deHoyL.length} de hoy`) : null,
+            avisoVencidas,
+            h('a', { href: deHoyL.length || nVenc ? '#/tareas/hoy' : '#/tareas/proximos', class: 'tr-link' }, deHoyL.length || nVenc ? 'Abrir Tareas' : 'Ver próximos días'),
+          ].filter(Boolean));
           contenedor.replaceChildren(
-            h('ul', { class: 'tr-lista' }, lista.slice(0, MAX).map(t => filaTarea(ctx, m, d, t))),
-            h('a', { href: '#/tareas/hoy', class: 'tr-link' }, lista.length > MAX ? `Ver las ${lista.length} tareas` : 'Abrir Tareas'));
+            deHoyL.length
+              ? h('ul', { class: 'tr-lista' }, deHoyL.slice(0, MAX).map(t => filaTarea(ctx, m, d, t)))
+              : h('p', { class: 'nota tr-inicio-nada' }, 'No hay tareas para hoy.'),
+            pie);
         }
 
         let espera = null;
