@@ -38,6 +38,7 @@
 
 import { MODULOS } from '../modulos.js';
 import { coleccion } from './datos.js';
+import { visible } from './preferencias.js';
 import { abrirFormulario } from './formularios.js';
 import { aviso, confirmar, h, icono } from './ui.js';
 import { escuchar } from './eventos.js';
@@ -45,7 +46,8 @@ import * as archivos from './archivos.js';
 
 const cargados = new Map();
 
-export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono }));
+// oculto: módulos que no van en el menú (se abren desde otro lado).
+export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto }));
 
 export async function cargar(id) {
   if (cargados.has(id)) return cargados.get(id);
@@ -109,6 +111,7 @@ async function juntar(funcion) {
   const salida = [];
   for (const def of await cargarTodos()) {
     if (typeof def[funcion] !== 'function') continue;
+    if (!visible(def.id)) continue;   // oculto en este dispositivo: no aparece en Inicio
     try {
       const items = (await def[funcion](contexto(def.id))) || [];
       for (const it of items) salida.push({ ...it, modulo: def.id, nombreModulo: def.nombre });

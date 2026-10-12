@@ -5,7 +5,7 @@
 import { hoy, plata, redondear, AJUSTE, mesActual, sumarMeses, nombreMes, mesDe } from './modelo.js';
 import { hoja, campo, inputImporte, selectCuentas, selectorCategoria, poner } from './comun.js';
 
-const leerImporte = (input) => redondear(Number(String(input.value).replace(',', '.')));
+const leerImporte = (input) => redondear(Number(String(input.value).replace(',', '.')));   // input.value ya viene calculado
 const separar = (v) => (v ? { tipo: v.slice(0, 1), id: v.slice(2) } : { tipo: '', id: '' });
 
 // Gasto, ingreso o transferencia (nuevo o editando uno existente).
@@ -286,6 +286,8 @@ export function abrirClasificar(ctx, m, d, ajuste) {
   const barra = h('div', { class: 'fz-barra fz-barra-alta' }, h('div', {}));
   const textoQueda = h('p', { class: 'nota' });
   const importe = inputImporte(ctx);
+  // "Todo": completa el importe con lo que falta clasificar.
+  importe._extra(h('button', { type: 'button', class: 'fz-imp-todo', title: 'Usar todo lo que falta', onclick: (e) => { e.preventDefault(); importe.value = queda; importe.dispatchEvent(new Event('input', { bubbles: true })); error.textContent = ''; } }, 'Todo'));
   const fecha = h('input', { type: 'date', value: ajuste.fecha });
   const descripcion = h('input', { type: 'text', placeholder: 'Opcional', autocomplete: 'off' });
   const cat = selectorCategoria(ctx, d, tipo === 'ingreso' ? ['ingreso'] : ['fijo', 'variable'], '');
@@ -303,9 +305,9 @@ export function abrirClasificar(ctx, m, d, ajuste) {
     sug.bajos.length ? [h('p', { class: 'nota' }, 'Para revisar: este mes llevan menos de lo normal'),
       h('div', { class: 'fz-chips' }, sug.bajos.map(b => chip(b.id, `este mes ${plata(b.actual)}, normalmente ${plata(b.promedio)}`)))] : null,
     sug.usadas.length ? [h('p', { class: 'nota' }, tipo === 'ingreso' ? 'Tus categorías de ingreso' : 'Las que más usás'), h('div', { class: 'fz-chips' }, sug.usadas.map(id => chip(id)))] : null,
-    h('div', { class: 'fz-dos' }, campo(ctx, 'Importe', importe), campo(ctx, 'Fecha', fecha)),
+    campo(ctx, 'Importe', importe),
     h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Categoría'), cat.elemento),
-    campo(ctx, 'Descripción', descripcion),
+    h('div', { class: 'fz-dos' }, campo(ctx, 'Fecha', fecha), campo(ctx, 'Descripción', descripcion)),
     error,
     h('button', { type: 'button', class: 'boton principal', onclick: agregar }, 'Agregar línea'));
 

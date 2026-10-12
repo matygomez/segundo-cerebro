@@ -13,6 +13,7 @@ import { idDispositivo } from './datos.js';
 import { CARPETA_DRIVE } from '../config.js';
 import { VERSION } from '../modulos.js';
 import { listaModulos } from './registro.js';
+import { navegacion, guardarNavegacion, ordenBarra, MAX_BARRA } from './preferencias.js';
 
 let pedidoInstalacion = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalacion = e; });
@@ -20,6 +21,69 @@ window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedi
 export function pantallaAjustes(contenedor) {
   const seccionDrive = h('section', { class: 'tarjeta' });
   const seccionDispositivo = h('section', { class: 'tarjeta' });
+  const seccionModulos = h('section', { class: 'tarjeta' });
+  const seccionBarra = h('section', { class: 'tarjeta' });
+
+  // ── Módulos: visible u oculto, por separado en PC y celular ──
+  const NOMBRES = { ajustes: 'Ajustes' };
+  const ICONOS = { ajustes: 'ajustes' };
+  for (const m of listaModulos()) { NOMBRES[m.id] = m.nombre; ICONOS[m.id] = m.icono; }
+  const delMenu = () => listaModulos().filter(m => !m.oculto);
+
+  function dibujarModulos() {
+    const nav = navegacion();
+    const segmento = (id, disp) => {
+      const oculto = nav.ocultos[disp].includes(id);
+      const elegir = async (ocultar) => {
+        if (ocultar === oculto) return;
+        nav.ocultos[disp] = ocultar ? [...nav.ocultos[disp], id] : nav.ocultos[disp].filter(x => x !== id);
+        await guardarNavegacion(nav);
+        aviso(`${NOMBRES[id]} ${ocultar ? 'oculto' : 'visible'} en ${disp === 'pc' ? 'la PC' : 'el celular'}`);
+      };
+      return h('span', { class: 'seg-vis', role: 'group', 'aria-label': `${NOMBRES[id]} en ${disp === 'pc' ? 'PC' : 'celular'}` },
+        h('button', { type: 'button', class: oculto ? '' : 'activo', 'aria-pressed': String(!oculto), onclick: () => elegir(false) }, 'Visible'),
+        h('button', { type: 'button', class: oculto ? 'activo oculto' : '', 'aria-pressed': String(oculto), onclick: () => elegir(true) }, 'Oculto'));
+    };
+    seccionModulos.replaceChildren(
+      h('h2', {}, 'Módulos'),
+      h('p', { class: 'nota' }, 'Ocultar no borra nada: el módulo sigue guardando sus datos y vuelve tal cual al mostrarlo. Se elige por separado en PC y en celular.'),
+      h('div', { class: 'aj-tabla' },
+        h('div', { class: 'aj-fila aj-enc' }, h('span', {}), h('span', { class: 'aj-col' }, 'PC'), h('span', { class: 'aj-col' }, 'Celular')),
+        delMenu().map(m => h('div', { class: 'aj-fila' },
+          h('span', { class: 'aj-nombre' }, icono(m.icono), m.nombre),
+          m.id === 'home'
+            ? h('span', { class: 'nota aj-siempre' }, 'siempre visible')
+            : [h('span', { class: 'aj-col' }, segmento(m.id, 'pc')), h('span', { class: 'aj-col' }, segmento(m.id, 'cel'))]))));
+  }
+
+  // ── Barra de abajo del celular ──
+  function dibujarBarra() {
+    const nav = navegacion();
+    const todos = [...delMenu().map(m => m.id), 'ajustes'];
+    const lista = ordenBarra(todos);
+    const ocultoCel = (id) => id !== 'ajustes' && nav.ocultos.cel.includes(id);
+    const prendidos = () => lista.filter(x => x.on && !ocultoCel(x.id)).length;
+    const guardar = async () => { nav.barra = lista.map(x => ({ id: x.id, on: x.on })); await guardarNavegacion(nav); };
+    seccionBarra.replaceChildren(
+      h('h2', {}, 'Barra de abajo ', h('span', { class: 'nota' }, '(celular)')),
+      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Ajustes, queda un engranaje arriba a la derecha.`),
+      h('div', { class: 'aj-tabla' }, lista.map((x, i) => {
+        const oculto = ocultoCel(x.id);
+        const fijo = x.id === 'home';
+        const lleno = !x.on && prendidos() >= MAX_BARRA;
+        return h('div', { class: 'aj-fila' },
+          h('span', { class: 'aj-nombre' }, icono(ICONOS[x.id] || 'ajustes'), NOMBRES[x.id] || x.id, oculto ? h('small', { class: 'nota' }, ' (oculto en celular)') : null),
+          h('span', { class: 'aj-acciones' },
+            h('button', { type: 'button', class: 'aj-flecha', 'aria-label': `Subir ${NOMBRES[x.id]}`, disabled: i === 0, onclick: async () => { [lista[i - 1], lista[i]] = [lista[i], lista[i - 1]]; await guardar(); } }, '↑'),
+            h('button', { type: 'button', class: 'aj-flecha', 'aria-label': `Bajar ${NOMBRES[x.id]}`, disabled: i === lista.length - 1, onclick: async () => { [lista[i + 1], lista[i]] = [lista[i], lista[i + 1]]; await guardar(); } }, '↓'),
+            h('button', {
+              type: 'button', role: 'switch', class: `aj-switch${x.on && !oculto ? ' on' : ''}`, 'aria-checked': String(x.on && !oculto),
+              'aria-label': `${NOMBRES[x.id]} en la barra`, disabled: fijo || oculto || lleno,
+              title: fijo ? 'Inicio está siempre' : lleno ? `Ya hay ${MAX_BARRA}` : '',
+              onclick: async () => { x.on = !x.on; await guardar(); },
+            })));
+      })));
+  }
 
   async function dibujarDrive() {
     const s = estadoSync();
@@ -105,15 +169,20 @@ export function pantallaAjustes(contenedor) {
   contenedor.replaceChildren(
     h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Ajustes')),
     seccionDrive,
+    seccionModulos,
+    seccionBarra,
     seccionDispositivo,
   );
   dibujarDrive();
+  dibujarModulos();
+  dibujarBarra();
   dibujarDispositivo();
 
   const quitar = [
     escuchar('sync', dibujarDrive),
     escuchar('sesion', dibujarDrive),
     escuchar('datos', dibujarDispositivo),
+    escuchar('preferencias', () => { dibujarModulos(); dibujarBarra(); }),
   ];
   return () => quitar.forEach(q => q());
 }

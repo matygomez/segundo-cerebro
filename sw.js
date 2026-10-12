@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.11.1';
+const VERSION = 'sc-0.12.0';
 
 const ARCHIVOS = [
   './',
@@ -26,6 +26,7 @@ const ARCHIVOS = [
   './js/core/eventos.js',
   './js/core/formularios.js',
   './js/core/fusion.js',
+  './js/core/preferencias.js',
   './js/core/registro.js',
   './js/core/sincronizacion.js',
   './js/core/ui.js',

@@ -19,6 +19,7 @@ const TRAZOS = {
   cerrar: '<path d="M6 6l12 12M18 6 6 18"/>',
   papelera: '<path d="M5 7h14"/><path d="M10 7V5h4v2"/><path d="M7 7l1 12h8l1-12"/><path d="M10.5 10.5v5M13.5 10.5v5"/>',
   tabla: '<rect x="4" y="5" width="16" height="14" rx="2"/><path d="M4 10h16M10 10v9"/>',
+  calculadora: '<rect x="5" y="3" width="14" height="18" rx="2.5"/><rect x="8" y="6" width="8" height="3.5" rx="1"/><path d="M8.5 13h.01M12 13h.01M15.5 13h.01M8.5 16.5h.01M12 16.5h.01M15.5 16.5h.01"/>',
 };
 
 export function ic(nombre) {
@@ -41,11 +42,141 @@ export function cargarEstilos() {
 // Campo con etiqueta.
 export function campo(ctx, etiqueta, control, ayuda = null) {
   const { h } = ctx;
-  return h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, etiqueta), control, ayuda ? h('span', { class: 'nota' }, ayuda) : null);
+  return h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, etiqueta), control?._caja || control, ayuda ? h('span', { class: 'nota' }, ayuda) : null);
 }
 
+// ── Importes: se puede escribir una cuenta (1500+2300*2, 25000/3) ──
+// Se escribe sin puntos: los decimales van con coma. Si se escribe un
+// punto, se cambia por coma. Al salir del campo queda el resultado.
+// Para el resto del código, input.value devuelve siempre el número ya
+// calculado (con punto decimal), o '' si está vacío.
+export const textoImporte = (n) => (n === '' || n === null || n === undefined ? '' : String(n).replace('.', ','));
+const OPERADOR = /[+\-*/x×÷−]/i;
+const tieneCuenta = (t) => OPERADOR.test(String(t).trim().slice(1));
+
+// Devuelve el número, null si está vacío o NaN si la cuenta está mal.
+export function evaluarCuenta(texto) {
+  const s = String(texto ?? '').replace(/\s/g, '').replace(/[x×]/gi, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/\./g, ',').replace(/,/g, '.');
+  if (!s) return null;
+  let i = 0;
+  const ver = () => s[i];
+  function numero() {
+    if (ver() === '(') { i++; const v = suma(); if (ver() !== ')') throw 0; i++; return v; }
+    if (ver() === '-') { i++; return -numero(); }
+    if (ver() === '+') { i++; return numero(); }
+    const m = /^\d+(\.\d*)?|^\.\d+/.exec(s.slice(i));
+    if (!m) throw 0;
+    i += m[0].length;
+    return Number(m[0]);
+  }
+  function producto() {
+    let v = numero();
+    while (ver() === '*' || ver() === '/') { const op = s[i++]; const b = numero(); v = op === '*' ? v * b : v / b; }
+    return v;
+  }
+  function suma() {
+    let v = producto();
+    while (ver() === '+' || ver() === '-') { const op = s[i++]; const b = producto(); v = op === '+' ? v + b : v - b; }
+    return v;
+  }
+  try {
+    const v = suma();
+    if (i !== s.length || !Number.isFinite(v)) return NaN;
+    return Math.round(v * 100) / 100;
+  } catch { return NaN; }
+}
+
+const VALOR = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+
 export function inputImporte(ctx, valor = '', placeholder = '$ 0') {
-  return ctx.h('input', { type: 'number', inputmode: 'decimal', step: '0.01', min: '0', class: 'fz-importe', value: valor, placeholder, 'aria-label': 'Importe' });
+  const { h } = ctx;
+  const input = h('input', {
+    type: 'text', inputmode: 'decimal', autocomplete: 'off', enterkeyhint: 'done', class: 'fz-importe', 'aria-label': 'Importe',
+    placeholder: /^-?\d+(\.\d+)?$/.test(String(placeholder)) ? textoImporte(placeholder) : placeholder,
+  });
+  VALOR.set.call(input, textoImporte(valor));
+  // input.value: el número calculado, para que todos los formularios lo lean igual.
+  Object.defineProperty(input, 'value', {
+    configurable: true,
+    get() { const t = VALOR.get.call(this); const v = evaluarCuenta(t); return v === null ? '' : Number.isNaN(v) ? t : String(v); },
+    set(x) { VALOR.set.call(this, textoImporte(x)); },
+  });
+  input.textoEscrito = () => VALOR.get.call(input);
+  const res = h('p', { class: 'fz-imp-res', 'aria-live': 'polite' });
+  const extras = h('span', { class: 'fz-imp-extras' });
+  const boton = h('button', { type: 'button', class: 'fz-imp-calc', title: 'Calculadora', 'aria-label': 'Abrir calculadora', onclick: (e) => { e.preventDefault(); abrirCalculadora(ctx, input); } }, ic('calculadora'));
+  const caja = h('div', { class: 'fz-imp-caja' }, input, extras, boton);
+  input._caja = h('div', { class: 'fz-imp' }, caja, res);
+  // Para sumar algo adentro del campo (por ejemplo "Todo").
+  input._extra = (el) => { extras.append(el); caja.classList.add('con-extra'); };
+  function mostrarResultado() {
+    const t = VALOR.get.call(input);
+    if (!tieneCuenta(t)) { res.textContent = ''; res.classList.remove('error'); return; }
+    const v = evaluarCuenta(t);
+    if (Number.isNaN(v)) { res.textContent = 'La cuenta no está completa'; res.classList.add('error'); }
+    else { res.textContent = `= ${plata(v)}`; res.classList.remove('error'); }
+  }
+  input.addEventListener('input', () => {
+    const t = VALOR.get.call(input);
+    if (t.includes('.')) {
+      const pos = input.selectionStart;
+      VALOR.set.call(input, t.replace(/\./g, ','));
+      try { input.setSelectionRange(pos, pos); } catch { /* nada */ }
+    }
+    mostrarResultado();
+  });
+  // Al salir del campo, la cuenta se reemplaza por el resultado.
+  input.addEventListener('blur', () => {
+    const t = VALOR.get.call(input);
+    if (!tieneCuenta(t)) return;
+    const v = evaluarCuenta(t);
+    if (v === null || Number.isNaN(v)) return;
+    VALOR.set.call(input, textoImporte(v));
+    mostrarResultado();
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  return input;
+}
+
+// Calculadora con teclas grandes (en el celular el teclado no tiene "+").
+export function abrirCalculadora(ctx, input) {
+  const { h } = ctx;
+  let cuenta = (input.textoEscrito?.() || '').replace(/\*/g, '×').replace(/\//g, '÷').replace(/-/g, '−');
+  const verCuenta = h('div', { class: 'fz-calc-cuenta' });
+  const verTotal = h('div', { class: 'fz-calc-total num' });
+  function pintar() {
+    verCuenta.textContent = cuenta || ' ';
+    const v = evaluarCuenta(cuenta);
+    verTotal.textContent = v === null ? '$ 0' : Number.isNaN(v) ? '…' : plata(v);
+  }
+  const tecla = (t, clase = '', accion = null) => h('button', { type: 'button', class: `fz-tecla ${clase}`, onclick: () => { accion ? accion() : (cuenta += t); pintar(); } }, t);
+  const usar = () => {
+    const v = evaluarCuenta(cuenta);
+    if (v === null) VALOR.set.call(input, '');
+    else if (Number.isNaN(v)) { verTotal.textContent = 'La cuenta no está completa'; return; }
+    else VALOR.set.call(input, textoImporte(v));
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    dlg.close();
+  };
+  const dlg = h('dialog', { class: 'hoja fz-calc-hoja' },
+    h('div', { class: 'fz-calc-pantalla' }, verCuenta, verTotal),
+    h('div', { class: 'fz-teclas' },
+      tecla('7'), tecla('8'), tecla('9'), tecla('÷', 'op'),
+      tecla('4'), tecla('5'), tecla('6'), tecla('×', 'op'),
+      tecla('1'), tecla('2'), tecla('3'), tecla('−', 'op'),
+      tecla(','), tecla('0'), tecla('⌫', '', () => { cuenta = cuenta.slice(0, -1); }), tecla('+', 'op'),
+      tecla('C', 'borrar', () => { cuenta = ''; }),
+      h('button', { type: 'button', class: 'fz-tecla usar', onclick: usar }, 'Usar')));
+  dlg.addEventListener('close', () => dlg.remove());
+  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+  dlg.addEventListener('keydown', (e) => {
+    if (/^[0-9+\-*/,.x]$/.test(e.key)) { cuenta += e.key === '.' ? ',' : e.key === '*' ? '×' : e.key === '/' ? '÷' : e.key === '-' ? '−' : e.key; pintar(); e.preventDefault(); }
+    else if (e.key === 'Backspace') { cuenta = cuenta.slice(0, -1); pintar(); e.preventDefault(); }
+    else if (e.key === 'Enter') { e.preventDefault(); usar(); }
+  });
+  document.body.append(dlg);
+  dlg.showModal();
+  pintar();
 }
 
 // Hoja de formulario genérica. alGuardar devuelve un texto de error o nada.

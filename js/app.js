@@ -14,6 +14,7 @@ import { cargar, contexto, listaModulos } from './core/registro.js';
 import { pantallaAjustes } from './core/ajustes.js';
 import { escuchar } from './core/eventos.js';
 import { h, icono, aviso } from './core/ui.js';
+import { cargarPreferencias, visible, barraCelular, esPC } from './core/preferencias.js';
 
 const INICIO = 'home';
 let limpiarPantalla = null;
@@ -24,25 +25,46 @@ function leerRuta() {
   return { id: partes[0] || INICIO, sub: partes.slice(1) };
 }
 
-function armarCascaron() {
-  const items = [
-    ...listaModulos().map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
+// Menú: en la PC es la columna de la izquierda; en el celular, la barra
+// de abajo. Qué se ve y en qué orden sale de Ajustes › Módulos.
+// Los módulos ocultos (como el futuro Calendario) no aparecen.
+const menu = h('nav', { class: 'menu', 'aria-label': 'Secciones' });
+const engranaje = h('a', { href: '#/ajustes', class: 'barra-engranaje', 'aria-label': 'Ajustes', title: 'Ajustes', hidden: true }, icono('ajustes'));
+
+function itemsMenu() {
+  const todos = [
+    ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
     { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
   ];
-  const menu = h('nav', { class: 'menu', 'aria-label': 'Secciones' },
-    items.map(it => h('a', { href: `#/${it.id}`, class: 'menu-item', 'data-id': it.id },
-      icono(it.icono), h('span', {}, it.nombre))));
+  if (esPC()) return todos.filter(it => visible(it.id, 'pc'));
+  const orden = barraCelular(todos.map(it => it.id));
+  return orden.map(id => todos.find(it => it.id === id)).filter(Boolean);
+}
 
+function dibujarMenu() {
+  const items = itemsMenu();
+  menu.replaceChildren(...items.map(it => h('a', { href: `#/${it.id}`, class: 'menu-item', 'data-id': it.id },
+    icono(it.icono), h('span', {}, it.nombre))));
+  menu.style.setProperty('--items', String(items.length));
+  // En el celular, si Ajustes no está en la barra, queda un engranaje arriba.
+  engranaje.hidden = esPC() || items.some(it => it.id === 'ajustes');
+  marcarMenu(leerRuta().id);
+}
+
+function armarCascaron() {
   document.getElementById('app').replaceChildren(
     h('header', { class: 'barra' },
       h('a', { href: '#/home', class: 'marca' }, h('span', { class: 'marca-signo', 'aria-hidden': 'true' }), 'Segundo Cerebro'),
-      h('div', { id: 'estado-sync' })),
+      h('div', { class: 'barra-der' }, h('div', { id: 'estado-sync' }), engranaje)),
     menu,
     h('main', { id: 'pantalla', tabindex: '-1' }),
   );
+  dibujarMenu();
   dibujarEstado();
   escuchar('sync', dibujarEstado);
   escuchar('sesion', dibujarEstado);
+  escuchar('preferencias', dibujarMenu);
+  matchMedia('(min-width: 900px)').addEventListener('change', dibujarMenu);
 }
 
 function marcarMenu(id) {
@@ -142,6 +164,7 @@ async function arrancar() {
   }
   drive.restaurar();
   drive.reconectarAlTocar();
+  await cargarPreferencias();
   armarCascaron();
   window.addEventListener('hashchange', mostrar);
   await mostrar();
