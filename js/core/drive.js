@@ -1,9 +1,11 @@
 // ─────────────────────────────────────────────────────────────
 // Conexión con Google Drive.
 //
-// Permiso pedido: "drive.file". La app solo ve los archivos que
-// ella misma creó (o que elijas a mano). El resto de tu Drive
-// queda invisible para la app.
+// Permisos pedidos:
+//  - "drive.file": la app solo ve los archivos que ella misma creó (o
+//    que elijas a mano). El resto de tu Drive queda invisible.
+//  - "calendar.readonly": leer tus calendarios (feriados y reuniones).
+//    Solo lectura: la app nunca escribe en Google Calendar.
 //
 // Sin servidor propio, Google entrega permisos que duran 1 hora.
 // Cuando vencen, la app sigue funcionando sin conexión y se
@@ -15,7 +17,9 @@
 import { GOOGLE_CLIENT_ID } from '../config.js';
 import { emitir } from './eventos.js';
 
-const ALCANCE = 'https://www.googleapis.com/auth/drive.file';
+const ALCANCE_DRIVE = 'https://www.googleapis.com/auth/drive.file';
+const ALCANCE_CALENDARIO = 'https://www.googleapis.com/auth/calendar.readonly';
+const ALCANCE = `${ALCANCE_DRIVE} ${ALCANCE_CALENDARIO}`;
 const API = 'https://www.googleapis.com/drive/v3';
 const SUBIDA = 'https://www.googleapis.com/upload/drive/v3';
 const GUARDADO = 'sc-sesion';
@@ -23,6 +27,7 @@ const CUENTA = 'sc-cuenta';   // correo de la cuenta, para no tener que elegirla
 
 let token = null;
 let expira = 0;
+let alcances = '';   // permisos que Google aceptó en esta sesión
 let cliente = null;
 let esperando = null;
 let autoIntentado = false;   // la reconexión automática se intenta una sola vez por apertura
@@ -34,6 +39,9 @@ export class ErrorSesion extends Error {}
 export const configurado = () => !!GOOGLE_CLIENT_ID;
 export const conectado = () => !!token && Date.now() < expira - 60_000;
 
+// ¿Google aceptó el permiso de leer el calendario en esta sesión?
+export const tieneCalendario = () => conectado() && alcances.includes(ALCANCE_CALENDARIO);
+
 export function estado() {
   if (!configurado()) return 'sin-configurar';
   return conectado() ? 'conectado' : 'desconectado';
@@ -43,7 +51,7 @@ export function estado() {
 export function restaurar() {
   try {
     const g = JSON.parse(localStorage.getItem(GUARDADO) || 'null');
-    if (g && g.expira > Date.now() + 60_000) { token = g.token; expira = g.expira; }
+    if (g && g.expira > Date.now() + 60_000) { token = g.token; expira = g.expira; alcances = g.alcances || ''; }
   } catch { /* sin sesión guardada */ }
   emitir('sesion', estado());
   // Se deja todo listo para que el toque abra la ventana de Google al instante.
@@ -66,7 +74,7 @@ export function reconectarAlTocar() {
 }
 
 function guardarSesion() {
-  try { localStorage.setItem(GUARDADO, JSON.stringify({ token, expira })); } catch { /* sin almacenamiento */ }
+  try { localStorage.setItem(GUARDADO, JSON.stringify({ token, expira, alcances })); } catch { /* sin almacenamiento */ }
 }
 
 function cargarScriptGoogle() {
@@ -93,6 +101,7 @@ function prepararCliente() {
       if (r.error) { p?.mal(new Error('Google rechazó la conexión: ' + r.error)); return; }
       token = r.access_token;
       expira = Date.now() + Number(r.expires_in || 3600) * 1000;
+      alcances = String(r.scope || '');
       guardarSesion();
       emitir('sesion', estado());
       autoIntentado = false;   // la próxima vez que venza, el toque vuelve a reconectar
@@ -130,7 +139,7 @@ export async function conectar() {
 
 export function desconectar() {
   if (token && window.google?.accounts?.oauth2) google.accounts.oauth2.revoke(token, () => {});
-  token = null; expira = 0;
+  token = null; expira = 0; alcances = '';
   localStorage.removeItem(GUARDADO);
   localStorage.removeItem(CUENTA);
   cliente = null;
@@ -154,9 +163,16 @@ async function pedir(url, opciones = {}) {
   if (!r.ok) {
     let detalle = '';
     try { detalle = (await r.json()).error?.message || ''; } catch { /* sin detalle */ }
-    throw new Error(`Drive respondió ${r.status}${detalle ? ': ' + detalle : ''}`);
+    const err = new Error(`${url.includes('/calendar/') ? 'Calendar' : 'Drive'} respondió ${r.status}${detalle ? ': ' + detalle : ''}`);
+    err.estado = r.status;
+    throw err;
   }
   return r;
+}
+
+// Pedido con la sesión de Google (lo usa el calendario).
+export async function pedirJSON(url) {
+  return (await pedir(url)).json();
 }
 
 const comillas = (t) => String(t).replace(/\\/g, '\\\\').replace(/'/g, "\\'");

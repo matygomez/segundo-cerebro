@@ -217,6 +217,10 @@ export function crearModelo(ctx) {
     tareas = todas.filter(t => !oculta(t));
     const programadas = todas.filter(programada);
     const d = { areas, proyectos, secciones, tareas, todas, programadas, comentarios, filtros, ajustes, papelera };
+    // Proyectos ocultos de Hoy e Inicio (por un tiempo o hasta mostrarlos).
+    const ahora = Date.now();
+    d.proyectoOculto = (p) => !!p && (p.ocultoHasta === -1 || (Number(p.ocultoHasta) || 0) > ahora);
+    d.enOculto = (t) => !!t.proyectoId && d.proyectoOculto(proyectos.find(p => p.id === t.proyectoId));
     d.ajuste = (clave) => ajustes.find(a => a.clave === clave);
     d.comentariosDe = (tareaId) => comentarios.filter(c => c.tareaId === tareaId);
     d.filtro = (id) => filtros.find(f => f.id === id);
@@ -285,12 +289,60 @@ export function crearModelo(ctx) {
       .map(t => t.origen.clave);
   }
 
+  // Proyectos fijos de Sistemas: Finanzas, Feriados y Eventos.
+  const PROYECTOS_SISTEMA = {
+    finanzas: { nombre: 'Finanzas', icono: 'plata' },
+    feriados: { nombre: 'Feriados', icono: 'estrella' },
+    eventos: { nombre: 'Eventos', icono: 'calendario' },
+  };
+  async function proyectoSistema(clave) {
+    const areaId = await areaSistemas();
+    const proys = (await col.proyectos.listar()).filter(p => !enPapelera(p) && p.sistema === clave).sort((a, b) => a.creado - b.creado);
+    if (proys.length) {
+      for (const extra of proys.slice(1)) {
+        for (const t of (await col.tareas.listar()).filter(t => t.proyectoId === extra.id)) await col.tareas.actualizar(t.id, { proyectoId: proys[0].id });
+        await col.proyectos.borrar(extra.id);
+      }
+      const p = proys[0];
+      if (p.areaId !== areaId || p.archivado) await col.proyectos.actualizar(p.id, { areaId, archivado: false });
+      return { areaId, proyectoId: p.id };
+    }
+    const def = PROYECTOS_SISTEMA[clave] || { nombre: clave, icono: 'proyecto' };
+    const id = await col.proyectos.crear({ nombre: def.nombre, icono: def.icono, areaId, sistema: clave, archivado: false, orden: await siguienteOrden(col.proyectos, p => p.areaId === areaId) });
+    return { areaId, proyectoId: id };
+  }
+
+  // Dónde va una tarea automática: 'sistema:finanzas' | 'sistema:feriados' |
+  // 'sistema:eventos' | 'area:<id>'.
+  const lugares = new Map();
+  async function lugarDe(destino) {
+    if (lugares.has(destino)) return lugares.get(destino);
+    let lugar;
+    if (String(destino).startsWith('area:')) {
+      const id = destino.slice(5);
+      const a = (await col.areas.listar()).find(x => x.id === id && !enPapelera(x));
+      lugar = a ? { areaId: id, proyectoId: '' } : await proyectoSistema('eventos');
+    } else {
+      lugar = await proyectoSistema(String(destino || 'sistema:eventos').replace('sistema:', '') || 'eventos');
+    }
+    lugares.set(destino, lugar);
+    return lugar;
+  }
+
+  // Las notas de una tarea automática: arriba lo que trae el otro módulo,
+  // abajo (después de la raya) lo que escribas vos, que nunca se pisa.
+  const RAYA = '\n———\n';
+  const notasTuyas = (notas) => { const n = String(notas || ''); const k = n.indexOf(RAYA); return k >= 0 ? n.slice(k + RAYA.length) : (n.startsWith('———') ? '' : n); };
+  const armarNotas = (bloque, tuyas) => (bloque ? `${bloque}${RAYA}${tuyas || ''}` : (tuyas || ''));
+
   // Pone al día las tareas automáticas de un módulo:
-  //  - crea las que faltan, actualiza título y fechas, completa las que ya se hicieron;
-  //  - borra las pendientes con ese prefijo que ya no van (recordatorio apagado).
-  // No toca notas, comentarios ni adjuntos que agregues vos.
-  async function sincronizarSistema({ modulo, prefijo, tareas: deseadas = [] }) {
+  //  - crea las que faltan; actualiza título, fecha, hora y lugar; completa las que ya se hicieron;
+  //  - las pendientes con ese prefijo que ya no vienen se borran (si no tienen nada tuyo:
+  //    notas, comentarios o adjuntos); si tienen algo tuyo quedan con "(cancelada)";
+  //  - "conservarAntesDe": las pendientes con fecha anterior no se tocan (reuniones pasadas).
+  async function sincronizarSistema({ modulo, prefijo, tareas: deseadas = [], conservarAntesDe = '' }) {
     if (!prefijo) return;
+    lugares.clear();
     const todas = (await col.tareas.listar()).filter(t => !enPapelera(t) && String(t.origen?.clave || '').startsWith(prefijo));
     const porClave = new Map();
     for (const t of todas.sort((a, b) => a.creado - b.creado)) {
@@ -298,25 +350,54 @@ export function crearModelo(ctx) {
       porClave.set(t.origen.clave, t);
     }
     const quedan = new Set();
-    let areaId = null;
     for (const x of deseadas) {
       quedan.add(x.clave);
       const t = porClave.get(x.clave);
-      const cambios = { titulo: x.titulo, fecha: x.fecha || '', inicio: x.inicio || '', ...(x.aviso ? { aviso: true } : {}) };
+      const lugar = await lugarDe(x.destino || 'sistema:eventos');
+      const base = {
+        titulo: x.titulo, fecha: x.fecha || '', hora: x.hora || '', inicio: x.inicio || '',
+        duracion: x.duracion || '', aviso: !!x.aviso,
+      };
       if (!t) {
         if (x.hecha) continue;
-        areaId ??= await areaSistemas();
         await col.tareas.crear({
-          ...cambios, hora: '', notas: x.notas || '', estado: 'pendiente', areaId, proyectoId: '', seccionId: '', padreId: '',
+          ...base, notas: armarNotas(x.notas, ''), estado: 'pendiente', ...lugar, seccionId: '', padreId: '',
           etiquetas: [], subtareas: [], adjuntos: [], orden: Date.now(), origen: { modulo, clave: x.clave },
         });
         continue;
       }
       if (hecha(t)) continue;                       // ya completada: se deja así
+      const cambios = { ...base, notas: armarNotas(x.notas, notasTuyas(t.notas)) };
+      if (t.areaId !== lugar.areaId || (t.proyectoId || '') !== lugar.proyectoId) Object.assign(cambios, lugar, { seccionId: '' });
       if (x.hecha) { await col.tareas.actualizar(t.id, { ...cambios, estado: 'hecha', completada: Date.now() }); continue; }
-      if (t.titulo !== cambios.titulo || (t.fecha || '') !== cambios.fecha || (t.inicio || '') !== cambios.inicio) await col.tareas.actualizar(t.id, cambios);
+      const distinto = Object.keys(cambios).some(k => String(t[k] ?? '') !== String(cambios[k] ?? ''));
+      if (distinto) await col.tareas.actualizar(t.id, cambios);
     }
-    for (const [clave, t] of porClave) if (!quedan.has(clave) && !hecha(t)) await col.tareas.borrar(t.id);
+    const comentarios = await col.comentarios.listar();
+    for (const [clave, t] of porClave) {
+      if (quedan.has(clave) || hecha(t)) continue;
+      if (conservarAntesDe && t.fecha && t.fecha < conservarAntesDe) continue;
+      const tuyo = notasTuyas(t.notas).trim() || (t.adjuntos || []).length || comentarios.some(c => c.tareaId === t.id);
+      if (tuyo) {
+        if (!/\(cancelada\)$/.test(t.titulo)) await col.tareas.actualizar(t.id, { titulo: `${t.titulo} (cancelada)`, origen: { ...t.origen, clave: `${t.origen.clave}#cancelada` } });
+      } else await col.tareas.borrar(t.id);
+    }
+  }
+
+  // Ocultar un proyecto de Hoy, Inicio y contadores por un tiempo (o hasta mostrarlo).
+  // hasta: milisegundos, o -1 = hasta que lo vuelvas a mostrar; 0 = visible.
+  const ocultarProyecto = (id, hasta) => col.proyectos.actualizar(id, { ocultoHasta: hasta });
+
+  // Orden de proyectos y secciones (arrastrando).
+  async function moverEn(coleccion, id, antesId, despuesId) {
+    const lista = await coleccion.listar();
+    const ord = (x) => lista.find(y => y.id === x)?.orden ?? 0;
+    let orden;
+    if (antesId && despuesId) orden = (ord(antesId) + ord(despuesId)) / 2;
+    else if (antesId) orden = ord(antesId) + 1;
+    else if (despuesId) orden = ord(despuesId) - 1;
+    else return;
+    return coleccion.actualizar(id, { orden });
   }
 
   return {
@@ -324,6 +405,9 @@ export function crearModelo(ctx) {
     areaSistemas,
     pendientesDeSistema,
     sincronizarSistema,
+    ocultarProyecto,
+    moverProyecto: (id, a, b) => moverEn(col.proyectos, id, a, b),
+    moverSeccion: (id, a, b) => moverEn(col.secciones, id, a, b),
 
     async crearTarea(datos) {
       const t = normalizar(datos);

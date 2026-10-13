@@ -18,6 +18,7 @@
 import { crearModelo, hoy, sumarDias, diasEntre, hecha, vencida, deHoy, programada, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
 import { hacerOrdenable } from './arrastre.js';
+import { sincronizarCalendario, configCalendarios, CLAVE_AJUSTE as CLAVE_CALENDARIOS } from './calendario.js';
 
 // Íconos propios del módulo (mismo estilo de línea que el resto de la app).
 const TRAZOS = {
@@ -41,6 +42,7 @@ const TRAZOS = {
   archivo: '<rect x="3.5" y="5" width="17" height="4" rx="1"/><path d="M5 9v9.5A1.5 1.5 0 0 0 6.5 20h11a1.5 1.5 0 0 0 1.5-1.5V9M10 13h4"/>',
   mas: '<path d="M12 5v14M5 12h14"/>',
   ordenar: '<path d="M7 5v14M4 16l3 3 3-3"/><path d="M17 19V5M14 8l3-3 3 3"/>',
+  'ojo-no': '<path d="M3 3l18 18"/><path d="M10.6 6.2A9.6 9.6 0 0 1 12 6c5 0 8.5 4.5 9.5 6-.5.8-1.6 2.3-3.2 3.7M6.6 7.6C4.6 9 3.2 10.9 2.5 12c1 1.5 4.5 6 9.5 6 1.6 0 3-.4 4.3-1"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   alerta: '<path d="M12 4 2.8 19.5h18.4Z"/><path d="M12 10v4.5M12 17v.01"/>',
   circulo: '<circle cx="12" cy="12" r="7.5"/>',
   nota: '<path d="M6 3.5h8.5L18 7v13.5H6Z"/><path d="M9 11h6M9 14.5h6M9 18h3.5"/>',
@@ -241,7 +243,7 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
         columnas),
       bloqueSub ? bloqueSub.alternar : null));
   const fondo = h('div', { class: 'tr-desliza', 'aria-hidden': 'true' }, h('span', { class: 'izq' }, '✓ Completar'), h('span', { class: 'der' }, 'Mañana →'));
-  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${t.aviso ? ' aviso' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
+  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${t.aviso ? ' tr-es-aviso' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
 
   // Deslizar con el dedo: a la derecha completa, a la izquierda pasa a mañana.
   if (!hecha(t) && !t.aviso) {
@@ -333,6 +335,20 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   const esPC = () => window.matchMedia('(min-width: 900px)').matches;
   const claveHojas = () => (esPC() ? 'hojas-pc' : 'hojas-cel');
+  // Lo que dejaste plegado (proyectos, secciones, áreas en Inicio). Se recuerda por dispositivo.
+  const clavePlegados = () => (esPC() ? 'plegados-pc' : 'plegados-cel');
+  const plegados = () => new Set(d.ajuste(clavePlegados())?.ids || []);
+  const estaPlegado = (id) => plegados().has(id);
+  async function alternarPlegado(id) {
+    const s = plegados();
+    s.has(id) ? s.delete(id) : s.add(id);
+    await m.guardarHojas(clavePlegados(), { ids: [...s] });
+  }
+  const flechaPlegar = (id, nombre) => h('button', {
+    type: 'button', class: `tr-plegar${estaPlegado(id) ? ' plegado' : ''}`, 'aria-expanded': String(!estaPlegado(id)),
+    'aria-label': `${estaPlegado(id) ? 'Desplegar' : 'Plegar'} ${nombre}`,
+    onclick: (e) => { e.preventDefault(); e.stopPropagation(); alternarPlegado(id); },
+  }, ic('abajo'));
 
   const cuerpo = h('div', { class: 'tr-cuerpo-vista' });
   const barraHojas = h('nav', { class: 'tr-hojas', 'aria-label': 'Hojas de Tareas' });
@@ -431,7 +447,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return {};
   }
 
-  const pendientes = () => d.tareas.filter(t => !hecha(t));
+  // Pendientes para Hoy, Inicio y contadores (sin los proyectos ocultos).
+  const pendientes = () => d.tareas.filter(t => !hecha(t) && !d.enOculto?.(t));
   // En listas por lugar (bandeja, área, proyecto) las subtareas van debajo de su madre.
   const principales = (ts) => ts.filter(t => !t.padreId || !d.tarea(t.padreId));
   // En listas por fecha, una subtarea aparece suelta si su fecha es distinta a la de su madre
@@ -442,7 +459,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   };
   const porFecha = (ts) => ts.filter(sueltaPorFecha);
   const cuenta = (filtro) => pendientes().filter(filtro).length;
-  const areasActivas = () => d.areas.filter(a => !a.archivada);
+  // Sistemas va siempre al final.
+  const areasActivas = () => d.areas.filter(a => !a.archivada).sort((a, b) => Number(!!a.sistema) - Number(!!b.sistema));
   const proyectosDe = (areaId) => d.proyectos.filter(p => p.areaId === areaId && !p.archivado);
   const seccionesDe = (proyectoId) => d.secciones.filter(s => s.proyectoId === proyectoId && !s.archivada);
   const iconoArea = (a) => a?.icono || 'carpeta';
@@ -624,6 +642,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
           h('button', { type: 'button', role: 'switch', 'aria-checked': String(cfg.leyenda), 'aria-label': 'Leyenda en Inicio', class: `tr-switch${cfg.leyenda ? ' on' : ''}`,
             onclick: async () => { cfg.leyenda = !cfg.leyenda; pintar(); await guardar(); } })) : null,
         h('p', { class: 'nota' }, `Esto se guarda por separado en el celular y en la PC (ahora estás en ${esPC() ? 'la PC' : 'el celular'}).`),
+        seccionCalendario(),
         h('h3', {}, 'Hojas'),
         h('p', { class: 'nota' }, 'Prendé las que quieras ver arriba y elegí cómo se muestra cada una: solo ícono, ícono y nombre, o solo nombre.'),
         filas,
@@ -631,6 +650,50 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         h('button', { type: 'button', class: 'tr-cfg-item', onclick: () => { dlg.close(); abrirPapelera(); } }, ic('papelera'), h('span', {}, 'Papelera'), h('small', {}, String(enPapelera))),
         h('button', { type: 'button', class: 'tr-cfg-item', onclick: () => { dlg.close(); abrirArchivados(); } }, ic('archivo'), h('span', {}, 'Archivados'), h('small', {}, String(archivados))));
     }
+    // ── Google Calendar (solo lectura) ──
+    function seccionCalendario() {
+      const cal = ctx.calendario;
+      const titulo = h('h3', {}, 'Google Calendar');
+      if (!cal?.configurado?.()) return [titulo, h('p', { class: 'nota' }, 'Primero hay que vincular la app con Google (Ajustes).')];
+      const refrescar = async () => { await new Promise(r => setTimeout(r, 200)); d = await m.cargar(); pintar(); };
+      if (!cal.disponible()) {
+        return [titulo,
+          h('p', { class: 'nota' }, 'Conectá Google con permiso para leer el calendario: feriados y reuniones llegan solos a Tareas. La app solo lee, nunca escribe en tu calendario.'),
+          h('button', { type: 'button', class: 'boton', onclick: async () => {
+            try { await cal.conectar(); await sincronizarCalendario(ctx, { forzar: true }); await refrescar(); } catch (e) { ctx.aviso(e.message); }
+          } }, ic('calendario'), 'Conectar Google Calendar')];
+      }
+      const conf = configCalendarios(d);
+      const ids = Object.keys(conf.cals);
+      const estado = h('p', { class: 'nota' }, conf.error ? `⚠ ${conf.error}` : conf.ultima ? `Conectado · solo lectura · actualizado ${new Date(conf.ultima).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}` : 'Conectado · buscando tus calendarios…');
+      if (!ids.length && !conf.error) sincronizarCalendario(ctx, { forzar: true }).then(refrescar);
+      const destinos = [['no', 'No mostrar'], ...areasActivas().filter(a => !a.sistema).map(a => [`area:${a.id}`, `Tareas › ${a.nombre}`]), ['sistema:eventos', 'Sistemas › Eventos'], ['sistema:feriados', 'Sistemas › Feriados']];
+      const guardarCal = async (id, cambios) => {
+        const cals = { ...configCalendarios(d).cals };
+        cals[id] = { ...cals[id], ...cambios };
+        await m.guardarHojas(CLAVE_CALENDARIOS, { cals });
+        await sincronizarCalendario(ctx, { forzar: true });
+        await refrescar();
+      };
+      const sel = (opciones, actual, alCambiar, etiqueta) => h('select', { 'aria-label': etiqueta, onchange: (e) => alCambiar(e.target.value) },
+        opciones.map(([v, t]) => h('option', { value: String(v), selected: String(v) === String(actual) }, t)));
+      const filas = ids.map(id => {
+        const c = conf.cals[id];
+        const fer = c.destino === 'sistema:feriados';
+        return h('div', { class: 'tr-cal' },
+          h('span', { class: 'tr-cal-punto', style: `background:${c.color || '#7D888C'}` }),
+          h('span', { class: 'tr-cal-nombre' }, c.nombre || id),
+          h('div', { class: 'tr-cal-ctl' },
+            sel(destinos, c.destino, (v) => guardarCal(id, { destino: v }), `Destino de ${c.nombre}`),
+            c.destino !== 'no' && !fer ? sel([['tarea', 'como tarea'], ['aviso', 'como aviso']], c.modo || 'tarea', (v) => guardarCal(id, { modo: v }), 'Cómo llega') : null,
+            fer ? h('span', { class: 'nota' }, 'aparecen ', sel([['todo', 'todo el año'], [0, 'el mismo día'], [1, '1 día antes'], [3, '3 días antes'], [7, '1 semana antes']], c.anticipacion ?? 'todo', (v) => guardarCal(id, { anticipacion: v === 'todo' ? 'todo' : Number(v) }), 'Cuándo aparecen los feriados')) : null));
+      });
+      return [titulo, estado,
+        h('p', { class: 'nota' }, '"Como tarea": tiene casilla y, si no la tildás, queda vencida. "Como aviso": sin casilla, desaparece al día siguiente. Las reuniones que rechazaste no llegan.'),
+        h('div', { class: 'tr-cals' }, filas),
+        h('button', { type: 'button', class: 'tr-link', onclick: async () => { await sincronizarCalendario(ctx, { forzar: true }); await refrescar(); ctx.aviso('Calendario actualizado'); } }, 'Actualizar ahora')];
+    }
+
     pintar();
     const dlg = ventana('Configurar Tareas', contenido);
   }
@@ -715,6 +778,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   function opcionesProyecto(p) {
     const hermanos = proyectosDe(p.areaId);
     menu(ctx, p.nombre, [
+      d.proyectoOculto(p)
+        ? { texto: 'Mostrar en Hoy e Inicio', accion: async () => { await m.ocultarProyecto(p.id, 0); ctx.aviso(`"${p.nombre}" vuelve a verse en Hoy e Inicio`); } }
+        : { texto: 'Ocultar de Hoy e Inicio…', accion: () => ocultarProyecto(p) },
       { texto: 'Nueva sección', accion: async () => { const n = await pedirNombre(ctx, 'Nueva sección', '', 'Crear sección'); if (n) await m.crearSeccion(p.id, n); } },
       { texto: 'Renombrar', accion: async () => { const n = await pedirNombre(ctx, 'Renombrar proyecto', p.nombre); if (n) await m.renombrarProyecto(p.id, n); } },
       { texto: 'Cambiar ícono', accion: () => elegirIcono('proyectos', p) },
@@ -723,7 +789,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       p.archivado
         ? { texto: 'Restaurar', accion: () => m.archivarProyecto(p.id, false) }
         : { texto: 'Archivar', accion: async () => { await m.archivarProyecto(p.id); avisoArchivado(p.nombre, () => m.archivarProyecto(p.id, false)); if (vista === 'proyecto') ctx.navegar(`tareas/area/${p.areaId}`); } },
-      { texto: 'Eliminar', peligro: true, accion: () => eliminar('proyectos', p) },
+      { texto: 'Eliminar', peligro: true, accion: () => (p.sistema ? ctx.aviso('Este proyecto lo usa Sistemas: si lo eliminás se vuelve a crear. Podés ocultarlo de Hoy e Inicio.', { duracion: 6000 }) : eliminar('proyectos', p)) },
     ]);
   }
 
@@ -815,11 +881,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const cfg = configHojas();
     const modoCont = cfg.inicioCont;
     const contador = (clase, icNombre, n, titulo) => h('span', { class: `tr-cont ${clase}`, title: titulo }, modoCont === 'simbolo' ? ic(icNombre) : null, String(n));
-    const nodo = (href, icNombre, nombre, f, clase = '') => {
+    const nodo = (href, icNombre, nombre, f, clase = '', { flecha = null, oculto = false } = {}) => {
       const total = cuenta(f), v = cuenta(t => f(t) && vencida(t)), hy = cuenta(t => f(t) && deHoy(t));
-      return h('a', { href, class: `tr-nodo ${clase}` },
+      return h('a', { href, class: `tr-nodo ${clase}${oculto ? ' oculto' : ''}` },
+        clase.includes('tr-nodo-area') ? (flecha || h('span', { class: 'tr-plegar-hueco' })) : null,
         ic(icNombre), h('span', { class: 'tr-nodo-nombre' }, nombre),
-        h('span', { class: `tr-conts modo-${modoCont}` },
+        oculto ? h('span', { class: 'tr-pill-oculto', title: 'Oculto de Hoy e Inicio' }, 'oculto') : h('span', { class: `tr-conts modo-${modoCont}` },
           modoCont !== 'nada' && v ? contador('venc', 'alerta', v, `${v} vencida${v > 1 ? 's' : ''}`) : null,
           modoCont !== 'nada' && hy ? contador('hoy', 'sol', hy, `${hy} para hoy`) : null,
           total ? contador('total', 'circulo', total, `${total} pendiente${total > 1 ? 's' : ''} en total`) : null));
@@ -839,10 +906,16 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         leyenda,
         h('nav', { class: 'tr-arbol', 'aria-label': 'Áreas' },
           nodo('#/tareas/bandeja', 'bandeja', 'Bandeja de entrada', t => !t.areaId, 'tr-nodo-area'),
-          areasActivas().map(a => [
-            nodo(`#/tareas/area/${a.id}`, iconoArea(a), a.nombre, t => t.areaId === a.id, 'tr-nodo-area'),
-            proyectosDe(a.id).map(p => nodo(`#/tareas/proyecto/${p.id}`, iconoProyecto(p), p.nombre, t => t.proyectoId === p.id, 'tr-nodo-proyecto')),
-          ])),
+          areasActivas().map(a => {
+            const proys = proyectosDe(a.id);
+            const plegada = estaPlegado(`arbol:${a.id}`);
+            const sis = a.sistema ? ' tr-nodo-sistema' : '';
+            return [
+              nodo(`#/tareas/area/${a.id}`, iconoArea(a), a.nombre, t => t.areaId === a.id, `tr-nodo-area${sis}`,
+                { flecha: proys.length ? flechaPlegar(`arbol:${a.id}`, a.nombre) : null }),
+              plegada ? null : proys.map(p => nodo(`#/tareas/proyecto/${p.id}`, iconoProyecto(p), p.nombre, t => t.proyectoId === p.id, `tr-nodo-proyecto${sis}`, { oculto: d.proyectoOculto(p) })),
+            ];
+          })),
         areasActivas().length ? null : h('p', { class: 'nota' }, 'Creá tu primera área con el botón +. Un área es una parte permanente de tu vida, como el trabajo o la casa.')),
     ];
   }
@@ -991,18 +1064,83 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const secciones = seccionesDe(p.id);
     const base = { areaId: p.areaId, proyectoId: p.id };
     const sinSeccion = visibles.filter(t => !t.seccionId || !secciones.some(s => s.id === t.seccionId));
+    // Secciones: se pliegan con la flecha y se ordenan arrastrando ⋮⋮.
+    const ulSecciones = secciones.length ? h('ul', { class: 'tr-bloques tr-secciones' }, secciones.map(s => {
+      const ts = visibles.filter(t => t.seccionId === s.id);
+      const plegada = estaPlegado(`seccion:${s.id}`);
+      return h('li', { class: `tr-seccion${plegada ? ' plegada' : ''}`, 'data-id': s.id },
+        h('div', { class: 'tr-seccion-cab' },
+          h('button', { type: 'button', class: 'tr-asa', 'aria-label': `Mover la sección ${s.nombre} (arrastrá, o usá las flechas)` }, ic('asa')),
+          flechaPlegar(`seccion:${s.id}`, s.nombre),
+          h('a', { href: `#/tareas/seccion/${s.id}`, class: 'tr-seccion-nombre' }, s.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
+          conMenuSeccion ? h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de la sección ${s.nombre}`, onclick: () => opcionesSeccion(s) }, ic('puntos')) : null),
+        plegada ? null : [ts.length ? lista(ts, { ubicacion: false, manual: true }) : null, agregarEn({ ...base, seccionId: s.id })]);
+    })) : null;
+    if (ulSecciones) hacerOrdenable(ulSecciones, (id, antes, despues) => m.moverSeccion(id, antes, despues));
     return [
       sinSeccion.length ? lista(sinSeccion, { ubicacion: false, manual: true }) : null,
-      secciones.map(s => {
-        const ts = visibles.filter(t => t.seccionId === s.id);
-        return h('section', { class: 'tr-seccion' },
-          h('div', { class: 'tr-seccion-cab' },
-            h('a', { href: `#/tareas/seccion/${s.id}`, class: 'tr-seccion-nombre' }, s.nombre, h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
-            conMenuSeccion ? h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de la sección ${s.nombre}`, onclick: () => opcionesSeccion(s) }, ic('puntos')) : null),
-          ts.length ? lista(ts, { ubicacion: false, manual: true }) : null,
-          agregarEn({ ...base, seccionId: s.id }));
-      }),
+      ulSecciones,
     ];
+  }
+
+  // Aviso de proyecto oculto, con "Mostrar ahora".
+  function chipOculto(p) {
+    if (!d.proyectoOculto(p)) return null;
+    const hasta = p.ocultoHasta === -1 ? 'que lo vuelvas a mostrar' : textoHasta(p.ocultoHasta);
+    return h('div', { class: 'tr-chip-oculto' }, ic('ojo-no'), h('span', {}, `Oculto de Hoy e Inicio hasta ${hasta}`),
+      h('button', { type: 'button', onclick: async () => { await m.ocultarProyecto(p.id, 0); ctx.aviso(`"${p.nombre}" vuelve a verse en Hoy e Inicio`); } }, 'Mostrar ahora'));
+  }
+  function textoHasta(ms) {
+    const f = new Date(ms), ahora = new Date();
+    const hhmm = f.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });
+    const manana = new Date(ahora); manana.setDate(ahora.getDate() + 1);
+    if (f.toDateString() === ahora.toDateString()) return `hoy ${hhmm}`;
+    if (f.toDateString() === manana.toDateString()) return `mañana ${hhmm}`;
+    return `${f.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' }).replace(/\./g, '')} ${hhmm}`;
+  }
+
+  // Proyectos de un área: se pliegan con la flecha y se ordenan arrastrando ⋮⋮.
+  function listaProyectos(a, proys, visibles) {
+    if (!proys.length) return null;
+    const ul = h('ul', { class: 'tr-bloques tr-proyectos' }, proys.map(p => {
+      const ts = visibles.filter(t => t.proyectoId === p.id);
+      const plegado = estaPlegado(`proyecto:${p.id}`);
+      return h('li', { class: `tr-proyecto${plegado ? ' plegado' : ''}${d.proyectoOculto(p) ? ' oculto' : ''}`, 'data-id': p.id },
+        h('div', { class: 'tr-proyecto-cab' },
+          h('button', { type: 'button', class: 'tr-asa', 'aria-label': `Mover ${p.nombre} (arrastrá, o usá las flechas)` }, ic('asa')),
+          flechaPlegar(`proyecto:${p.id}`, p.nombre),
+          h('a', { href: `#/tareas/proyecto/${p.id}`, class: 'tr-proyecto-nombre' }, ic(iconoProyecto(p)), h('span', {}, p.nombre), h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
+          h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de ${p.nombre}`, onclick: () => opcionesProyecto(p) }, ic('puntos'))),
+        chipOculto(p),
+        plegado ? null : [cuerpoProyecto(p, ts), seccionesDe(p.id).length ? null : agregarEn({ areaId: a.id, proyectoId: p.id })]);
+    }));
+    hacerOrdenable(ul, (id, antes, despues) => m.moverProyecto(id, antes, despues));
+    return ul;
+  }
+
+  // Ocultar un proyecto de Hoy e Inicio: por defecto 1 día.
+  function ocultarProyecto(p) {
+    const OPCIONES = [['1d', '1 día (hasta mañana a esta hora)', 1], ['3d', '3 días', 3], ['1s', '1 semana', 7], ['siempre', 'Hasta que lo vuelva a mostrar', -1]];
+    let elegida = '1d';
+    const botones = OPCIONES.map(([v, texto]) => h('button', { type: 'button', class: `tr-opcion${v === elegida ? ' activa' : ''}`, 'aria-pressed': String(v === elegida), onclick: (e) => {
+      elegida = v; for (const b of botones) { const on = b === e.currentTarget; b.classList.toggle('activa', on); b.setAttribute('aria-pressed', String(on)); }
+    } }, texto));
+    const dlg = h('dialog', { class: 'hoja' },
+      h('header', { class: 'hoja-cabecera' }, h('h2', {}, `Ocultar "${p.nombre}"`),
+        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
+      h('p', { class: 'hoja-texto' }, 'Sus tareas no aparecen en Hoy, en Inicio ni en los contadores. Se siguen creando y actualizando, y dentro del área las ves igual.'),
+      h('div', { class: 'tr-opciones' }, botones),
+      h('div', { class: 'hoja-botones' },
+        h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, 'Cancelar'),
+        h('button', { type: 'button', class: 'boton principal', onclick: async () => {
+          const dias = OPCIONES.find(o => o[0] === elegida)[2];
+          await m.ocultarProyecto(p.id, dias === -1 ? -1 : Date.now() + dias * 86_400_000);
+          dlg.close();
+          ctx.aviso(`"${p.nombre}" oculto de Hoy e Inicio`);
+        } }, 'Ocultar')));
+    dlg.addEventListener('close', () => dlg.remove());
+    document.body.append(dlg);
+    dlg.showModal();
   }
 
   // ── Área: tareas sueltas y cada proyecto con sus secciones ──
@@ -1025,15 +1163,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       ...cabecera,
       sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : (proys.length ? null : nada('Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')),
       agregarEn({ areaId: a.id }),
-      proys.map(p => {
-        const ts = visibles.filter(t => t.proyectoId === p.id);
-        return h('section', { class: 'tr-proyecto' },
-          h('div', { class: 'tr-proyecto-cab' },
-            h('a', { href: `#/tareas/proyecto/${p.id}`, class: 'tr-proyecto-nombre' }, ic(iconoProyecto(p)), h('span', {}, p.nombre), h('span', { class: 'tr-grupo-n' }, String(ts.filter(t => !hecha(t)).length))),
-            h('button', { type: 'button', class: 'boton-icono chico', 'aria-label': `Opciones de ${p.nombre}`, onclick: () => opcionesProyecto(p) }, ic('puntos'))),
-          cuerpoProyecto(p, ts),
-          seccionesDe(p.id).length ? null : agregarEn({ areaId: a.id, proyectoId: p.id }));
-      }),
+      listaProyectos(a, proys, visibles),
       bloqueProgramadas(clave, t => t.areaId === a.id),
     ];
   }
@@ -1056,6 +1186,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     return [
       esHoja ? null : volver(a ? `#/tareas/area/${a.id}` : '#/tareas', a?.nombre || 'Tareas'),
       tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), botonOrden(clave, 'proyecto'), chipHechas(clave, tareas.filter(hecha).length)),
+      chipOculto(p),
       cuerpoP,
       agregarEn({ areaId: p.areaId, proyectoId: p.id }),
       bloqueProgramadas(clave, t => t.proyectoId === p.id),
@@ -1155,6 +1286,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const scroll = window.scrollY;
     ordenVista = { por: 'manual', sentido: 'asc', agrupar: '' };
     poner(cuerpo, (VISTAS[vista] || VISTAS.inicio)());
+    const areaVista = vista === 'area' ? d.area(idRuta) : vista === 'proyecto' ? d.area(d.proyecto(idRuta)?.areaId) : vista === 'seccion' ? d.area(d.proyecto(d.seccion(idRuta)?.proyectoId)?.areaId) : null;
+    cuerpo.classList.toggle('tr-vista-sistema', !!areaVista?.sistema);
     if (cfg.compacto) ponerEncabezadoColumnas();
     marcarActiva();
     if (primeraVez && ancla) {

@@ -46,6 +46,8 @@ import { abrirFormulario } from './formularios.js';
 import { aviso, confirmar, h, icono } from './ui.js';
 import { escuchar } from './eventos.js';
 import * as archivos from './archivos.js';
+import * as calendario from './calendario.js';
+import * as drive from './drive.js';
 
 const cargados = new Map();
 
@@ -84,6 +86,8 @@ export function contexto(moduloId) {
     modulo: moduloId,
     datos: (nombre) => coleccion(moduloId, nombre),
     alCambiarDatos: (fn) => escuchar('datos', (e) => { if (e.modulo === moduloId) fn(e); }),
+    // Avisa cada vez que la cuenta de Google queda conectada.
+    alConectarGoogle: (fn) => escuchar('sesion', (e) => { if (e === 'conectado') fn(); }),
     formulario: abrirFormulario,
     aviso,
     confirmar,
@@ -100,6 +104,15 @@ export function contexto(moduloId) {
       urlImagen: archivos.urlImagen,
       esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
+    },
+    // Google Calendar, solo lectura.
+    calendario: {
+      disponible: calendario.disponible,
+      configurado: calendario.configurado,
+      calendarios: calendario.calendarios,
+      eventos: calendario.eventos,
+      conectar: drive.conectar,
+      FERIADOS_AR: calendario.FERIADOS_AR,
     },
     inicio: {
       bloques: () => juntar('bloquesInicio'),

@@ -3,8 +3,8 @@
 //
 // Cada gasto fijo con día de vencimiento y cada tarjeta pueden tener
 // un recordatorio { on, dias }. Con el recordatorio prendido, Finanzas
-// le pide a Tareas (por mensaje, sin tocar su código) una tarea en el
-// área "Sistemas":
+// le pide a Tareas (por mensaje, sin tocar su código) una tarea en
+// Sistemas › Finanzas:
 //   "Pagar Luz · $ 25.000"  fecha = vencimiento, aparece X días antes.
 // Cuando el pago queda registrado en Finanzas, la tarea se completa sola.
 //
@@ -58,6 +58,7 @@ function tareaFijo(d, cat, mes) {
     titulo: `Pagar ${cat.nombre}${e.presupuesto ? ` · ${plata(e.presupuesto)}` : ''}`,
     fecha, inicio: rec.dias > 0 ? restarDias(fecha, rec.dias) : '',
     hecha: e.pagado,
+    destino: 'sistema:finanzas',
   };
 }
 
@@ -69,6 +70,7 @@ function tareaTarjeta(d, cr, resumen) {
     titulo: `Pagar ${d.nombreCredito ? d.nombreCredito(cr) : cr.nombre} · ${plata(resumen.total)}`,
     fecha, inicio: rec.dias > 0 ? restarDias(fecha, rec.dias) : '',
     hecha: resumen.pendiente <= 0,
+    destino: 'sistema:finanzas',
   };
 }
 

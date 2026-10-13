@@ -614,6 +614,51 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-meta.tr-aparece { color: var(--laton); }
 .tr-aviso-ic { width: 1.4rem; height: 1.4rem; display: grid; place-items: center; color: var(--tr-violeta, #6B4E9B); flex: none; margin-top: 0.1rem; }
 .tr-aviso-ic .icono { width: 1.1rem; height: 1.1rem; }
-.tr-tarea.aviso .tr-titulo { color: var(--tr-violeta, #6B4E9B); font-weight: 500; }
-@media (prefers-color-scheme: dark) { .tr-aviso-ic, .tr-tarea.aviso .tr-titulo { color: #B9A2E0; } }
+.tr-tarea.tr-es-aviso .tr-titulo { color: var(--tr-violeta, #6B4E9B); font-weight: 500; }
+@media (prefers-color-scheme: dark) { .tr-aviso-ic, .tr-tarea.tr-es-aviso .tr-titulo { color: #B9A2E0; } }
 .tr-compacto .tr-aviso-ic { width: 1.1rem; height: 1.1rem; }
+
+/* ── Plegar y ordenar proyectos y secciones ── */
+.tr-bloques { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.tr-bloques.ordenando { user-select: none; }
+.tr-bloques > li.arrastrando { position: relative; z-index: 3; background: var(--superficie); box-shadow: 0 8px 24px rgb(10 15 18 / 0.15); border-radius: var(--radio-control); }
+.tr-proyecto-cab { justify-content: flex-start; }
+.tr-proyecto-cab .tr-proyecto-nombre { flex: 1; min-width: 0; }
+.tr-proyecto-cab .tr-proyecto-nombre span:not(.tr-grupo-n) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tr-seccion-cab { justify-content: flex-start; gap: 0.3rem; }
+.tr-seccion-cab .tr-seccion-nombre { flex: 1; }
+.tr-proyecto-cab .tr-asa, .tr-seccion-cab .tr-asa { margin: 0; height: 1.6rem; width: 1.3rem; }
+.tr-plegar { width: 1.5rem; height: 1.5rem; border: 0; background: none; padding: 0; display: grid; place-items: center; color: var(--tinta-2); cursor: pointer; border-radius: 6px; flex: none; transition: transform 0.15s; }
+.tr-plegar .icono { width: 1rem; height: 1rem; }
+.tr-plegar.plegado { transform: rotate(-90deg); }
+.tr-plegar:hover { background: var(--superficie-2); color: var(--tinta); }
+.tr-plegar-hueco { width: 1.5rem; display: inline-block; }
+.tr-nodo-area { grid-template-columns: auto auto minmax(0, 1fr) auto; }
+.tr-nodo-proyecto { padding-left: 2.6rem; }
+
+/* Proyecto oculto de Hoy e Inicio */
+.tr-chip-oculto { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; font-size: 0.8rem; background: var(--laton-fondo); color: var(--laton); border-radius: 8px; padding: 0.3rem 0.6rem; margin: 0.2rem 0 0.3rem; }
+.tr-chip-oculto .icono { width: 0.95rem; height: 0.95rem; }
+.tr-chip-oculto button { border: 0; background: none; color: var(--laton); font: inherit; font-weight: 600; text-decoration: underline; cursor: pointer; padding: 0; }
+.tr-pill-oculto { font-size: 0.7rem; border: 1px solid var(--linea); border-radius: 999px; padding: 0 0.45rem; color: var(--tinta-2); background: var(--superficie); }
+.tr-nodo.oculto .tr-nodo-nombre { text-decoration: line-through; opacity: 0.7; }
+.tr-opciones { display: grid; gap: 0.4rem; margin-bottom: 0.5rem; }
+.tr-opcion { text-align: left; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta); border-radius: 10px; padding: 0.6rem 0.75rem; font: inherit; cursor: pointer; }
+.tr-opcion.activa { border-color: var(--tinta); background: var(--superficie-2); font-weight: 600; }
+
+/* Sistemas: en gris para distinguirla de tus áreas */
+.tr-nodo-sistema, .tr-nodo-sistema .tr-nodo-nombre, .tr-nodo-sistema .icono { color: var(--tr-gris, #7D888C) !important; }
+.tr-nodo-sistema { background: var(--tr-gris-f, #E7EBEA); }
+.tr-nodo-area.tr-nodo-sistema { border-radius: var(--radio-control) var(--radio-control) 0 0; border-top-color: transparent; margin-top: 0.3rem; }
+.tr-nodo-proyecto.tr-nodo-sistema { border-radius: 0; }
+.tr-vista-sistema .tr-titulo-vista h2, .tr-vista-sistema .tr-titulo-vista h2 .icono, .tr-vista-sistema .tr-proyecto-nombre { color: var(--tr-gris, #7D888C); }
+@media (prefers-color-scheme: dark) { :root { --tr-gris: #8E989B; --tr-gris-f: #232C30; } }
+
+/* Configurar › Google Calendar */
+.tr-cals { display: grid; }
+.tr-cal { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 0.6rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--linea); }
+.tr-cals > .tr-cal:first-child { border-top: 0; }
+.tr-cal-punto { width: 0.75rem; height: 0.75rem; border-radius: 50%; }
+.tr-cal-nombre { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
+.tr-cal-ctl { grid-column: 2; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
+.tr-cal-ctl select { width: auto !important; flex: 1 1 9rem; min-height: 2.2rem; font: inherit; font-size: 0.85rem; border: 1px solid var(--linea); border-radius: 8px; padding: 0.3rem 0.5rem; background: var(--superficie); color: var(--tinta); max-width: 100%; }

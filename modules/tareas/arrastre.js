@@ -17,6 +17,7 @@ export function hacerOrdenable(ul, alSoltar) {
     const asa = e.target.closest('.tr-asa');
     if (!asa || !ul.contains(asa) || e.button > 0) return;
     const li = asa.closest('li');
+    if (!li || li.parentElement !== ul) return;   // es de una lista de adentro
     e.preventDefault();
 
     const inicio = [...ul.children].indexOf(li);
@@ -80,8 +81,9 @@ export function hacerOrdenable(ul, alSoltar) {
   ul.addEventListener('keydown', (e) => {
     const asa = e.target.closest('.tr-asa');
     if (!asa || !['ArrowUp', 'ArrowDown'].includes(e.key)) return;
-    e.preventDefault();
     const li = asa.closest('li');
+    if (!li || li.parentElement !== ul) return;
+    e.preventDefault();
     const otro = e.key === 'ArrowUp' ? li.previousElementSibling : li.nextElementSibling;
     if (!otro) return;
     if (e.key === 'ArrowUp') ul.insertBefore(li, otro); else ul.insertBefore(otro, li);

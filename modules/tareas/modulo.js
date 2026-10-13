@@ -11,6 +11,7 @@
 import { crearModelo, hecha, vencida, deHoy, ordenar } from './modelo.js';
 import { pantallaTareas, filaTarea, cargarEstilos } from './vistas.js';
 import { abrirEditor } from './editor.js';
+import { sincronizarCalendario } from './calendario.js';
 
 export default {
   id: 'tareas',
@@ -29,6 +30,15 @@ export default {
     }];
   },
 
+  // Google Calendar: al abrir la app, al conectar Google, al volver a la
+  // app y cada 15 minutos mientras está abierta.
+  alIniciar(ctx) {
+    setTimeout(() => sincronizarCalendario(ctx, { forzar: true }), 1500);
+    ctx.alConectarGoogle?.(() => setTimeout(() => sincronizarCalendario(ctx, { forzar: true }), 800));
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') sincronizarCalendario(ctx); });
+    setInterval(() => sincronizarCalendario(ctx, { forzar: true }), 15 * 60_000);
+  },
+
   bloquesInicio(ctx) {
     return [{
       id: 'hoy',
@@ -41,7 +51,7 @@ export default {
 
         async function pintar() {
           const d = await m.cargar();
-          const pend = d.tareas.filter(t => !hecha(t));
+          const pend = d.tareas.filter(t => !hecha(t) && !d.enOculto?.(t));
           // Primero y siempre: las tareas de hoy. Las vencidas, solo como aviso abajo.
           const deHoyL = ordenar(pend.filter(deHoy));
           const nVenc = pend.filter(vencida).length;
@@ -96,7 +106,7 @@ export default {
 
   async resumen(ctx) {
     const d = await crearModelo(ctx).cargar();
-    const pend = d.tareas.filter(t => !hecha(t));
+    const pend = d.tareas.filter(t => !hecha(t) && !d.enOculto?.(t));
     return { hoy: pend.filter(deHoy).length, vencidas: pend.filter(vencida).length };
   },
 };
