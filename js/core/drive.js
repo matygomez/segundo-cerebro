@@ -286,5 +286,61 @@ export async function subirArchivo(nombre, padreId, blob) {
   return r.json();
 }
 
+// ── Archivos de texto (copia legible de la Bitácora: notas .md) ──
+
+export async function crearTexto(nombre, padreId, texto, tipo = 'text/markdown') {
+  const { cuerpo, tipoCuerpo } = multipart({ name: nombre, parents: [padreId], mimeType: tipo }, texto, `${tipo}; charset=UTF-8`);
+  const r = await pedir(`${SUBIDA}/files?uploadType=multipart&fields=id`, {
+    method: 'POST', headers: { 'Content-Type': tipoCuerpo }, body: cuerpo,
+  });
+  return r.json();
+}
+
+export async function actualizarTexto(id, texto, tipo = 'text/markdown') {
+  const r = await pedir(`${SUBIDA}/files/${encodeURIComponent(id)}?uploadType=media&fields=id`, {
+    method: 'PATCH', headers: { 'Content-Type': `${tipo}; charset=UTF-8` }, body: texto,
+  });
+  return r.json();
+}
+
+// Renombra y/o mueve un archivo o carpeta.
+export async function cambiarArchivo(id, { nombre, padreNuevo = '', padreViejo = '' } = {}) {
+  const p = new URLSearchParams({ fields: 'id' });
+  if (padreNuevo && padreNuevo !== padreViejo) {
+    p.set('addParents', padreNuevo);
+    if (padreViejo) p.set('removeParents', padreViejo);
+  }
+  const r = await pedir(`${API}/files/${encodeURIComponent(id)}?${p}`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(nombre ? { name: nombre } : {}),
+  });
+  return r.json();
+}
+
+// Copia un archivo (las imágenes de la Bitácora van también a su carpeta "adjuntos").
+export async function copiar(id, nombre, padreId) {
+  const r = await pedir(`${API}/files/${encodeURIComponent(id)}/copy?fields=id`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nombre, parents: [padreId] }),
+  });
+  return r.json();
+}
+
+export async function aPapelera(id) {
+  const r = await pedir(`${API}/files/${encodeURIComponent(id)}?fields=id`, {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }),
+  });
+  return r.json();
+}
+
+// Datos de un archivo, o null si no existe o está en la papelera.
+export async function datosArchivo(id) {
+  try {
+    const r = await (await pedir(`${API}/files/${encodeURIComponent(id)}?fields=id,name,parents,trashed`)).json();
+    return r.trashed ? null : r;
+  } catch (e) {
+    if (e.estado === 404) return null;
+    throw e;
+  }
+}
+
 // Para el selector de Google (lo usa archivos.js).
 export const tokenActual = () => (conectado() ? token : null);

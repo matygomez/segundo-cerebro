@@ -48,6 +48,8 @@ import { escuchar } from './eventos.js';
 import * as archivos from './archivos.js';
 import * as calendario from './calendario.js';
 import * as drive from './drive.js';
+import * as espejo from './espejo.js';
+import * as compartido from './compartido.js';
 
 const cargados = new Map();
 
@@ -109,6 +111,13 @@ export function contexto(moduloId) {
       esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
     },
+    // Copia legible en Drive (archivos de texto en carpetas reales).
+    espejo: {
+      definir: (raiz, lista) => espejo.definir(moduloId, raiz, lista),
+      estado: () => espejo.estado(moduloId),
+    },
+    // Lo que llega desde "Compartir" de Android.
+    compartido: { leer: compartido.leer, limpiar: compartido.limpiar },
     // Google Calendar, solo lectura.
     calendario: {
       disponible: calendario.disponible,

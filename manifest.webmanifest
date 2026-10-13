@@ -9,8 +9,44 @@
   "background_color": "#111719",
   "theme_color": "#111719",
   "icons": [
-    { "src": "./icons/icono-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "./icons/icono-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "./icons/icono-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
-  ]
+    {
+      "src": "./icons/icono-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icono-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "./icons/icono-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "share_target": {
+    "action": "./compartir",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "titulo",
+      "text": "texto",
+      "url": "url",
+      "files": [
+        {
+          "name": "archivos",
+          "accept": [
+            "image/*",
+            "video/*",
+            "audio/*",
+            "application/pdf",
+            "text/*",
+            "*/*"
+          ]
+        }
+      ]
+    }
+  }
 }

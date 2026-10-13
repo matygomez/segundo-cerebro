@@ -147,6 +147,7 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
   if (t.duracion) meta.push(h('span', { class: 'tr-meta' }, ic('reloj'), textoDuracion(t.duracion)));
   if (programada(t)) meta.push(h('span', { class: 'tr-meta tr-aparece', title: 'Fecha de inicio' }, `aparece el ${t.inicio.slice(8, 10)}/${t.inicio.slice(5, 7)}`));
   if (t.origen?.modulo === 'finanzas') meta.push(h('span', { class: 'tr-meta tr-origen', title: 'Recordatorio de Finanzas' }, ic('plata'), 'Finanzas'));
+  if (t.origen?.modulo === 'bitacora') meta.push(h('span', { class: 'tr-meta tr-origen', title: 'Viene de una nota de la Bitácora' }, ic('libro'), 'Nota'));
   if (t.aviso) meta.push(h('span', { class: 'tr-meta' }, 'aviso'));
 
   // Íconos justo después del título (como en Asana): notas, subtareas,

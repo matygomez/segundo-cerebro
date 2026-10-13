@@ -32,6 +32,7 @@ const TRAZOS = {
   'nube-check': '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.5 3.5 0 0 0 7 18Z"/><path d="m9.5 13.5 2 2 3.5-3.5"/>',
   'nube-off': '<path d="M7 18h10a4 4 0 0 0 .6-7.95A6 6 0 0 0 6.2 11 3.5 3.5 0 0 0 7 18Z"/><path d="M4 4l16 16"/>',
   girar: '<path d="M19 12a7 7 0 1 1-2.05-4.95"/><path d="M19 4v4h-4"/>',
+  bitacora: '<path d="M5 4.5h11a3 3 0 0 1 3 3V20H8a3 3 0 0 1-3-3Z"/><path d="M5 17a3 3 0 0 1 3-3h11"/><path d="M9 8.5h6"/>',
   mas: '<path d="M12 5v14M5 12h14"/>',
   enviar: '<path d="M5 12h13"/><path d="m13 7 5 5-5 5"/>',
   alerta: '<path d="M12 4 3 19h18L12 4Z"/><path d="M12 10v4M12 16.5v.5"/>',

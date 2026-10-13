@@ -130,10 +130,11 @@ export default {
       if (!t) throw new Error('Esa tarea ya no existe.');
       abrirEditor(ctx, m, d, t);
     },
-    async 'nueva-tarea'({ fecha = '' } = {}, ctx) {
+    // Datos opcionales: titulo, notas, origen { modulo, clave, enlace } (enlace = ruta para volver, ej. a una nota).
+    async 'nueva-tarea'({ fecha = '', titulo = '', notas = '', origen = null } = {}, ctx) {
       cargarEstilos();
       const m = crearModelo(ctx);
-      abrirEditor(ctx, m, await m.cargar(), null, { fecha });
+      abrirEditor(ctx, m, await m.cargar(), null, { fecha, titulo, notas, ...(origen ? { origen } : {}) });
     },
 
     'sistema-pendientes': (datos, ctx) => crearModelo(ctx).pendientesDeSistema(String(datos?.prefijo || '')),

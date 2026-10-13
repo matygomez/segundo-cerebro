@@ -312,6 +312,7 @@ export function crearModelo(ctx) {
     finanzas: { nombre: 'Finanzas', icono: 'plata' },
     feriados: { nombre: 'Feriados', icono: 'estrella' },
     eventos: { nombre: 'Eventos', icono: 'calendario' },
+    bitacora: { nombre: 'Bitácora', icono: 'libro' },
   };
   async function proyectoSistema(clave) {
     const areaId = await areaSistemas();
@@ -380,12 +381,13 @@ export function crearModelo(ctx) {
         if (x.hecha) continue;
         await col.tareas.crear({
           ...base, notas: armarNotas(x.notas, ''), estado: 'pendiente', ...lugar, seccionId: '', padreId: '',
-          etiquetas: [], subtareas: [], adjuntos: [], orden: Date.now(), origen: { modulo, clave: x.clave },
+          etiquetas: [], subtareas: [], adjuntos: [], orden: Date.now(), origen: { modulo, clave: x.clave, ...(x.enlace ? { enlace: x.enlace } : {}) },
         });
         continue;
       }
       if (hecha(t)) continue;                       // ya completada: se deja así
       const cambios = { ...base, notas: armarNotas(x.notas, notasTuyas(t.notas)) };
+      if ((x.enlace || '') !== (t.origen?.enlace || '')) cambios.origen = { ...t.origen, enlace: x.enlace || '' };
       if (t.areaId !== lugar.areaId || (t.proyectoId || '') !== lugar.proyectoId) Object.assign(cambios, lugar, { seccionId: '' });
       if (x.hecha) { await col.tareas.actualizar(t.id, { ...cambios, estado: 'hecha', completada: Date.now() }); continue; }
       const distinto = Object.keys(cambios).some(k => String(t[k] ?? '') !== String(cambios[k] ?? ''));

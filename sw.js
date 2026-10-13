@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.15.2';
+const VERSION = 'sc-0.16.0';
 
 const ARCHIVOS = [
   './',
@@ -28,6 +28,8 @@ const ARCHIVOS = [
   './js/core/fusion.js',
   './js/core/preferencias.js',
   './js/core/calendario.js',
+  './js/core/compartido.js',
+  './js/core/espejo.js',
   './js/core/registro.js',
   './js/core/sincronizacion.js',
   './js/core/ui.js',
@@ -51,9 +53,36 @@ const ARCHIVOS = [
   './modules/finanzas/analisis.js',
   './modules/finanzas/recordatorios.js',
   './modules/finanzas/finanzas.css',
+  './modules/bitacora/modulo.js',
+  './modules/bitacora/modelo.js',
+  './modules/bitacora/markdown.js',
+  './modules/bitacora/vistas.js',
+  './modules/bitacora/nota.js',
+  './modules/bitacora/base.js',
+  './modules/bitacora/bitacora.css',
 ];
 
 const FUENTES = 'sc-fuentes';
+const COMPARTIDO = 'sc-compartido';
+
+// "Compartir" desde otra app de Android: llega acá, se guarda en el
+// dispositivo y se abre la Bitácora para ordenarlo.
+async function recibirCompartido(req) {
+  const datos = await req.formData();
+  const c = await caches.open(COMPARTIDO);
+  const base = new URL('./__compartido/', self.registration.scope).href;
+  const archivos = [];
+  let i = 0;
+  for (const f of datos.getAll('archivos')) {
+    if (!(f instanceof File) || !f.size) continue;
+    const clave = `archivo-${i++}`;
+    await c.put(base + clave, new Response(f));
+    archivos.push({ clave, nombre: f.name || `compartido-${Date.now()}`, tipo: f.type || '' });
+  }
+  const info = { titulo: datos.get('titulo') || '', texto: datos.get('texto') || '', url: datos.get('url') || '', archivos, llegada: Date.now() };
+  await c.put(base + 'datos', new Response(JSON.stringify(info), { headers: { 'Content-Type': 'application/json' } }));
+  return Response.redirect(new URL('./#/bitacora/compartir', self.registration.scope).href, 303);
+}
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(ARCHIVOS)));
@@ -61,7 +90,7 @@ self.addEventListener('install', (e) => {
 
 self.addEventListener('activate', (e) => {
   e.waitUntil((async () => {
-    for (const k of await caches.keys()) if (k !== VERSION && k !== FUENTES && k !== 'sc-imagenes') await caches.delete(k);
+    for (const k of await caches.keys()) if (k !== VERSION && k !== FUENTES && k !== COMPARTIDO && k !== 'sc-imagenes') await caches.delete(k);
     await self.clients.claim();
   })());
 });
@@ -72,6 +101,10 @@ self.addEventListener('message', (e) => {
 
 self.addEventListener('fetch', (e) => {
   const req = e.request;
+  if (req.method === 'POST' && new URL(req.url).pathname.endsWith('/compartir')) {
+    e.respondWith(recibirCompartido(req).catch(() => Response.redirect(new URL('./#/bitacora', self.registration.scope).href, 303)));
+    return;
+  }
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
 

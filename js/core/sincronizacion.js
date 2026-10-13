@@ -16,6 +16,7 @@ import { CARPETA_DRIVE } from '../config.js';
 import { aplicarRemoto, quitarPendienteSiNoCambio, marcarTodoPendiente } from './datos.js';
 import { fusionar, sonIguales } from './fusion.js';
 import { subirPendientes, cantidadPendientes } from './archivos.js';
+import { espejar } from './espejo.js';
 import { emitir, escuchar } from './eventos.js';
 
 const FORMATO = 1;
@@ -129,6 +130,9 @@ async function pasada() {
   // ── 3. Adjuntos que quedaron en espera ──
   await subirPendientes();
   est.archivos = await cantidadPendientes();
+
+  // ── 4. Copia legible (notas .md de la Bitácora) ──
+  if (await espejar()) programar(2000);   // quedó trabajo: sigue en un ratito
 
   est.ultima = Date.now();
   await db.escribirMeta('ultimaSync', est.ultima);

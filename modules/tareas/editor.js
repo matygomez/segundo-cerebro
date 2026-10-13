@@ -393,6 +393,13 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   const titulo2 = madre
     ? h('div', { class: 'tr-editor-madre' }, 'Subtarea de ', h('button', { type: 'button', class: 'tr-link', onclick: () => abrirOtra(madre) }, `${madre.titulo} ›`))
     : null;
+  // Tarea que viene de otro módulo con un lugar para volver (ej. una nota de la Bitácora).
+  const enlaceOrigen = t.origen?.enlace
+    ? h('div', { class: 'tr-editor-madre' }, h('button', { type: 'button', class: 'tr-link', onclick: async () => {
+      if (!await ctrl.intentarCerrar()) return;
+      location.hash = '#/' + String(t.origen.enlace).replace(/^#?\/?/, '');
+    } }, `${t.origen.modulo === 'bitacora' ? 'Abrir la nota en la Bitácora' : 'Abrir de dónde viene'} ›`))
+    : null;
 
   const form = h('form', { class: `formulario tr-editor${panel ? ' en-panel' : ''}`, novalidate: true },
     h('header', { class: 'hoja-cabecera' },
@@ -400,6 +407,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
       h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => ctrl.intentarCerrar() }, icono('cerrar'))),
     h('div', { class: 'formulario-campos' },
       titulo2,
+      enlaceOrigen,
       titulo,
       notas,
       bloque('Subtareas', listaSub,
@@ -467,7 +475,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     try {
       if (tarea) { await m.guardarTarea(tarea.id, datos); ctx.aviso('Tarea guardada'); }
       else {
-        const id = await m.crearTarea(datos);
+        const id = await m.crearTarea(t.origen ? { ...datos, origen: t.origen } : datos);
         for (const texto of subNuevas) await m.crearSubtarea({ ...datos, id }, texto);
         ctx.aviso('Tarea creada');
       }
