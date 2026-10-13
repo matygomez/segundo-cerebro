@@ -492,8 +492,9 @@ export function crearModelo(ctx) {
     async completar(t) {
       if (t.repeticion?.tipo) {
         const base = t.fecha || hoy();
-        let prox = siguienteFecha(base, t.repeticion);
-        while (prox <= hoy()) prox = siguienteFecha(prox, t.repeticion);
+        // Avanza una sola vez desde su propia fecha (como Asana): si la
+        // próxima sigue en el pasado, queda vencida hasta completarla de nuevo.
+        const prox = siguienteFecha(base, t.repeticion);
         const corrimiento = diasEntre(base, prox);
         await col.tareas.actualizar(t.id, {
           ...t,
