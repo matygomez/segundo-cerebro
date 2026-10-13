@@ -14,7 +14,7 @@ import { cargar, contexto, listaModulos, iniciarModulos } from './core/registro.
 import { pantallaAjustes } from './core/ajustes.js';
 import { escuchar } from './core/eventos.js';
 import { h, icono, aviso } from './core/ui.js';
-import { cargarPreferencias, visible, barraCelular, esPC, definirOcultosPorDefecto } from './core/preferencias.js';
+import { cargarPreferencias, visible, barraCelular, esPC, definirOcultosPorDefecto, definirFueraDeBarra } from './core/preferencias.js';
 
 const INICIO = 'home';
 let limpiarPantalla = null;
@@ -173,6 +173,7 @@ async function arrancar() {
   drive.restaurar();
   drive.reconectarAlTocar();
   definirOcultosPorDefecto(listaModulos().filter(m => m.ocultoPorDefecto).map(m => m.id));
+  definirFueraDeBarra(listaModulos().filter(m => m.fueraDeBarra).map(m => m.id));
   await cargarPreferencias();
   armarCascaron();
   window.addEventListener('hashchange', mostrar);

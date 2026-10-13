@@ -52,7 +52,7 @@ import * as drive from './drive.js';
 const cargados = new Map();
 
 // oculto: módulos que no van en el menú (se abren desde otro lado).
-export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto, ocultoPorDefecto: !!m.ocultoPorDefecto }));
+export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto, ocultoPorDefecto: !!m.ocultoPorDefecto, fueraDeBarra: !!m.fueraDeBarra }));
 
 export async function cargar(id) {
   if (cargados.has(id)) return cargados.get(id);
