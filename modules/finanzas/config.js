@@ -7,6 +7,7 @@
 
 import { plata, mesActual, redondear, CUADROS_PANEL, COLUMNAS_INICIALES } from './modelo.js';
 import { poner, hoja, campo, inputImporte, hacerOrdenable, ic } from './comun.js';
+import { recordatorioFijo, recordatorioTarjeta } from './recordatorios.js';
 
 export function vistaConfig(cuerpo, ctx, m, d) {
   const { h } = ctx;
@@ -24,12 +25,32 @@ export function vistaConfig(cuerpo, ctx, m, d) {
   }
 
   const asa = (nombre) => h('button', { type: 'button', class: 'fz-asa-ord', 'aria-label': `Mover ${nombre} (arrastrá, o usá las flechas)`, title: 'Arrastrá para cambiar el orden' }, ic('asa'));
-  const fila = (titulo, detalle, alEditar, alEliminar, clase = '', id = null) => h('div', { class: `fz-conf-fila ${clase}`, 'data-id': id },
+  const fila = (titulo, detalle, alEditar, alEliminar, clase = '', id = null, extra = null) => h('div', { class: `fz-conf-fila ${clase}${extra ? ' con-extra' : ''}`, 'data-id': id },
     id ? asa(titulo) : null,
     h('span', { class: 'fz-conf-nombre' }, h('b', {}, titulo), detalle ? [h('br'), h('span', { class: 'nota' }, detalle)] : null),
     h('span', { class: 'fz-conf-acc' },
       h('button', { type: 'button', class: 'boton chico', onclick: alEditar }, 'Editar'),
-      h('button', { type: 'button', class: 'boton chico peligro', onclick: alEliminar }, 'Eliminar')));
+      h('button', { type: 'button', class: 'boton chico peligro', onclick: alEliminar }, 'Eliminar')),
+    extra);
+
+  // Recordatorio en Tareas (área Sistemas): prender/apagar y días de anticipación.
+  const OPCIONES_DIAS = [0, 1, 2, 3, 5, 7, 10, 15];
+  const textoDias = (n) => (n === 0 ? 'el mismo día' : n === 1 ? '1 día antes' : `${n} días antes`);
+  function controlRecordatorio(coleccion, item, r, { bloqueado = '', automatico = false } = {}) {
+    const guardarRec = async (cambios, texto) => { await m.actualizar(coleccion, item.id, { recordatorio: { ...r, ...cambios } }); ctx.aviso(texto); };
+    const on = r.on && !bloqueado;
+    return h('div', { class: 'fz-conf-rec' },
+      h('button', {
+        type: 'button', role: 'switch', class: `fz-sw${on ? ' on' : ''}`, 'aria-checked': String(on), disabled: !!bloqueado,
+        'aria-label': `Recordatorio de ${item.nombre}`,
+        onclick: () => guardarRec({ on: !r.on }, r.on ? `Recordatorio apagado: ${item.nombre}` : `Recordatorio prendido: ${item.nombre} (va a Tareas › Sistemas)`),
+      }),
+      h('span', { class: 'fz-conf-rec-lbl' }, ic('campana'), 'Recordatorio'),
+      bloqueado ? h('span', { class: 'nota' }, `· ${bloqueado}`)
+        : on ? h('select', { 'aria-label': 'Cuándo aparece la tarea', onchange: (e) => guardarRec({ dias: Number(e.target.value) }, `La tarea aparece ${textoDias(Number(e.target.value))}`) },
+          OPCIONES_DIAS.map(n => h('option', { value: String(n), selected: n === r.dias }, textoDias(n))))
+          : h('span', { class: 'nota' }, `apagado${automatico ? ' · débito automático' : ''}`));
+  }
 
   const listaOrd = (coleccion, items) => h('div', { class: 'fz-lista-ord', 'data-coleccion': coleccion }, items);
   const seccion = (titulo, boton, ...contenido) => h('section', { class: 'fz-tarjeta-det' },
@@ -158,7 +179,8 @@ export function vistaConfig(cuerpo, ctx, m, d) {
   function seccionCredito() {
     const lista = d.creditosActivos();
     return seccion('Crédito', nuevoBoton('+ Tarjeta', () => formCredito()),
-      listaOrd('creditos', lista.map(c => fila(d.nombreCredito(c), `Cierre cerca del ${c.diaCierre} · vence cerca del ${c.diaVencimiento}`, () => formCredito(c), () => eliminar('creditos', c, d.nombreCredito(c)), '', c.id))),
+      listaOrd('creditos', lista.map(c => fila(d.nombreCredito(c), `Cierre cerca del ${c.diaCierre} · vence cerca del ${c.diaVencimiento}`, () => formCredito(c), () => eliminar('creditos', c, d.nombreCredito(c)), '', c.id,
+        controlRecordatorio('creditos', c, recordatorioTarjeta(c))))),
       lista.length ? null : h('p', { class: 'nota' }, 'Sin tarjetas todavía.'),
       d.fondo() ? h('p', { class: 'nota' }, `El crédito se paga con el fondo "${d.fondo().nombre}". Se cambia editando las cuentas.`) : h('p', { class: 'nota' }, 'Todavía no elegiste un fondo para pagar el crédito.'));
   }
@@ -166,11 +188,13 @@ export function vistaConfig(cuerpo, ctx, m, d) {
   function seccionFijos() {
     const lista = d.categoriasDe('fijo');
     const filaFijo = (c) => fila(c.nombre, `Presupuesto ${plata(d.presupuesto(c, mesActual()))}${c.dia ? ` · día ${c.dia}` : ''} · ${c.automatico ? '✓ automático' : '✗ manual'}`,
-      () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre), 'fz-conf-sub', c.id);
+      () => formCategoria('fijo', c), () => eliminar('categorias', c, c.nombre), 'fz-conf-sub', c.id,
+      controlRecordatorio('categorias', c, recordatorioFijo(c), { bloqueado: c.dia ? '' : 'necesita día de vencimiento', automatico: !!c.automatico }));
     const grupos = [['Familia', lista.filter(c => c.grupoFijo !== 'personal')], ['Personal', lista.filter(c => c.grupoFijo === 'personal')]].filter(([, l]) => l.length);
     return seccion('Gastos fijos', nuevoBoton('+ Gasto fijo', () => formCategoria('fijo')),
       grupos.map(([titulo, l]) => [h('div', { class: 'fz-conf-grupo' }, h('span', {}, titulo)), listaOrd('categorias', l.map(filaFijo))]),
-      lista.length ? null : h('p', { class: 'nota' }, 'Sin gastos fijos todavía.'));
+      lista.length ? null : h('p', { class: 'nota' }, 'Sin gastos fijos todavía.'),
+      lista.length ? h('p', { class: 'nota' }, 'Con el recordatorio prendido se crea una tarea "Pagar …" en Tareas › Sistemas, que aparece los días antes que elijas y se completa sola al registrar el pago. Los de débito automático arrancan apagados.') : null);
   }
 
   function seccionVariables() {

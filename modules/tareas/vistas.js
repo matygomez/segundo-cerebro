@@ -15,7 +15,7 @@
 //   #/tareas/buscar               #/tareas/filtro/<id>
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, hoy, sumarDias, diasEntre, hecha, vencida, deHoy, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
+import { crearModelo, hoy, sumarDias, diasEntre, hecha, vencida, deHoy, programada, ordenar, ordenarManual, aplicarFiltro, textoFecha, textoRepeticion, textoDuracion } from './modelo.js';
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
 import { hacerOrdenable } from './arrastre.js';
 
@@ -125,7 +125,8 @@ function repeticionCaja(rep) {
   return { largo, corto };
 }
 
-const mostrarHechas = new Set();     // vistas donde se pidió ver las completadas
+const mostrarHechas = new Set();
+const verProgramadas = new Set();     // vistas con las tareas programadas desplegadas     // vistas donde se pidió ver las completadas
 const subPlegadas = new Set();       // tareas con las subtareas plegadas
 let verMasAdelante = false;          // en Hoy: mostrar también lo que viene después de 7 días
 
@@ -142,6 +143,9 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
   if (t.fecha) meta.push(h('span', { class: `tr-meta tr-fecha ${claseFecha(t)}` }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
   if (t.repeticion?.tipo) meta.push(h('span', { class: 'tr-meta tr-rep' }, ic('repetir'), textoRepeticion(t.repeticion)));
   if (t.duracion) meta.push(h('span', { class: 'tr-meta' }, ic('reloj'), textoDuracion(t.duracion)));
+  if (programada(t)) meta.push(h('span', { class: 'tr-meta tr-aparece', title: 'Fecha de inicio' }, `aparece el ${t.inicio.slice(8, 10)}/${t.inicio.slice(5, 7)}`));
+  if (t.origen?.modulo === 'finanzas') meta.push(h('span', { class: 'tr-meta tr-origen', title: 'Recordatorio de Finanzas' }, ic('plata'), 'Finanzas'));
+  if (t.aviso) meta.push(h('span', { class: 'tr-meta' }, 'aviso'));
 
   // Íconos justo después del título (como en Asana): notas, subtareas,
   // adjuntos, comentarios y recordatorio.
@@ -170,6 +174,19 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
 
   const completar = async () => {
     if (hecha(t)) { await m.reabrir(t); return; }
+    // Recordatorio de Finanzas sin pagar: ¿registrar el pago?
+    if (t.origen?.modulo === 'finanzas' && t.origen.clave) {
+      let estado = null;
+      try { estado = await ctx.pedir('recordatorio-estado', { clave: t.origen.clave }); } catch { /* Finanzas no está */ }
+      if (estado?.existe && !estado.pagado) {
+        const r = await preguntarPago(ctx, t);
+        if (!r) return false;
+        if (r === 'registrar') {
+          try { await ctx.pedir('recordatorio-pagar', { clave: t.origen.clave }); } catch (e) { ctx.aviso(e.message); }
+          return false;   // si se guardó el pago, Finanzas completa la tarea sola
+        }
+      }
+    }
     // Si tiene subtareas sin terminar, pregunta qué hacer con ellas.
     const pendientes = subs.filter(x => !hecha(x)).length;
     if (pendientes) {
@@ -187,7 +204,7 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
     ctx.aviso(`"${t.titulo}" pasó a mañana`, { accion: 'Deshacer', alTocar: () => m.cambiarFecha(t, antes), duracion: 6000 });
   };
 
-  const check = h('button', {
+  const check = t.aviso ? h('span', { class: 'tr-aviso-ic', title: 'Aviso: no hay que completarlo' }, ic('campana')) : h('button', {
     type: 'button', class: `tr-check${hecha(t) ? ' hecha' : ''}`,
     'aria-label': hecha(t) ? `Reabrir "${t.titulo}"` : `Completar "${t.titulo}"`,
     onclick: async (e) => { const b = e.currentTarget; b.disabled = true; if (await completar() === false) b.disabled = false; },
@@ -224,10 +241,10 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
         columnas),
       bloqueSub ? bloqueSub.alternar : null));
   const fondo = h('div', { class: 'tr-desliza', 'aria-hidden': 'true' }, h('span', { class: 'izq' }, '✓ Completar'), h('span', { class: 'der' }, 'Mañana →'));
-  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
+  const li = h('li', { class: `tr-tarea${hecha(t) ? ' hecha' : ''}${t.aviso ? ' aviso' : ''}${ordenable ? ' ordenable' : ''}${nivel ? ' hija' : ''}`, 'data-id': t.id }, fondo, fila, bloqueSub ? bloqueSub.lista : null);
 
   // Deslizar con el dedo: a la derecha completa, a la izquierda pasa a mañana.
-  if (!hecha(t)) {
+  if (!hecha(t) && !t.aviso) {
     let x0 = null, y0 = 0, dx = 0, horizontal = false;
     fila.addEventListener('pointerdown', (e) => {
       if (e.pointerType !== 'touch' || e.target.closest('.tr-asa, .tr-check, .tr-sub-alternar')) return;
@@ -261,6 +278,24 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
     fila.addEventListener('pointercancel', () => { x0 = null; fila.style.transform = ''; li.classList.remove('deslizando'); });
   }
   return li;
+}
+
+// Completar un recordatorio de Finanzas que todavía no se pagó.
+function preguntarPago(ctx, t) {
+  const { h } = ctx;
+  return new Promise((ok) => {
+    let r = null;
+    const nombre = t.titulo.split(' · ')[0];
+    const dlg = h('dialog', { class: 'hoja' },
+      h('p', { class: 'hoja-texto' }, h('b', {}, nombre), ' todavía no está registrado como pagado en Finanzas. ¿Registrar el pago?'),
+      h('div', { class: 'hoja-botones tr-botones-envolver' },
+        h('button', { type: 'button', class: 'boton', onclick: () => dlg.close() }, 'Cancelar'),
+        h('button', { type: 'button', class: 'boton', onclick: () => { r = 'solo'; dlg.close(); } }, 'Solo completar'),
+        h('button', { type: 'button', class: 'boton principal', onclick: () => { r = 'registrar'; dlg.close(); } }, 'Registrar pago')));
+    dlg.addEventListener('close', () => { dlg.remove(); ok(r); });
+    document.body.append(dlg);
+    dlg.showModal();
+  });
 }
 
 // Completar una tarea con subtareas sin terminar: ¿también las subtareas?
@@ -460,7 +495,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       { id: 'bandeja', nombre: 'Bandeja', icono: 'bandeja', href: '#/tareas/bandeja', vis: true, modo: 'icono', filtro: (t) => !t.areaId },
     ];
     for (const a of areasActivas()) {
-      base.push({ id: `a:${a.id}`, nombre: a.nombre, icono: iconoArea(a), href: `#/tareas/area/${a.id}`, vis: true, modo: 'ambos', filtro: (t) => t.areaId === a.id });
+      base.push({ id: `a:${a.id}`, nombre: a.nombre, icono: iconoArea(a), href: `#/tareas/area/${a.id}`, vis: !a.sistema, modo: 'ambos', filtro: (t) => t.areaId === a.id });
       for (const p of proyectosDe(a.id)) base.push({ id: `p:${p.id}`, nombre: p.nombre, icono: iconoProyecto(p), href: `#/tareas/proyecto/${p.id}`, vis: false, modo: 'ambos', proyecto: true, filtro: (t) => t.proyectoId === p.id });
     }
     const porId = new Map(base.map(x => [x.id, x]));
@@ -673,7 +708,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       a.archivada
         ? { texto: 'Restaurar', accion: () => m.archivarArea(a.id, false) }
         : { texto: 'Archivar', accion: async () => { await m.archivarArea(a.id); avisoArchivado(a.nombre, () => m.archivarArea(a.id, false)); if (vista === 'area') ctx.navegar('tareas'); } },
-      { texto: 'Eliminar', peligro: true, accion: () => eliminar('areas', a) },
+      { texto: 'Eliminar', peligro: true, accion: () => (a.sistema ? ctx.aviso('Sistemas no se puede eliminar: ahí llegan los recordatorios automáticos. Podés renombrarla o cambiarle el ícono.', { duracion: 6000 }) : eliminar('areas', a)) },
     ]);
   }
 
@@ -852,6 +887,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       pend.length ? (porFechaG ? porGruposDeFecha(pend, { ubicacion: false }) : lista(pend, { ubicacion: false, manual: true })) : nada('Bandeja vacía.'),
       lineaRapida({}),
       ver && hechas.length ? lista(hechas, { ubicacion: false, manual: true }) : null,
+      bloqueProgramadas('bandeja', t => !t.areaId),
     ];
   }
 
@@ -919,6 +955,20 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     });
   }
 
+  // Tareas programadas (fecha de inicio futura): ocultas, pero se pueden ver acá.
+  function bloqueProgramadas(clave, filtro) {
+    const ts = ordenar((d.programadas || []).filter(t => !t.padreId && filtro(t)));
+    if (!ts.length) return null;
+    const abierto = verProgramadas.has(clave);
+    return h('section', { class: 'tr-programadas' },
+      h('button', {
+        type: 'button', class: 'tr-programadas-boton', 'aria-expanded': String(abierto),
+        onclick: () => { abierto ? verProgramadas.delete(clave) : verProgramadas.add(clave); dibujar(); },
+      }, ic(abierto ? 'abajo' : 'flecha'), h('b', {}, `${ts.length} programada${ts.length > 1 ? 's' : ''}`),
+        h('span', { class: 'nota' }, ' · aparecen solas cuando llega su fecha de inicio')),
+      abierto ? h('ul', { class: 'tr-lista' }, ts.map(t => filaTarea(ctx, m, d, t, { ubicacion: false }))) : null);
+  }
+
   const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrir(null, base) }, icono('mas'), 'Agregar tarea');
 
   // Línea rápida arriba de cada lista (en la PC): se escribe y Enter.
@@ -969,8 +1019,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const cabecera = [
       tituloVista(iconoArea(a), a.nombre + (a.archivada ? ' (archivada)' : ''), () => opcionesArea(a), botonOrden(clave, 'area'), chipHechas(clave, delArea.filter(hecha).length)),
     ];
-    if (ordenVista.agrupar === 'fecha') return [...cabecera, visibles.length ? porGruposDeFecha(visibles, { ubicacion: 'proyecto' }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
-    if (ordenVista.agrupar === 'ninguno') return [...cabecera, visibles.length ? lista(visibles, { ubicacion: 'proyecto', manual: true }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id })];
+    if (ordenVista.agrupar === 'fecha') return [...cabecera, visibles.length ? porGruposDeFecha(visibles, { ubicacion: 'proyecto' }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id }), bloqueProgramadas(clave, t => t.areaId === a.id)];
+    if (ordenVista.agrupar === 'ninguno') return [...cabecera, visibles.length ? lista(visibles, { ubicacion: 'proyecto', manual: true }) : nada('Sin tareas pendientes.'), agregarEn({ areaId: a.id }), bloqueProgramadas(clave, t => t.areaId === a.id)];
     return [
       ...cabecera,
       sueltas.length ? lista(sueltas, { ubicacion: false, manual: true }) : (proys.length ? null : nada('Sin tareas todavía. Tocá "Nueva tarea", o creá un proyecto desde el menú (···).')),
@@ -984,6 +1034,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
           cuerpoProyecto(p, ts),
           seccionesDe(p.id).length ? null : agregarEn({ areaId: a.id, proyectoId: p.id }));
       }),
+      bloqueProgramadas(clave, t => t.areaId === a.id),
     ];
   }
 
@@ -1007,6 +1058,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       tituloVista(iconoProyecto(p), p.nombre + (p.archivado ? ' (archivado)' : ''), () => opcionesProyecto(p), botonOrden(clave, 'proyecto'), chipHechas(clave, tareas.filter(hecha).length)),
       cuerpoP,
       agregarEn({ areaId: p.areaId, proyectoId: p.id }),
+      bloqueProgramadas(clave, t => t.proyectoId === p.id),
       seccionesDe(p.id).length ? null : h('p', { class: 'nota' }, 'Podés dividir el proyecto en secciones desde el menú (···).'),
     ];
   }
@@ -1026,6 +1078,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       tituloVista('seccion', s.nombre + (s.archivada ? ' (archivada)' : ''), () => opcionesSeccion(s), botonOrden(clave, 'lista'), chipHechas(clave, tareas.filter(hecha).length)),
       visibles.length ? (ordenVista.agrupar === 'fecha' ? porGruposDeFecha(visibles, { ubicacion: false }) : lista(visibles, { ubicacion: false, manual: true })) : nada('Sin tareas pendientes en esta sección.'),
       agregarEn({ areaId: p.areaId, proyectoId: p.id, seccionId: s.id }),
+      bloqueProgramadas(clave, t => t.seccionId === s.id),
     ];
   }
 

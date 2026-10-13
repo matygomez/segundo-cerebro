@@ -74,6 +74,12 @@ export default {
 
   acciones: {
     // Otros módulos pueden pedir: ctx.pedir('crear-tarea', { titulo, fecha, hora, notas })
+    // Tareas automáticas de otros módulos (área Sistemas).
+    // sistema-pendientes { prefijo } → claves de las tareas pendientes.
+    // sistema-sincronizar { modulo, prefijo, tareas: [{ clave, titulo, fecha, inicio, hecha, aviso, notas }] }
+    'sistema-pendientes': (datos, ctx) => crearModelo(ctx).pendientesDeSistema(String(datos?.prefijo || '')),
+    'sistema-sincronizar': (datos, ctx) => crearModelo(ctx).sincronizarSistema(datos || {}),
+
     async 'crear-tarea'(datos, ctx) {
       const { titulo, fecha = '', hora = '', notas = '' } = datos || {};
       return crearModelo(ctx).crearTarea({ titulo, fecha, hora, notas });

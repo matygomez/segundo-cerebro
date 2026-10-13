@@ -27,6 +27,9 @@
 //   // Aviso de que un adjunto que estaba en espera ya se subió a Drive.
 //   archivoSubido({ pendiente, archivo }, ctx) { ... },
 //
+//   // Se llama una vez al abrir la app (aunque no entres al módulo).
+//   alIniciar(ctx) { ... },
+//
 //   // Lo que el módulo publica para el widget (a futuro).
 //   resumen(ctx) { return { ... }; },
 // }
@@ -88,6 +91,7 @@ export function contexto(moduloId) {
     icono,
     navegar: (ruta) => { location.hash = '#/' + ruta.replace(/^#?\/?/, ''); },
     pedir,
+    existeAccion,
     capturar,
     archivos: {
       subir: (archivo) => archivos.subir(moduloId, archivo),
@@ -131,6 +135,14 @@ escuchar('archivo-subido', async (info) => {
     console.error('No se pudo avisar del archivo subido', e);
   }
 });
+
+// Al abrir la app: cada módulo puede arrancar sus tareas de fondo.
+export async function iniciarModulos() {
+  for (const def of await cargarTodos()) {
+    if (typeof def.alIniciar !== 'function') continue;
+    try { await def.alIniciar(contexto(def.id)); } catch (e) { console.error(`"${def.id}" falló al iniciar`, e); }
+  }
+}
 
 // Mensaje a otro módulo, sin conocer su código.
 export async function pedir(accion, datos) {

@@ -131,6 +131,36 @@ export function pantallaAjustes(contenedor) {
     seccionDrive.replaceChildren(h('h2', {}, 'Google Drive'), ...filas);
   }
 
+  // ── Actualizar la app ──
+  const botonBuscar = h('button', { type: 'button', class: 'boton chico', onclick: buscarActualizacion }, 'Buscar actualización');
+  async function buscarActualizacion() {
+    const reg = await navigator.serviceWorker?.getRegistration();
+    if (!reg) { aviso('En este navegador la app no se guarda para usar sin conexión: siempre abre la última versión.'); return; }
+    botonBuscar.disabled = true; botonBuscar.textContent = 'Buscando…';
+    try {
+      await reg.update();
+      // Si se está bajando, esperar a que termine.
+      const nuevo = reg.installing;
+      if (nuevo) await new Promise((ok) => { const ver = () => { if (nuevo.state === 'installed' || nuevo.state === 'redundant') ok(); }; nuevo.addEventListener('statechange', ver); ver(); });
+      if (reg.waiting) { aviso('Instalando la versión nueva…'); reg.waiting.postMessage('actualizar'); return; }   // la app se recarga sola
+      aviso(`Ya tenés la última versión (${VERSION}).`);
+    } catch {
+      aviso('No se pudo buscar (¿sin internet?). Probá de nuevo en un rato.');
+    } finally {
+      botonBuscar.disabled = false; botonBuscar.textContent = 'Buscar actualización';
+    }
+  }
+  // Borra la copia guardada de la app y la vuelve a bajar. Los datos no se tocan.
+  async function forzarActualizacion() {
+    if (!navigator.onLine) { aviso('Necesitás internet para forzar la actualización.'); return; }
+    if (!await confirmar('Se borra la copia guardada de la app y se vuelve a bajar de internet. Tus datos no se tocan.', { si: 'Forzar actualización' })) return;
+    try {
+      for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
+      for (const k of await caches.keys()) if (k !== 'sc-imagenes' && k !== 'sc-fuentes') await caches.delete(k);
+    } catch (e) { console.warn(e); }
+    location.reload();
+  }
+
   async function dibujarDispositivo() {
     const total = await db.contarRegistros();
     const instalada = matchMedia('(display-mode: standalone)').matches;
@@ -140,8 +170,9 @@ export function pantallaAjustes(contenedor) {
         h('dt', {}, 'Registros guardados'), h('dd', {}, String(total)),
         h('dt', {}, 'Módulos instalados'), h('dd', {}, listaModulos().map(m => m.nombre).join(', ')),
         h('dt', {}, 'Identificador'), h('dd', {}, await idDispositivo()),
-        h('dt', {}, 'Versión de la app'), h('dd', {}, VERSION),
+        h('dt', {}, 'Versión de la app'), h('dd', {}, h('span', { class: 'aj-version' }, VERSION, botonBuscar)),
       ),
+      'serviceWorker' in navigator ? h('p', { class: 'aj-forzar' }, h('button', { type: 'button', class: 'aj-link', onclick: forzarActualizacion }, 'Forzar actualización')) : null,
       h('div', { class: 'botonera' },
         !instalada && pedidoInstalacion ? h('button', {
           class: 'boton principal', onclick: async () => {

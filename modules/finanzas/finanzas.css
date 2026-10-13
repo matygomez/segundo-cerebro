@@ -566,3 +566,16 @@ dialog.fz-hoja.ancha { max-width: 42rem; width: calc(100vw - 1.5rem); }
 .fz-clas-it em { font-style: normal; font-size: 0.62rem; color: var(--tinta-2); border: 1px solid var(--linea); border-radius: 999px; padding: 0 0.3rem; margin-left: 0.35rem; }
 .fz-clas-it button { border: 0; background: none; color: var(--tinta-2); cursor: pointer; width: 1.6rem; height: 1.5rem; border-radius: 5px; font: inherit; }
 .fz-clas-it button:hover { background: var(--superficie); color: var(--tinta); }
+
+/* Recordatorio en la lista de Configurar */
+.fz-conf-fila.con-extra { flex-wrap: wrap; }
+.fz-conf-rec { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; padding-left: 1.6rem; font-size: 0.82rem; white-space: nowrap; }
+.fz-conf-rec .nota { white-space: normal; font-size: 0.8rem; }
+.fz-conf-rec-lbl { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--tinta-2); }
+.fz-conf-rec-lbl .icono { width: 0.9rem; height: 0.9rem; }
+.fz-conf-rec select { font: inherit; font-size: 0.8rem; border: 1px solid var(--linea); border-radius: 7px; padding: 0.15rem 0.4rem; background: var(--superficie); color: var(--tinta); min-height: 0; width: auto; }
+.fz-sw { width: 2.25rem; height: 1.25rem; border-radius: 999px; border: 0; background: var(--linea); position: relative; cursor: pointer; padding: 0; flex: none; }
+.fz-sw::after { content: ''; position: absolute; top: 3px; left: 3px; width: calc(1.25rem - 6px); height: calc(1.25rem - 6px); border-radius: 50%; background: #fff; transition: left 0.15s; }
+.fz-sw.on { background: var(--verde); }
+.fz-sw.on::after { left: calc(100% - 1.25rem + 3px); }
+.fz-sw:disabled { opacity: 0.4; cursor: default; }

@@ -10,7 +10,7 @@
 import * as db from './core/db.js';
 import * as drive from './core/drive.js';
 import { iniciarSincronizacion, estadoSync } from './core/sincronizacion.js';
-import { cargar, contexto, listaModulos } from './core/registro.js';
+import { cargar, contexto, listaModulos, iniciarModulos } from './core/registro.js';
 import { pantallaAjustes } from './core/ajustes.js';
 import { escuchar } from './core/eventos.js';
 import { h, icono, aviso } from './core/ui.js';
@@ -135,6 +135,14 @@ function registrarServiceWorker() {
       accion: 'Actualizar', duracion: 0, alTocar: () => sw.postMessage('actualizar'),
     });
     if (reg.waiting && navigator.serviceWorker.controller) ofrecer(reg.waiting);
+    // Buscar versión nueva cada vez que la app vuelve a primer plano
+    // (en el celular muchas veces no se abre "de cero").
+    let ultima = Date.now();
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState !== 'visible' || Date.now() - ultima < 60_000) return;
+      ultima = Date.now();
+      reg.update().catch(() => {});
+    });
     reg.addEventListener('updatefound', () => {
       const nuevo = reg.installing;
       nuevo?.addEventListener('statechange', () => {
@@ -170,6 +178,7 @@ async function arrancar() {
   await mostrar();
   iniciarSincronizacion();
   registrarServiceWorker();
+  iniciarModulos();
 }
 
 arrancar();

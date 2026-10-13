@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.12.1';
+const VERSION = 'sc-0.13.0';
 
 const ARCHIVOS = [
   './',
@@ -45,6 +45,7 @@ const ARCHIVOS = [
   './modules/finanzas/movimientos.js',
   './modules/finanzas/config.js',
   './modules/finanzas/analisis.js',
+  './modules/finanzas/recordatorios.js',
   './modules/finanzas/finanzas.css',
 ];
 

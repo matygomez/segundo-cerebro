@@ -329,3 +329,8 @@ dialog.hoja::backdrop { background: rgb(10 15 18 / 0.45); }
 .aj-switch.on::after { left: calc(100% - 1.4rem + 3px); }
 .aj-switch:disabled { opacity: 0.45; cursor: default; }
 @media (max-width: 420px) { .aj-col { width: 6.6rem; } .seg-vis button { padding: 0.3rem 0.4rem; font-size: 0.74rem; } }
+
+.aj-version .boton { min-height: 1.9rem; padding: 0.15rem 0.65rem; font-size: 0.82rem; white-space: nowrap; }
+.aj-version { display: inline-flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; justify-content: flex-end; }
+.aj-forzar { margin: -0.25rem 0 0; text-align: right; }
+.aj-link { border: 0; background: none; color: var(--tinta-2); font: inherit; font-size: 0.8rem; text-decoration: underline; cursor: pointer; padding: 0; }

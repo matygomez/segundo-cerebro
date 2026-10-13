@@ -99,7 +99,11 @@ export function textoDuracion(min) {
 // ── Consultas ───────────────────────────────────────────────
 
 export const hecha = (t) => t.estado === 'hecha';
-export const vencida = (t) => !hecha(t) && t.fecha && t.fecha < hoy();
+export const vencida = (t) => !hecha(t) && !t.aviso && t.fecha && t.fecha < hoy();
+// Programada: tiene fecha de inicio y todavía no llegó (queda oculta hasta ese día).
+export const programada = (t) => !hecha(t) && !!t.inicio && t.inicio > hoy();
+// Oculta en las listas: programadas y avisos que ya pasaron.
+export const oculta = (t) => programada(t) || (!!t.aviso && !hecha(t) && !!t.fecha && t.fecha < hoy());
 export const deHoy = (t) => !hecha(t) && t.fecha === hoy();
 
 // Orden por defecto: fecha y hora, luego creación.
@@ -208,14 +212,18 @@ export function crearModelo(ctx) {
     areas.sort(porOrden); proyectos.sort(porOrden); secciones.sort(porOrden);
     comentarios.sort((a, b) => a.creado - b.creado);
     filtros.sort((a, b) => a.nombre.localeCompare(b.nombre));
-    const d = { areas, proyectos, secciones, tareas, comentarios, filtros, ajustes, papelera };
+    // Las programadas (fecha de inicio futura) y los avisos pasados no se ven en las listas.
+    const todas = tareas;
+    tareas = todas.filter(t => !oculta(t));
+    const programadas = todas.filter(programada);
+    const d = { areas, proyectos, secciones, tareas, todas, programadas, comentarios, filtros, ajustes, papelera };
     d.ajuste = (clave) => ajustes.find(a => a.clave === clave);
     d.comentariosDe = (tareaId) => comentarios.filter(c => c.tareaId === tareaId);
     d.filtro = (id) => filtros.find(f => f.id === id);
     d.area = (id) => areas.find(a => a.id === id);
     d.proyecto = (id) => proyectos.find(p => p.id === id);
     d.seccion = (id) => secciones.find(s => s.id === id);
-    d.tarea = (id) => tareas.find(t => t.id === id);
+    d.tarea = (id) => todas.find(t => t.id === id);
     d.hijas = (id) => ordenarManual(tareas.filter(t => t.padreId === id));
     d.padre = (t) => (t?.padreId ? tareas.find(x => x.id === t.padreId) || null : null);
     return d;
@@ -247,14 +255,75 @@ export function crearModelo(ctx) {
       t.repeticion = { ...t.repeticion, dia: Number(t.fecha.slice(8, 10)) };
     }
     if (!t.repeticion?.tipo) t.repeticion = null;
+    if (t.inicio && t.fecha && t.inicio > t.fecha) t.inicio = t.fecha;
     if (!t.areaId) t.proyectoId = '';
     if (!t.proyectoId) t.seccionId = '';
     t.padreId = t.padreId || '';
     return t;
   }
 
+  // ── Área "Sistemas": ahí caen las tareas que crean otros módulos ──
+  async function areaSistemas() {
+    const areas = (await col.areas.listar()).filter(a => !enPapelera(a));
+    const marcadas = areas.filter(a => a.sistema).sort((a, b) => a.creado - b.creado);
+    if (marcadas.length) {
+      // Si dos dispositivos la crearon a la vez, queda una sola.
+      for (const extra of marcadas.slice(1)) {
+        for (const t of (await col.tareas.listar()).filter(t => t.areaId === extra.id)) await col.tareas.actualizar(t.id, { areaId: marcadas[0].id });
+        await col.areas.borrar(extra.id);
+      }
+      if (marcadas[0].archivada) await col.areas.actualizar(marcadas[0].id, { archivada: false });
+      return marcadas[0].id;
+    }
+    return col.areas.crear({ nombre: 'Sistemas', icono: 'engranaje', sistema: true, archivada: false, orden: await siguienteOrden(col.areas) });
+  }
+
+  // Claves (origen.clave) de las tareas pendientes de un módulo.
+  async function pendientesDeSistema(prefijo) {
+    return (await col.tareas.listar())
+      .filter(t => !enPapelera(t) && !hecha(t) && String(t.origen?.clave || '').startsWith(prefijo))
+      .map(t => t.origen.clave);
+  }
+
+  // Pone al día las tareas automáticas de un módulo:
+  //  - crea las que faltan, actualiza título y fechas, completa las que ya se hicieron;
+  //  - borra las pendientes con ese prefijo que ya no van (recordatorio apagado).
+  // No toca notas, comentarios ni adjuntos que agregues vos.
+  async function sincronizarSistema({ modulo, prefijo, tareas: deseadas = [] }) {
+    if (!prefijo) return;
+    const todas = (await col.tareas.listar()).filter(t => !enPapelera(t) && String(t.origen?.clave || '').startsWith(prefijo));
+    const porClave = new Map();
+    for (const t of todas.sort((a, b) => a.creado - b.creado)) {
+      if (porClave.has(t.origen.clave)) { await col.tareas.borrar(t.id); continue; }   // duplicada
+      porClave.set(t.origen.clave, t);
+    }
+    const quedan = new Set();
+    let areaId = null;
+    for (const x of deseadas) {
+      quedan.add(x.clave);
+      const t = porClave.get(x.clave);
+      const cambios = { titulo: x.titulo, fecha: x.fecha || '', inicio: x.inicio || '', ...(x.aviso ? { aviso: true } : {}) };
+      if (!t) {
+        if (x.hecha) continue;
+        areaId ??= await areaSistemas();
+        await col.tareas.crear({
+          ...cambios, hora: '', notas: x.notas || '', estado: 'pendiente', areaId, proyectoId: '', seccionId: '', padreId: '',
+          etiquetas: [], subtareas: [], adjuntos: [], orden: Date.now(), origen: { modulo, clave: x.clave },
+        });
+        continue;
+      }
+      if (hecha(t)) continue;                       // ya completada: se deja así
+      if (x.hecha) { await col.tareas.actualizar(t.id, { ...cambios, estado: 'hecha', completada: Date.now() }); continue; }
+      if (t.titulo !== cambios.titulo || (t.fecha || '') !== cambios.fecha || (t.inicio || '') !== cambios.inicio) await col.tareas.actualizar(t.id, cambios);
+    }
+    for (const [clave, t] of porClave) if (!quedan.has(clave) && !hecha(t)) await col.tareas.borrar(t.id);
+  }
+
   return {
     cargar,
+    areaSistemas,
+    pendientesDeSistema,
+    sincronizarSistema,
 
     async crearTarea(datos) {
       const t = normalizar(datos);

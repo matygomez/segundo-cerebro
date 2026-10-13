@@ -604,3 +604,16 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-inicio-vencidas:hover { text-decoration: underline; }
 .tr-inicio-nada { margin: 0.2rem 0; }
 .tr-inicio-pie { display: flex; flex-direction: column; align-items: flex-start; gap: 0.35rem; margin-top: 0.4rem; }
+
+/* ── Tareas programadas, avisos y origen ── */
+.tr-programadas { display: grid; gap: 0.25rem; margin-top: 0.25rem; }
+.tr-programadas-boton { display: flex; align-items: center; gap: 0.35rem; border: 0; background: none; font: inherit; font-size: 0.86rem; color: var(--tinta-2); cursor: pointer; padding: 0.35rem 0; text-align: left; flex-wrap: wrap; }
+.tr-programadas-boton b { color: var(--tinta); font-weight: 600; }
+.tr-programadas-boton .icono { width: 0.95rem; height: 0.95rem; }
+.tr-programadas .tr-lista { border-left: 2px solid var(--linea); padding-left: 0.6rem; opacity: 0.8; }
+.tr-meta.tr-aparece { color: var(--laton); }
+.tr-aviso-ic { width: 1.4rem; height: 1.4rem; display: grid; place-items: center; color: var(--tr-violeta, #6B4E9B); flex: none; margin-top: 0.1rem; }
+.tr-aviso-ic .icono { width: 1.1rem; height: 1.1rem; }
+.tr-tarea.aviso .tr-titulo { color: var(--tr-violeta, #6B4E9B); font-weight: 500; }
+@media (prefers-color-scheme: dark) { .tr-aviso-ic, .tr-tarea.aviso .tr-titulo { color: #B9A2E0; } }
+.tr-compacto .tr-aviso-ic { width: 1.1rem; height: 1.1rem; }
