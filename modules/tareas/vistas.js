@@ -1042,7 +1042,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       abierto ? h('ul', { class: 'tr-lista' }, ts.map(t => filaTarea(ctx, m, d, t, { ubicacion: false }))) : null);
   }
 
-  const agregarEn = (base) => h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrir(null, base) }, icono('mas'), 'Agregar tarea');
+  // En Sistemas no se agregan tareas a mano: ahí solo llega lo automático.
+  const agregarEn = (base) => d.area(base.areaId)?.sistema ? null : h('button', { type: 'button', class: 'tr-agregar', onclick: () => abrir(null, base) }, icono('mas'), 'Agregar tarea');
 
   // Línea rápida arriba de cada lista (en la PC): se escribe y Enter.
   function lineaRapida(base, ayuda = 'Agregar tarea…') {

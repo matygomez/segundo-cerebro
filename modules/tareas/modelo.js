@@ -177,8 +177,26 @@ export function crearModelo(ctx) {
         else papelera.push({ tipo, item: x });
       }
     }
-    const areas = todasAreas.filter(x => !enPapelera(x));
-    const proyectos = todosProyectos.filter(x => !enPapelera(x));
+    let areas = todasAreas.filter(x => !enPapelera(x));
+    let proyectos = todosProyectos.filter(x => !enPapelera(x));
+    // Sistemas y sus proyectos: si la PC y el celular los crearon a la vez,
+    // quedan dos. Se deja el más viejo y se le pasan las tareas del otro.
+    const juntarDuplicados = (lista, clave, coleccion, campoTarea) => {
+      const grupos = new Map();
+      for (const x of [...lista].sort((a, b) => a.creado - b.creado)) {
+        const k = clave(x);
+        if (!k) continue;
+        if (!grupos.has(k)) { grupos.set(k, x); continue; }
+        const queda = grupos.get(k);
+        for (const t of todasTareas.filter(t => t[campoTarea] === x.id)) { t[campoTarea] = queda.id; col.tareas.actualizar(t.id, { [campoTarea]: queda.id }).catch(() => {}); }
+        if (coleccion === 'areas') for (const p of todosProyectos.filter(p => p.areaId === x.id)) { p.areaId = queda.id; col.proyectos.actualizar(p.id, { areaId: queda.id }).catch(() => {}); }
+        col[coleccion].borrar(x.id).catch(() => {});
+        lista = lista.filter(y => y !== x);
+      }
+      return lista;
+    };
+    areas = juntarDuplicados(areas, a => (a.sistema ? 'sistema' : ''), 'areas', 'areaId');
+    proyectos = juntarDuplicados(proyectos, p => (p.sistema ? `sistema:${p.sistema}` : ''), 'proyectos', 'proyectoId');
     const secciones = todasSecciones.filter(x => !enPapelera(x));
     let tareas = todasTareas.filter(x => !enPapelera(x));
     // Subtareas viejas (lista simple) → tareas hijas. Si dos dispositivos las

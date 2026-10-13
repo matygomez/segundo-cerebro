@@ -52,7 +52,7 @@ import * as drive from './drive.js';
 const cargados = new Map();
 
 // oculto: módulos que no van en el menú (se abren desde otro lado).
-export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto }));
+export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto, ocultoPorDefecto: !!m.ocultoPorDefecto }));
 
 export async function cargar(id) {
   if (cargados.has(id)) return cargados.get(id);
@@ -86,6 +86,10 @@ export function contexto(moduloId) {
     modulo: moduloId,
     datos: (nombre) => coleccion(moduloId, nombre),
     alCambiarDatos: (fn) => escuchar('datos', (e) => { if (e.modulo === moduloId) fn(e); }),
+    // Solo para mirar: avisa cuando cambian los datos de otro módulo (ej. el Calendario mira Tareas).
+    alCambiarDatosDe: (otro, fn) => escuchar('datos', (e) => { if (e.modulo === otro) fn(e); }),
+    // ¿Está instalado este módulo?
+    hayModulo: (id) => MODULOS.some(m => m.id === id),
     // Avisa cada vez que la cuenta de Google queda conectada.
     alConectarGoogle: (fn) => escuchar('sesion', (e) => { if (e === 'conectado') fn(); }),
     formulario: abrirFormulario,

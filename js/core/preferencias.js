@@ -12,7 +12,10 @@ import { escuchar, emitir } from './eventos.js';
 
 const MAX_BARRA = 5;
 const col = () => coleccion('app', 'preferencias');
-let registro = null;   // { id, clave: 'navegacion', ocultos: { pc: [], cel: [] }, barra: [{ id, on }] }
+let registro = null;
+// Módulos que arrancan ocultos (ej. Calendario) hasta que los muestres.
+let ocultosPorDefecto = [];
+export function definirOcultosPorDefecto(ids) { ocultosPorDefecto = [...ids]; }   // { id, clave: 'navegacion', ocultos: { pc: [], cel: [] }, barra: [{ id, on }] }
 
 export const esPC = () => matchMedia('(min-width: 900px)').matches;
 export const dispositivoActual = () => (esPC() ? 'pc' : 'cel');
@@ -34,15 +37,21 @@ escuchar('datos', async (e) => {
   emitir('preferencias', navegacion());
 });
 
+// Los ocultos por defecto que todavía no tocaste en Ajustes.
+const nuevosOcultos = () => ocultosPorDefecto.filter(id => !(registro?.conocidos || []).includes(id));
+
 export function navegacion() {
   return {
-    ocultos: { pc: [...(registro?.ocultos?.pc || [])], cel: [...(registro?.ocultos?.cel || [])] },
+    ocultos: {
+      pc: [...new Set([...(registro?.ocultos?.pc || []), ...nuevosOcultos()])],
+      cel: [...new Set([...(registro?.ocultos?.cel || []), ...nuevosOcultos()])],
+    },
     barra: Array.isArray(registro?.barra) ? registro.barra.map(x => ({ id: x.id, on: x.on !== false })) : null,   // null = la de siempre
   };
 }
 
 export async function guardarNavegacion(nav) {
-  const datos = { clave: 'navegacion', ocultos: nav.ocultos, barra: nav.barra };
+  const datos = { clave: 'navegacion', ocultos: nav.ocultos, barra: nav.barra, conocidos: [...new Set([...(registro?.conocidos || []), ...ocultosPorDefecto])] };
   if (registro?.id) await col().actualizar(registro.id, datos);
   else await col().crear(datos);
   await cargarPreferencias();

@@ -23,7 +23,10 @@ export default {
     contenedor.replaceChildren(
       h('header', { class: 'portada' },
         h('p', { class: 'portada-dia' }, dia),
-        h('h1', { class: 'portada-fecha' }, fecha)),
+        // Tocando la fecha se abre el Calendario (si está instalado).
+        ctx.hayModulo?.('calendario')
+          ? h('h1', { class: 'portada-fecha' }, h('a', { href: '#/calendario', class: 'portada-enlace', title: 'Abrir Calendario' }, fecha, icono('calendario')))
+          : h('h1', { class: 'portada-fecha' }, fecha)),
       zonaCaptura,
       zonaBotones,
       zonaBloques,
