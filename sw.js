@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.16.0';
+const VERSION = 'sc-0.17.0';
 
 const ARCHIVOS = [
   './',
@@ -59,6 +59,8 @@ const ARCHIVOS = [
   './modules/bitacora/vistas.js',
   './modules/bitacora/nota.js',
   './modules/bitacora/base.js',
+  './modules/bitacora/filmoteca.js',
+  './modules/bitacora/tmdb.js',
   './modules/bitacora/bitacora.css',
 ];
 

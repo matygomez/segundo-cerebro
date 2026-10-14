@@ -10,7 +10,7 @@ import {
   TIPOS, tipo, NUMERICOS, COLORES_OPCION, valorCampo, textoValor, vacioV, aplicarVista, operadoresDe, necesitaValor,
   totalesDe, totalPorDefecto, calcularTotal, nuevoIdCorto, comparar, fechaCorta,
 } from './modelo.js';
-import { ic, ventana, menu, pedirTexto, tiposOcultos, vacio, cabecera, marcaCarpeta } from './vistas.js';
+import { ic, ventana, menu, pedirTexto, tiposOcultos, vacio, cabecera, marcaCarpeta, poner } from './vistas.js';
 
 const colorClase = (c) => `bt-op c-${COLORES_OPCION.includes(c) ? c : 'gris'}`;
 
@@ -57,7 +57,7 @@ export function controlCampo(ctx, m, d, campo, valor, alCambiar) {
     case 'opciones': {
       let sel = new Set(Array.isArray(valor) ? valor : []);
       const caja = h('div', { class: 'bt-chips' });
-      const pintar = () => caja.replaceChildren(...(campo.opciones || []).map(o => h('button', { type: 'button', class: `${colorClase(o.color)} bt-chip-op${sel.has(o.id) ? ' sel' : ''}`, 'aria-pressed': String(sel.has(o.id)), onclick: () => { if (sel.has(o.id)) sel.delete(o.id); else sel.add(o.id); pintar(); alCambiar([...sel]); } }, o.nombre)),
+      const pintar = () => poner(caja, ...(campo.opciones || []).map(o => h('button', { type: 'button', class: `${colorClase(o.color)} bt-chip-op${sel.has(o.id) ? ' sel' : ''}`, 'aria-pressed': String(sel.has(o.id)), onclick: () => { if (sel.has(o.id)) sel.delete(o.id); else sel.add(o.id); pintar(); alCambiar([...sel]); } }, o.nombre)),
         h('button', { type: 'button', class: 'bt-chip-mas', onclick: async () => { const id = await nuevaOpcion(ctx, m, d, campo); if (id) { sel.add(id); pintar(); alCambiar([...sel]); } } }, '+'));
       pintar();
       return caja;
@@ -71,7 +71,7 @@ export function controlCampo(ctx, m, d, campo, valor, alCambiar) {
     case 'calificacion': {
       let v = Number(valor) || 0;
       const caja = h('div', { class: 'bt-estrellas-ctrl', role: 'radiogroup', 'aria-label': campo.nombre });
-      const pintar = () => caja.replaceChildren(...[1, 2, 3, 4, 5].map(k => h('button', { type: 'button', class: k <= v ? 'on' : '', 'aria-label': `${k} de 5`, onclick: () => { v = v === k ? 0 : k; pintar(); alCambiar(v || null); } }, '★')));
+      const pintar = () => poner(caja, ...[1, 2, 3, 4, 5].map(k => h('button', { type: 'button', class: k <= v ? 'on' : '', 'aria-label': `${k} de 5`, onclick: () => { v = v === k ? 0 : k; pintar(); alCambiar(v || null); } }, '★')));
       pintar();
       return caja;
     }
@@ -91,7 +91,7 @@ export function controlCampo(ctx, m, d, campo, valor, alCambiar) {
         if (!f) return;
         try { v = { ...(await ctx.archivos.subir(f)), nombre: f.name }; pintar(); alCambiar(v); } catch (e) { ctx.aviso(e.message); }
       });
-      const pintar = () => caja.replaceChildren(
+      const pintar = () => poner(caja, 
         v ? mostrarValor(ctx, campo, v, d) : h('span', { class: 'bt-vacio' }, 'Sin archivo'),
         h('button', { type: 'button', class: 'boton bt-chico', onclick: () => elegir.click() }, ic('clip'), v ? 'Cambiar' : 'Subir'),
         ctx.archivos.selectorDisponible() ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async () => { try { const [a] = await ctx.archivos.elegirDeDrive(); if (a) { v = a; pintar(); alCambiar(v); } } catch (e) { ctx.aviso(e.message); } } }, ic('drive'), 'Drive') : null,
@@ -106,12 +106,12 @@ export function controlCampo(ctx, m, d, campo, valor, alCambiar) {
       const acciones = h('span', { class: 'bt-ctrl-acc' });
       const pintarAcc = () => {
         const x = i.value.trim();
-        if (!x) { acciones.replaceChildren(); return; }
+        if (!x) { poner(acciones, ); return; }
         if (campo.tipo === 'telefono') {
           const num = x.replace(/[^\d+]/g, '');
-          acciones.replaceChildren(h('a', { href: `tel:${num}`, class: 'boton bt-chico', title: 'Llamar' }, '📞'), h('a', { href: `https://wa.me/${num.replace(/^\+/, '')}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico', title: 'WhatsApp' }, 'WhatsApp'));
-        } else if (campo.tipo === 'mail') acciones.replaceChildren(h('a', { href: `mailto:${x}`, class: 'boton bt-chico' }, '✉️'));
-        else acciones.replaceChildren(h('a', { href: /^https?:/i.test(x) ? x : `https://${x}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico' }, 'Abrir'));
+          poner(acciones, h('a', { href: `tel:${num}`, class: 'boton bt-chico', title: 'Llamar' }, '📞'), h('a', { href: `https://wa.me/${num.replace(/^\+/, '')}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico', title: 'WhatsApp' }, 'WhatsApp'));
+        } else if (campo.tipo === 'mail') poner(acciones, h('a', { href: `mailto:${x}`, class: 'boton bt-chico' }, '✉️'));
+        else poner(acciones, h('a', { href: /^https?:/i.test(x) ? x : `https://${x}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico' }, 'Abrir'));
       };
       i.addEventListener('change', () => { pintarAcc(); alCambiar(i.value.trim()); });
       pintarAcc();
@@ -208,22 +208,22 @@ export function renderBase(ctx, m, d, c, zona) {
       const campo = campos.find(x => x.id === sCampo.value);
       const ops = operadoresDe(campo.tipo);
       const opActual = ops.some(o => o[0] === sOp.value) ? sOp.value : (ops.some(o => o[0] === f.op) ? f.op : ops[0][0]);
-      sOp.replaceChildren(...ops.map(o => h('option', { value: o[0], selected: o[0] === opActual }, o[1])));
+      poner(sOp, ...ops.map(o => h('option', { value: o[0], selected: o[0] === opActual }, o[1])));
       sOp.value = opActual;
-      if (!necesitaValor(opActual)) { zonaValor.replaceChildren(); return; }
+      if (!necesitaValor(opActual)) { poner(zonaValor, ); return; }
       if (campo.tipo === 'opcion' || campo.tipo === 'opciones') {
         const s = h('select', {}, (campo.opciones || []).map(o => h('option', { value: o.id, selected: o.id === valor }, o.nombre)));
         valor = s.value; s.addEventListener('change', () => { valor = s.value; });
-        zonaValor.replaceChildren(s);
+        poner(zonaValor, s);
       } else if (campo.tipo === 'relacion') {
         const s = h('select', {}, d.notas.filter(n => !campo.carpetaRel || n.carpetaId === campo.carpetaRel).map(n => h('option', { value: n.id, selected: n.id === valor }, n.titulo)));
         valor = s.value; s.addEventListener('change', () => { valor = s.value; });
-        zonaValor.replaceChildren(s);
+        poner(zonaValor, s);
       } else {
         const tipoInput = campo.tipo === 'fecha' || campo.tipo === 'auto' ? 'date' : 'text';
         const inp = h('input', { type: tipoInput, value: valor || '', inputmode: NUMERICOS.includes(campo.tipo) ? 'decimal' : null });
         inp.addEventListener('input', () => { valor = inp.value; });
-        zonaValor.replaceChildren(inp);
+        poner(zonaValor, inp);
       }
     };
     sCampo.addEventListener('change', () => { valor = ''; sOp.value = ''; pintar(); });
@@ -316,13 +316,13 @@ export function renderBase(ctx, m, d, c, zona) {
     setTimeout(() => ctrl.querySelector?.('input,select')?.focus?.() || ctrl.focus?.(), 50);
   }
 
-  zona.replaceChildren(tabs, herramientas, cuerpo);
+  poner(zona, tabs, herramientas, cuerpo);
 }
 
 // ── Campos de la base ──
 export function pantallaCampos(ctx, m, d, c, main) {
   const { h } = ctx;
-  if (!c) { main.replaceChildren(vacio(ctx, 'Esta carpeta no existe', null)); return; }
+  if (!c) { poner(main, vacio(ctx, 'Esta carpeta no existe', null)); return; }
   const campos = c.campos || [];
   const guardar = (lista) => m.guardarCarpeta(c.id, { campos: lista });
   const filas = campos.map((f, i) => h('div', { class: 'aj-fila' },
@@ -332,7 +332,7 @@ export function pantallaCampos(ctx, m, d, c, main) {
       h('button', { type: 'button', class: 'aj-flecha', disabled: i === campos.length - 1, 'aria-label': 'Bajar', onclick: () => { const l = [...campos]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; guardar(l); } }, '↓'),
       h('button', { type: 'button', class: `boton-icono bt-ojo${f.visible === false ? ' off' : ''}`, title: f.visible === false ? 'Oculto en tabla y tarjetas' : 'Se ve en tabla y tarjetas', 'aria-label': 'Mostrar u ocultar', onclick: () => guardar(campos.map(x => (x.id === f.id ? { ...x, visible: x.visible === false } : x))) }, ic(f.visible === false ? 'ojoNo' : 'ojo')),
       h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Editar campo', onclick: () => editorCampo(ctx, m, d, c, f) }, ic('editar')))));
-  main.replaceChildren(
+  poner(main, 
     cabecera(ctx, { titulo: `Campos de "${c.nombre}"`, marca: marcaCarpeta(h, c), volver: { href: `#/bitacora/c/${c.id}`, texto: c.nombre } }),
     h('section', { class: 'tarjeta' },
       h('p', { class: 'nota' }, 'El nombre de cada nota es la primera columna. Ordená con las flechas; el ojo muestra u oculta el campo en la tabla y las tarjetas (en la ficha siempre se ve).'),
@@ -356,7 +356,7 @@ export function editorCampo(ctx, m, d, c, f) {
   const nombre = h('input', { type: 'text', value: f?.nombre || '', placeholder: 'Ej: Teléfono, Estado, Pagó', 'aria-label': 'Nombre del campo' });
   const zonaTipos = h('div', { class: 'bt-tipos' });
   const extra = h('div', { class: 'formulario-campos' });
-  const pintarTipos = () => zonaTipos.replaceChildren(...TIPOS.filter(t => !ocultos.has(t.id) || t.id === tipoSel).map(t => h('button', { type: 'button', class: `bt-tipo${t.id === tipoSel ? ' sel' : ''}`, onclick: () => { tipoSel = t.id; pintarTipos(); pintarExtra(); } }, h('span', { class: 'bt-tipo-sym' }, t.sym), t.nombre)));
+  const pintarTipos = () => poner(zonaTipos, ...TIPOS.filter(t => !ocultos.has(t.id) || t.id === tipoSel).map(t => h('button', { type: 'button', class: `bt-tipo${t.id === tipoSel ? ' sel' : ''}`, onclick: () => { tipoSel = t.id; pintarTipos(); pintarExtra(); } }, h('span', { class: 'bt-tipo-sym' }, t.sym), t.nombre)));
   const selRel = h('select', { 'aria-label': 'Notas de' }, h('option', { value: '' }, 'Cualquier nota'), d.carpetas.map(x => h('option', { value: x.id, selected: f?.carpetaRel === x.id }, d.nombreRuta(x.id))));
   const selAuto = h('select', { 'aria-label': 'Fecha automática' }, h('option', { value: 'editada', selected: f?.auto !== 'creada' }, 'Última edición'), h('option', { value: 'creada', selected: f?.auto === 'creada' }, 'Creación'));
   function pintarExtra() {
@@ -366,11 +366,11 @@ export function editorCampo(ctx, m, d, c, f) {
         h('input', { type: 'text', value: o.nombre, 'aria-label': 'Opción', oninput: (e) => { o.nombre = e.target.value; } }),
         h('button', { type: 'button', class: 'aj-flecha', disabled: i === 0, 'aria-label': 'Subir', onclick: () => { [opciones[i - 1], opciones[i]] = [opciones[i], opciones[i - 1]]; pintarExtra(); } }, '↑'),
         h('button', { type: 'button', class: 'boton-icono bt-chico', 'aria-label': 'Quitar opción', onclick: () => { opciones.splice(i, 1); pintarExtra(); } }, ctx.icono('cerrar')))));
-      extra.replaceChildren(h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Opciones (tocá el punto para cambiar el color)'), lista,
+      poner(extra, h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Opciones (tocá el punto para cambiar el color)'), lista,
         h('button', { type: 'button', class: 'boton', onclick: () => { opciones.push({ id: nuevoIdCorto(), nombre: '', color: COLORES_OPCION[opciones.length % COLORES_OPCION.length] }); pintarExtra(); setTimeout(() => lista.parentElement.querySelectorAll('input')[opciones.length - 1]?.focus(), 30); } }, '+ Opción')));
-    } else if (tipoSel === 'relacion') extra.replaceChildren(h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Elegir entre notas de'), selRel));
-    else if (tipoSel === 'auto') extra.replaceChildren(h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Fecha de'), selAuto));
-    else extra.replaceChildren();
+    } else if (tipoSel === 'relacion') poner(extra, h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Elegir entre notas de'), selRel));
+    else if (tipoSel === 'auto') poner(extra, h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Fecha de'), selAuto));
+    else poner(extra, );
   }
   pintarTipos(); pintarExtra();
   const error = h('p', { class: 'formulario-error' });

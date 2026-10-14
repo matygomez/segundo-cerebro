@@ -23,6 +23,7 @@ import {
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
+import { pantallaFilmoteca, pantallaLista, pantallaAgregar, pantallaStats, actualizarEnFondo, sincronizarAvisos } from './filmoteca.js';
 
 export default {
   id: 'bitacora',
@@ -48,6 +49,14 @@ export default {
       vista = null;
       if (que === 'n' && resto[0]) { actual = `n:${resto[0]}`; vista = vistaNota(ctx, m, d, resto[0], main); }
       else if (que === 'c' && resto[0] && resto[1] === 'campos') { actual = `c:${resto[0]}`; pantallaCampos(ctx, m, d, d.carpeta(resto[0]), main); }
+      else if (que === 'f') {
+        actual = 'f';
+        if (resto[0] === 'l' && resto[1]) pantallaLista(ctx, m, d, resto[1], main);
+        else if (resto[0] === 'agregar') pantallaAgregar(ctx, m, d, main);
+        else if (resto[0] === 'stats') pantallaStats(ctx, m, d, main);
+        else pantallaFilmoteca(ctx, m, d, main);
+      }
+      else if (que === 'c' && resto[0] && d.carpeta(resto[0])?.sistema === 'filmoteca') { actual = 'f'; pantallaFilmoteca(ctx, m, d, main); }
       else if (que === 'c' && resto[0]) { actual = `c:${resto[0]}`; pantallaCarpeta(ctx, m, d, resto[0], main, { renderBase: (zona, c) => renderBase(ctx, m, d, c, zona) }); }
       else if (que === 'bandeja') { actual = 'c:'; pantallaCarpeta(ctx, m, d, '', main, {}); }
       else if (que === 'e' && resto.length) { const tag = decodeURIComponent(resto.join('/')); actual = `e:${tag}`; pantallaEtiqueta(ctx, m, d, tag, main); }
@@ -55,7 +64,7 @@ export default {
       else if (que === 'papelera') { actual = 'papelera'; pantallaPapelera(ctx, m, d, main); }
       else if (que === 'ajustes') { actual = 'ajustes'; pantallaAjustes(ctx, m, d, main); }
       else { actual = 'inicio'; pantallaInicio(ctx, m, d, main, { renderNota: (n) => cuerpoLectura(ctx, m, d, n) }); }
-      if (actual.startsWith('n:')) { const n = d.nota(actual.slice(2)); actual = n ? `c:${n.carpetaId || ''}` : actual; }
+      if (actual.startsWith('n:')) { const n = d.nota(actual.slice(2)); actual = n?.cine ? 'f' : n ? `c:${n.carpetaId || ''}` : actual; }
     }
     function pintarLado() {
       raiz.classList.toggle('con-arbol', esPC());
@@ -89,6 +98,10 @@ export default {
 
   alIniciar(ctx) {
     const m = crearModelo(ctx);
+    // Filmoteca: poner al día episodios y estrenos (y los avisos en Tareas).
+    setTimeout(() => actualizarEnFondo(ctx, m), 6000);
+    let esperaCine = null;
+    ctx.alCambiarDatos((e) => { if (e.coleccion === 'notas' || e.coleccion === 'cine') { clearTimeout(esperaCine); esperaCine = setTimeout(() => sincronizarAvisos(ctx, m), 2500); } });
     // Copia legible en Drive: un .md por nota, en carpetas reales.
     ctx.espejo?.definir('Bitácora', async () => espejoDe(await m.cargar()));
     // Papelera: lo de más de 30 días se borra solo.

@@ -313,6 +313,7 @@ export function crearModelo(ctx) {
     feriados: { nombre: 'Feriados', icono: 'estrella' },
     eventos: { nombre: 'Eventos', icono: 'calendario' },
     bitacora: { nombre: 'Bitácora', icono: 'libro' },
+    filmoteca: { nombre: 'Filmoteca', icono: 'estrella' },
   };
   async function proyectoSistema(clave) {
     const areaId = await areaSistemas();

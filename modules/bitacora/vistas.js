@@ -6,9 +6,13 @@
 //   Menú "+ Nueva", notas rápidas, plantillas y Compartir (Android)
 // ─────────────────────────────────────────────────────────────
 
+import { filaSeguirViendo, items as itemsCine, config as configCine } from './filmoteca.js';
 import {
   BANDEJA, DIAS_PAPELERA, TIPOS, COLORES_CARPETA, resumen, etiquetasDe, plantillaTitulo, comparar, hoyISO,
 } from './modelo.js';
+
+// Como replaceChildren, pero ignora los vacíos (null, false).
+export const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
 
 export const esPC = () => matchMedia('(min-width: 900px)').matches;
 export const disp = () => (esPC() ? 'pc' : 'cel');
@@ -134,6 +138,7 @@ export function marcaCarpeta(h, c) {
 // ── Ajustes guardados ──
 const BLOQUES = [
   { id: 'fijadas', nombre: 'Fijadas' },
+  { id: 'seguir', nombre: 'Seguir viendo (Filmoteca)', nota: 'solo aparece si estás viendo alguna serie' },
   { id: 'bandeja', nombre: 'Bandeja (solo si tiene algo)' },
   { id: 'recientes', nombre: 'Recientes' },
   { id: 'carpetas', nombre: 'Carpetas y etiquetas', nota: 'en el celular; en la PC están siempre a la izquierda' },
@@ -168,6 +173,7 @@ export function arbol(ctx, m, d, actual = '') {
   const filas = [
     fila('#/bitacora', [h('span', { class: 'bt-ar-flecha vacia' }), ic('inicio'), h('span', { class: 'bt-ar-nom' }, 'Inicio')], { sel: actual === 'inicio' }),
     fila('#/bitacora/buscar', [h('span', { class: 'bt-ar-flecha vacia' }), ic('buscar'), h('span', { class: 'bt-ar-nom' }, 'Buscar')], { sel: actual === 'buscar' }),
+    fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), h('span', { class: 'bt-emoji' }, '🎬'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
     seccion('sec:carpetas', 'Carpetas', h('button', { type: 'button', class: 'bt-ar-mas', title: 'Nueva carpeta', 'aria-label': 'Nueva carpeta', onclick: () => nuevaCarpeta(ctx, m, '') }, ic('mas'))),
   ];
   if (!pleg.has('sec:carpetas')) {
@@ -182,7 +188,7 @@ export function arbol(ctx, m, d, actual = '') {
       }
     };
     ir('', 0);
-    if (!d.carpetas.length) filas.push(h('p', { class: 'bt-ar-vacio' }, 'Creá tu primera carpeta con +'));
+    if (!d.hijas('').length) filas.push(h('p', { class: 'bt-ar-vacio' }, 'Creá tu primera carpeta con +'));
   }
   const etiquetas = d.etiquetas();
   if (etiquetas.length) {
@@ -259,6 +265,11 @@ export function pantallaInicio(ctx, m, d, main, { renderNota }) {
         cont.push(h('section', { class: 'tarjeta bt-bloque' }, h('h2', { class: 'bt-bloque-h' }, 'Fijadas'),
           h('div', { class: 'bt-fijas' }, fijas.map(n => h('a', { href: `#/bitacora/n/${n.id}`, class: 'bt-fija' }, h('b', {}, n.titulo), h('small', {}, d.nombreRuta(n.carpetaId)))))));
       }
+      if (b.id === 'seguir') {
+        const fila = filaSeguirViendo(ctx, d);
+        if (!fila) continue;
+        cont.push(h('section', { class: 'tarjeta bt-bloque' }, h('div', { class: 'bt-bloque-tit' }, h('h2', { class: 'bt-bloque-h' }, 'Seguir viendo'), h('a', { href: '#/bitacora/f', class: 'bt-link-chico' }, 'Filmoteca ›')), fila));
+      }
       if (b.id === 'bandeja') {
         const en = d.notasDe(BANDEJA).sort((a, b2) => b2.modificado - a.modificado);
         if (!en.length) continue;
@@ -279,14 +290,14 @@ export function pantallaInicio(ctx, m, d, main, { renderNota }) {
       }
     }
   }
-  main.replaceChildren(...cont);
+  poner(main, ...cont);
 }
 
 // ── Carpeta (o Bandeja) ──
 export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   const { h } = ctx;
   const c = d.carpeta(carpetaId);
-  if (carpetaId && !c) { main.replaceChildren(vacio(ctx, 'Esta carpeta no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/bitacora', class: 'boton' }, 'Volver a la Bitácora'))); return; }
+  if (carpetaId && !c) { poner(main, vacio(ctx, 'Esta carpeta no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/bitacora', class: 'boton' }, 'Volver a la Bitácora'))); return; }
   const ruta = c ? d.ruta(c.id) : [];
   const padre = ruta.length > 1 ? ruta[ruta.length - 2] : null;
   const botones = [];
@@ -305,7 +316,7 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   const hijas = c ? d.hijas(c.id) : [];
   if (hijas.length) cont.push(h('div', { class: 'bt-subcarpetas' }, hijas.map(x => h('a', { href: `#/bitacora/c/${x.id}`, class: 'bt-subcarpeta' }, marcaCarpeta(h, x), h('span', {}, x.nombre), h('small', {}, String(d.cantidad(x.id)))))));
 
-  if (c?.base) { const zona = h('div', { class: 'bt-base-zona' }); cont.push(zona); main.replaceChildren(...cont); renderBase(zona, c); return; }
+  if (c?.base) { const zona = h('div', { class: 'bt-base-zona' }); cont.push(zona); poner(main, ...cont); renderBase(zona, c); return; }
 
   const notas = d.notasDe(carpetaId).sort((a, b) => (b.fijada ? 1 : 0) - (a.fijada ? 1 : 0) || b.modificado - a.modificado);
   cont.push(notas.length
@@ -313,7 +324,7 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
       extra: h('button', { type: 'button', class: 'boton bt-mover', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const id = await elegirCarpeta(ctx, d, { actual: BANDEJA }); if (id !== null && id !== BANDEJA) { await m.guardarNota(n.id, { carpetaId: id }); ctx.aviso(`Movida a ${d.nombreRuta(id)}`); } } }, 'Mover…'),
     }))))
     : vacio(ctx, c ? 'Carpeta vacía' : 'La Bandeja está vacía', c ? 'Creá una nota acá con "+ Nueva".' : null));
-  main.replaceChildren(...cont);
+  poner(main, ...cont);
 }
 
 export async function nuevaCarpeta(ctx, m, padreId) {
@@ -349,7 +360,7 @@ function iconoYColor(ctx, m, c) {
   let color = c.color || COLORES_CARPETA[0];
   const emoji = h('input', { type: 'text', value: c.icono || '', placeholder: 'Ej: 🎯 📁 🔫 📚 (opcional)', maxlength: '4', 'aria-label': 'Ícono' });
   const muestras = h('div', { class: 'bt-colores' });
-  const pintar = () => muestras.replaceChildren(...COLORES_CARPETA.map(x => h('button', { type: 'button', class: `bt-color${x === color ? ' sel' : ''}`, style: `background:${x}`, 'aria-label': x, onclick: () => { color = x; pintar(); } })));
+  const pintar = () => poner(muestras, ...COLORES_CARPETA.map(x => h('button', { type: 'button', class: `bt-color${x === color ? ' sel' : ''}`, style: `background:${x}`, 'aria-label': x, onclick: () => { color = x; pintar(); } })));
   pintar();
   const dlg = ventana(ctx, 'Ícono y color', h('div', { class: 'formulario-campos' },
     h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Ícono (un emoji; vacío = punto de color)'), emoji),
@@ -364,7 +375,7 @@ export function pantallaEtiqueta(ctx, m, d, tag, main) {
   const notas = d.conEtiqueta(tag).sort((a, b) => b.modificado - a.modificado);
   const hijas = d.etiquetas().filter(e => e.nombre.startsWith(tag + '/') && e.nombre.split('/').length === tag.split('/').length + 1);
   const padre = tag.includes('/') ? tag.split('/').slice(0, -1).join('/') : '';
-  main.replaceChildren(
+  poner(main, 
     cabecera(ctx, { titulo: '#' + tag, volver: padre ? { href: `#/bitacora/e/${encodeURIComponent(padre)}`, texto: '#' + padre } : { href: '#/bitacora', texto: 'Bitácora' } }),
     hijas.length ? h('div', { class: 'bt-subcarpetas' }, hijas.map(e => h('a', { href: `#/bitacora/e/${encodeURIComponent(e.nombre)}`, class: 'bt-subcarpeta' }, h('span', { class: 'bt-tag' }, '#' + e.nombre.split('/').pop()), h('small', {}, String(d.conEtiqueta(e.nombre).length))))) : null,
     notas.length ? h('section', { class: 'tarjeta bt-bloque' }, h('div', { class: 'bt-lista' }, notas.map(n => filaNota(ctx, d, n, { conCarpeta: true }))))
@@ -380,14 +391,14 @@ export function pantallaBuscar(ctx, m, d, main) {
   const pintar = () => {
     ultimaBusqueda = input.value;
     const q = input.value.trim();
-    if (!q) { res.replaceChildren(h('p', { class: 'nota' }, 'Escribí parte del título o del texto. Con #etiqueta filtrás por etiqueta.')); return; }
+    if (!q) { poner(res, h('p', { class: 'nota' }, 'Escribí parte del título o del texto. Con #etiqueta filtrás por etiqueta.')); return; }
     const lista = d.buscar(q);
-    res.replaceChildren(lista.length
+    poner(res, lista.length
       ? h('section', { class: 'tarjeta bt-bloque' }, h('p', { class: 'nota' }, `${lista.length} resultado${lista.length === 1 ? '' : 's'}`), h('div', { class: 'bt-lista' }, lista.slice(0, 100).map(n => filaNota(ctx, d, n, { conCarpeta: true }))))
       : h('p', { class: 'nota' }, 'No hay notas que coincidan.'));
   };
   input.addEventListener('input', pintar);
-  main.replaceChildren(cabecera(ctx, { titulo: 'Buscar', marca: ic('buscar'), volver: { href: '#/bitacora', texto: 'Bitácora' } }), h('div', { class: 'bt-busca-fila' }, ic('buscar'), input), res);
+  poner(main, cabecera(ctx, { titulo: 'Buscar', marca: ic('buscar'), volver: { href: '#/bitacora', texto: 'Bitácora' } }), h('div', { class: 'bt-busca-fila' }, ic('buscar'), input), res);
   pintar();
   setTimeout(() => input.focus(), 50);
   return { actualizar(d2) { d = d2; pintar(); } };
@@ -397,7 +408,7 @@ export function pantallaBuscar(ctx, m, d, main) {
 export function pantallaPapelera(ctx, m, d, main) {
   const { h } = ctx;
   const dias = (n) => Math.max(0, DIAS_PAPELERA - Math.floor((Date.now() - n.papelera) / 86400000));
-  main.replaceChildren(
+  poner(main, 
     cabecera(ctx, { titulo: 'Papelera', marca: ic('papelera'), volver: { href: '#/bitacora', texto: 'Bitácora' },
       botones: d.papelera.length ? [h('button', { type: 'button', class: 'boton peligro', onclick: async () => { if (await ctx.confirmar(`¿Borrar definitivamente las ${d.papelera.length} notas de la papelera?`, { si: 'Vaciar', peligro: true })) { await m.limpiarPapelera(true); ctx.aviso('Papelera vacía'); } } }, 'Vaciar')] : [] }),
     h('p', { class: 'nota' }, `Las notas borradas quedan acá ${DIAS_PAPELERA} días y después se borran solas.`),
@@ -434,7 +445,7 @@ export function pantallaAjustes(ctx, m, d, main) {
   }, h('span', { class: 'bt-tipo-sym' }, t.sym), t.nombre)));
 
   const est = ctx.espejo?.estado?.() || {};
-  main.replaceChildren(
+  poner(main, 
     cabecera(ctx, { titulo: 'Configurar Bitácora', marca: ic('ajustes'), volver: { href: '#/bitacora', texto: 'Bitácora' } }),
     h('section', { class: 'tarjeta' }, h('h2', {}, `Inicio de la Bitácora · ${esPC() ? 'en la PC' : 'en el celular'}`),
       h('p', { class: 'nota' }, 'Qué bloques se ven y en qué orden. Se guarda por separado en la PC y en el celular.'),
@@ -450,6 +461,7 @@ export function pantallaAjustes(ctx, m, d, main) {
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Editar plantilla', onclick: () => editarPlantilla(ctx, m, d, p) }, ic('editar')),
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Borrar plantilla', onclick: async () => { if (await ctx.confirmar(`¿Borrar la plantilla "${p.nombre}"? Las notas ya creadas no cambian.`, { si: 'Borrar', peligro: true })) await m.borrarPlantilla(p.id); } }, ic('papelera'))))))
         : h('p', { class: 'nota' }, 'Todavía no hay plantillas.')),
+    seccionFilmoteca(ctx, m, d),
     h('section', { class: 'tarjeta' }, h('h2', {}, 'Tipos de campo para las bases de datos'),
       h('p', { class: 'nota' }, 'Tocá los que no uses para ocultarlos al agregar un campo. Vale para todas las bases.'), tipos),
     h('section', { class: 'tarjeta' }, h('h2', {}, 'Copia en Drive'),
@@ -594,3 +606,36 @@ export async function recibirCompartido(ctx, m) {
 }
 
 export { hoyISO };
+
+function seccionFilmoteca(ctx, m, d) {
+  const { h } = ctx;
+  const cfg = configCine(d);
+  const clave = h('input', { type: 'password', value: cfg.clave, placeholder: 'Pegá acá la clave de TMDB', autocomplete: 'off', 'aria-label': 'Clave de TMDB' });
+  const estado = h('span', { class: 'nota' }, cfg.clave ? 'Clave cargada.' : 'Todavía no cargaste la clave.');
+  const ver = h('button', { type: 'button', class: 'boton bt-chico', onclick: () => { clave.type = clave.type === 'password' ? 'text' : 'password'; ver.textContent = clave.type === 'password' ? 'Ver' : 'Ocultar'; } }, 'Ver');
+  const probar = async () => {
+    estado.textContent = 'Probando…';
+    try {
+      const { buscar } = await import('./tmdb.js');
+      await buscar(clave.value.trim(), 'Relatos salvajes');
+      await m.guardarAjuste('general', { tmdbClave: clave.value.trim() });
+      estado.textContent = '✓ Funciona. Clave guardada.';
+    } catch (e) { estado.textContent = e.message; }
+  };
+  return h('section', { class: 'tarjeta' }, h('h2', {}, '🎬 Filmoteca'),
+    h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Clave de TMDB (se carga una sola vez y queda en tu Drive para la PC y el celular)'),
+      h('div', { class: 'bt-ctrl-con-acc' }, clave, ver)),
+    h('div', { class: 'botonera' }, h('button', { type: 'button', class: 'boton principal', onclick: probar }, 'Probar y guardar'), estado),
+    h('details', { class: 'fm-ayuda' }, h('summary', {}, 'Cómo conseguir la clave (gratis, 5 minutos)'),
+      h('ol', {},
+        h('li', {}, 'Entrá a themoviedb.org y creá una cuenta (confirmá el mail).'),
+        h('li', {}, 'Andá a tu perfil › Configuración › API (themoviedb.org/settings/api).'),
+        h('li', {}, 'Pedí una clave de tipo "Developer" / uso personal y completá el formulario (sitio: podés poner la dirección de tu app de GitHub).'),
+        h('li', {}, 'Copiá la "Clave de la API" (o el "Token de acceso de lectura", sirve cualquiera de los dos), pegala acá arriba y tocá "Probar y guardar".'))),
+    h('div', { class: 'aj-tabla' },
+      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Avisar episodios nuevos y estrenos', h('small', { class: 'bt-nota-chica' }, 'Valor inicial para lo que agregues. Después se cambia en cada ficha.')),
+        h('button', { type: 'button', class: `aj-switch${cfg.avisarPorDefecto ? ' on' : ''}`, role: 'switch', 'aria-checked': String(cfg.avisarPorDefecto), 'aria-label': 'Avisar por defecto', onclick: () => m.guardarAjuste('general', { avisarCine: !cfg.avisarPorDefecto }) })),
+      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Idioma', h('small', { class: 'bt-nota-chica' }, 'El título original se ve aparte en cada ficha')), h('span', {}, 'Español (Latinoamérica)')),
+      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Plataformas de'), h('span', {}, 'Argentina')),
+      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Pósters', h('small', { class: 'bt-nota-chica' }, 'Se ven desde internet (TMDB). No se guardan en Drive ni en el teléfono.')))));
+}

@@ -122,6 +122,19 @@ export function aMarkdown(n, d) {
       if (v !== null) lineas.push(`${claveYaml(campo.nombre)}: ${v}`);
     }
   }
+  if (n.cine) {
+    const ci = n.cine, est = { paraver: 'Para ver', viendo: 'Viendo', vista: 'Vista', abandonada: 'Abandonada', volver: 'Volver a ver' };
+    lineas.push(`tipo: ${ci.tipo === 'tv' ? 'Serie' : 'Película'}`);
+    if (ci.original) lineas.push(`titulo_original: ${JSON.stringify(ci.original)}`);
+    if (ci.anio) lineas.push(`año: ${ci.anio}`);
+    lineas.push(`estado: ${JSON.stringify(est[ci.estado] || ci.estado)}`);
+    if (ci.calificacion) lineas.push(`calificación: ${ci.calificacion}`);
+    if (ci.recomendada) lineas.push(`recomendada_por: ${JSON.stringify(ci.recomendada)}`);
+    if (ci.generos?.length) lineas.push(`géneros: [${ci.generos.map(g => JSON.stringify(g)).join(', ')}]`);
+    if (ci.vistas?.length) lineas.push(`vista: [${ci.vistas.join(', ')}]`);
+    if (ci.tipo === 'tv') lineas.push(`episodios_vistos: ${Object.keys(ci.vistos || {}).length}`);
+    if (ci.tmdb) lineas.push(`tmdb: https://www.themoviedb.org/${ci.tipo}/${ci.tmdb}`);
+  }
   const tags = (n.etiquetas || []).map(e => String(e).replace(/^#/, '')).filter(Boolean);
   if (tags.length) lineas.push(`tags: [${tags.map(t => JSON.stringify(t)).join(', ')}]`);
   const cabecera = lineas.length ? `---\n${lineas.join('\n')}\n---\n` : '';
@@ -268,12 +281,14 @@ export function crearModelo(ctx) {
     plantillas: ctx.datos('plantillas'),
     recordatorios: ctx.datos('recordatorios'),
     ajustes: ctx.datos('ajustes'),
+    cine: ctx.datos('cine'),   // Filmoteca: datos de TMDB que cambian (plataformas, episodios, estrenos)
   };
 
   async function cargar() {
-    const [carpetas, notasTodas, plantillas, recordatorios, ajustes] = await Promise.all([
-      col.carpetas.listar(), col.notas.listar(), col.plantillas.listar(), col.recordatorios.listar(), col.ajustes.listar(),
+    const [carpetas, notasTodas, plantillas, recordatorios, ajustes, cine] = await Promise.all([
+      col.carpetas.listar(), col.notas.listar(), col.plantillas.listar(), col.recordatorios.listar(), col.ajustes.listar(), col.cine.listar(),
     ]);
+    const cinePorClave = new Map(cine.sort((a, b) => (a.actualizado || 0) - (b.actualizado || 0)).map(x => [x.clave, x]));
     const porId = new Map(carpetas.map(c => [c.id, c]));
     // Una carpeta cuyo padre ya no existe queda en la raíz.
     for (const c of carpetas) if (c.padreId && !porId.has(c.padreId)) c.padreId = '';
@@ -291,7 +306,9 @@ export function crearModelo(ctx) {
       ajustesLista: ajustes,
       carpeta: (id) => (id ? porId.get(id) || null : null),
       nota: (id) => notaPorId.get(id) || null,
-      hijas: (padreId = '') => d.carpetas.filter(c => (c.padreId || '') === padreId),
+      // Carpetas visibles (la de la Filmoteca es especial y no aparece en la lista común).
+      hijas: (padreId = '') => d.carpetas.filter(c => (c.padreId || '') === padreId && !c.sistema),
+      cineVivo: (clave) => cinePorClave.get(clave) || null,
       ruta(id) {
         const salida = [];
         let c = porId.get(id), vueltas = 0;
@@ -398,8 +415,8 @@ export function crearModelo(ctx) {
     },
 
     // ── Notas ──
-    async crearNota({ titulo = '', carpetaId = BANDEJA, texto = '', props = {}, etiquetas = [], adjuntos = [] } = {}) {
-      return col.notas.crear({ titulo: String(titulo).trim() || 'Sin título', carpetaId, texto, props, etiquetas, fijada: false, papelera: 0, adjuntos });
+    async crearNota({ titulo = '', carpetaId = BANDEJA, texto = '', props = {}, etiquetas = [], adjuntos = [], cine = null } = {}) {
+      return col.notas.crear({ titulo: String(titulo).trim() || 'Sin título', carpetaId, texto, props, etiquetas, fijada: false, papelera: 0, adjuntos, ...(cine ? { cine } : {}) });
     },
     guardarNota: (id, cambios) => col.notas.actualizar(id, cambios),
     // Renombrar: también se actualizan los [[enlaces]] en las otras notas.
