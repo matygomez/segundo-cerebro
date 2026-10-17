@@ -35,7 +35,8 @@
 
 /* Colores por tipo */
 :root { --cl-violeta: #6B4E9B; --cl-azul: #2F5E8C; --cl-gris: #7D888C; }
-@media (prefers-color-scheme: dark) { :root { --cl-violeta: #B9A2E0; --cl-azul: #8DB4DC; --cl-gris: #8E989B; } }
+/* oscuro (siempre) */
+:root { --cl-violeta: #B9A2E0; --cl-azul: #8DB4DC; --cl-gris: #8E989B; }
 .cl-p.t-tarea { background: var(--laton); } .cl-p.t-venc { background: var(--rojo); } .cl-p.t-fin { background: var(--verde); }
 .cl-p.t-reu { background: var(--cl-azul); } .cl-p.t-ev { background: var(--cl-gris); } .cl-p.t-fer { background: var(--cl-violeta); }
 .cl-chip.t-tarea, .cl-chip.t-venc { border-color: var(--laton); background: var(--laton-fondo); }
@@ -83,3 +84,36 @@
 .cl-hora:empty { display: none; }
 /* En la PC el calendario usa más ancho */
 @media (min-width: 900px) { #pantalla:has(> .cl-cab) { max-width: 76rem; } }
+
+/* ── Cuadro "Esta semana" del Inicio (0.19) ── */
+.cl-sem-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+.cl-sem-dia { background: var(--superficie-2); border: 1px solid transparent; border-radius: 10px; padding: 0.4rem 0.1rem; display: grid; justify-items: center; gap: 0.2rem; text-decoration: none; color: var(--tinta); min-width: 0; }
+.cl-sem-dia.hoy { border-color: var(--laton); }
+.cl-sem-dia small { font-size: 0.66rem; color: var(--tinta-2); text-transform: uppercase; }
+.cl-sem-dia b { font-family: var(--fuente-titulo); font-size: 1.15rem; line-height: 1; }
+.cl-sem-dia.feriado b { color: var(--cl-violeta); }
+.cl-sem-dia .cl-puntos { display: flex; min-height: 6px; max-width: none; }
+.bloque-cuerpo:has(> .cl-sem-dias) { display: grid; gap: 0.6rem; }
+.cl-sem-dia .cl-p { width: 5px; height: 5px; }
+.cl-sem-leyenda { display: flex; flex-wrap: wrap; gap: 0.2rem 0.75rem; font-size: 0.72rem; color: var(--tinta-2); }
+.cl-sem-leyenda span { display: inline-flex; align-items: center; gap: 0.3rem; }
+.cl-sem-caja { position: relative; border-top: 1px solid var(--linea); }
+.cl-sem-lista { --fila: 2.4rem; max-height: calc(5 * var(--fila)); overflow-y: auto; scrollbar-width: none; padding-right: 10px; }
+.cl-sem-lista::-webkit-scrollbar { display: none; }
+.cl-sem-it { display: flex; align-items: center; gap: 0.6rem; width: 100%; height: var(--fila); border: 0; border-bottom: 1px solid var(--linea); background: none; color: var(--tinta); font: inherit; font-size: 0.9rem; text-align: left; cursor: pointer; padding: 0; }
+.cl-sem-it:last-child { border-bottom: 0; }
+.cl-sem-d { color: var(--cl-azul); font-size: 0.78rem; min-width: 2rem; flex: none; }
+.cl-sem-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-sem-der { color: var(--tinta-2); font-size: 0.78rem; flex: none; max-width: 40%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cl-sem-it.t-fer .cl-sem-t { color: var(--cl-violeta); }
+.cl-sem-riel { position: absolute; right: 0; top: 4px; bottom: 4px; width: 3px; border-radius: 3px; background: var(--superficie-2); }
+.cl-sem-riel[hidden] { display: none; }
+.cl-sem-riel i { position: absolute; left: 0; right: 0; border-radius: 3px; background: #5a5c61; }
+.cl-sem-nada { margin: 0; }
+/* Celular: lista más compacta, se ven 3 y el resto deslizando */
+@media (max-width: 899px) {
+  .cl-sem-lista { --fila: 1.95rem; max-height: calc(3 * var(--fila)); }
+  .cl-sem-it { font-size: 0.84rem; gap: 0.5rem; }
+  .cl-sem-d { font-size: 0.72rem; min-width: 1.7rem; }
+  .cl-sem-der { font-size: 0.72rem; }
+}

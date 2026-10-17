@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.18.0';
+const VERSION = 'sc-0.19.0';
 
 const ARCHIVOS = [
   './',
@@ -30,6 +30,8 @@ const ARCHIVOS = [
   './js/core/calendario.js',
   './js/core/compartido.js',
   './js/core/editor-texto.js',
+  './js/core/inicio.js',
+  './js/core/ajustes-inicio.js',
   './js/core/espejo.js',
   './js/core/registro.js',
   './js/core/sincronizacion.js',

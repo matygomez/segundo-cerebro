@@ -14,6 +14,7 @@ import { CARPETA_DRIVE } from '../config.js';
 import { VERSION } from '../modulos.js';
 import { listaModulos } from './registro.js';
 import { navegacion, guardarNavegacion, ordenBarra, MAX_BARRA } from './preferencias.js';
+import { seccionInicio } from './ajustes-inicio.js';
 
 let pedidoInstalacion = null;
 window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); pedidoInstalacion = e; });
@@ -23,6 +24,7 @@ export function pantallaAjustes(contenedor) {
   const seccionDispositivo = h('section', { class: 'tarjeta' });
   const seccionModulos = h('section', { class: 'tarjeta' });
   const seccionBarra = h('section', { class: 'tarjeta' });
+  const seccionIni = h('section', { class: 'tarjeta aj-inicio', id: 'ajustes-inicio' });
 
   // ── Módulos: visible u oculto, por separado en PC y celular ──
   const NOMBRES = { ajustes: 'Ajustes' };
@@ -202,8 +204,12 @@ export function pantallaAjustes(contenedor) {
     seccionDrive,
     seccionModulos,
     seccionBarra,
+    seccionIni,
     seccionDispositivo,
   );
+  const quitarInicio = seccionInicio(seccionIni);
+  // #/ajustes/inicio (o un link desde el Inicio) lleva directo a esta sección.
+  if (/inicio$/.test(location.hash)) setTimeout(() => seccionIni.scrollIntoView({ block: 'start' }), 300);
   dibujarDrive();
   dibujarModulos();
   dibujarBarra();
@@ -215,5 +221,5 @@ export function pantallaAjustes(contenedor) {
     escuchar('datos', dibujarDispositivo),
     escuchar('preferencias', () => { dibujarModulos(); dibujarBarra(); }),
   ];
-  return () => quitar.forEach(q => q());
+  return () => { quitar.forEach(q => q()); quitarInicio(); };
 }

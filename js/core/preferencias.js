@@ -13,6 +13,7 @@ import { escuchar, emitir } from './eventos.js';
 const MAX_BARRA = 5;
 const col = () => coleccion('app', 'preferencias');
 let registro = null;
+let regInicio = null;   // { clave: 'inicio', ... } configuración del Inicio (igual en todos los dispositivos)
 // Módulos que arrancan ocultos (ej. Calendario) hasta que los muestres.
 let ocultosPorDefecto = [];
 export function definirOcultosPorDefecto(ids) { ocultosPorDefecto = [...ids]; }
@@ -25,7 +26,9 @@ export const dispositivoActual = () => (esPC() ? 'pc' : 'cel');
 
 export async function cargarPreferencias() {
   try {
-    registro = (await col().listar()).find(x => x.clave === 'navegacion') || null;
+    const todos = await col().listar();
+    registro = todos.find(x => x.clave === 'navegacion') || null;
+    regInicio = todos.find(x => x.clave === 'inicio') || null;
     // 0.15.1: Calendario dejó de arrancar oculto (pasa a ser un módulo más).
     if (registro && !registro.calendarioComun) {
       const sacar = (l) => (l || []).filter(id => id !== 'calendario');
@@ -49,6 +52,20 @@ escuchar('datos', async (e) => {
 
 // Los ocultos por defecto que todavía no tocaste en Ajustes.
 const nuevosOcultos = () => ocultosPorDefecto.filter(id => !(registro?.conocidos || []).includes(id));
+
+// ── Inicio: qué se ve, en qué orden y el memento mori ──
+// Se arma en Ajustes › Inicio y vale para todos los dispositivos.
+export function configInicio() {
+  const { id, clave, creado, modificado, dispositivo, ...resto } = regInicio || {};
+  return JSON.parse(JSON.stringify(resto));
+}
+export async function guardarConfigInicio(cfg) {
+  const datos = { ...cfg, clave: 'inicio' };
+  if (regInicio?.id) await col().actualizar(regInicio.id, datos);
+  else await col().crear(datos);
+  await cargarPreferencias();
+  emitir('preferencias', navegacion());
+}
 
 export function navegacion() {
   return {

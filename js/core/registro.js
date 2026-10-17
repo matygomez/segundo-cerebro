@@ -51,6 +51,7 @@ import * as drive from './drive.js';
 import * as espejo from './espejo.js';
 import * as compartido from './compartido.js';
 import { crearEditor } from './editor-texto.js';
+import { armarInicio } from './inicio.js';
 
 const cargados = new Map();
 
@@ -134,20 +135,24 @@ export function contexto(moduloId) {
       bloques: () => juntar('bloquesInicio'),
       botones: () => juntar('botonesInicio'),
       quienCaptura: async () => (await receptorCaptura())?.nombre || null,
+      // Todo lo del Inicio ya ordenado y filtrado según Ajustes › Inicio.
+      armar: () => armarInicio(),
+      // Avisa cuando cambia la configuración del Inicio o qué módulos se ven.
+      alCambiar: (fn) => escuchar('preferencias', fn),
     },
   };
 }
 
 // Junta lo que cada módulo ofrece para Inicio. Si un módulo falla,
 // se lo saltea y el resto se muestra igual.
-async function juntar(funcion) {
+export async function juntar(funcion, { incluirOcultos = false } = {}) {
   const salida = [];
   for (const def of await cargarTodos()) {
     if (typeof def[funcion] !== 'function') continue;
-    if (!visible(def.id)) continue;   // oculto en este dispositivo: no aparece en Inicio
+    if (!incluirOcultos && !visible(def.id)) continue;   // oculto en este dispositivo: no aparece en Inicio
     try {
       const items = (await def[funcion](contexto(def.id))) || [];
-      for (const it of items) salida.push({ ...it, modulo: def.id, nombreModulo: def.nombre });
+      for (const it of items) salida.push({ ...it, modulo: def.id, nombreModulo: def.nombre, oculto: !visible(def.id) });
     } catch (e) {
       console.error(`"${def.id}" falló al armar ${funcion}`, e);
     }

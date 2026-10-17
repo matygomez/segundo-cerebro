@@ -33,7 +33,7 @@ export default {
 
   botonesInicio(ctx) {
     return [{
-      id: 'nueva-tarea', texto: 'Nueva tarea', icono: 'mas',
+      id: 'nueva-tarea', texto: 'Tarea', icono: 'mas',
       alTocar: async () => {
         abrirTecladoYa();
         cargarEstilos();
@@ -56,31 +56,40 @@ export default {
     return [{
       id: 'hoy',
       titulo: 'Tareas de hoy',
-      async dibujar(contenedor) {
+      enlace: { texto: 'Tareas ›', href: '#/tareas/hoy' },
+      ancho: 'mitad',
+      opciones: [
+        { id: 'vencidas', texto: 'Con vencidas', defecto: true },
+        { id: 'max5', texto: 'Máx. 5', defecto: true },
+        { id: 'subtareas', texto: 'Con subtareas', defecto: false },
+      ],
+      async dibujar(contenedor, { opciones = {} } = {}) {
         cargarEstilos();
         const { h } = ctx;
         const m = crearModelo(ctx);
-        const MAX = 6;
+        const MAX = opciones.max5 === false ? Infinity : 5;
 
         async function pintar() {
           const d = await m.cargar();
           const pend = d.tareas.filter(t => !hecha(t) && !d.enOculto?.(t));
-          // Primero y siempre: las tareas de hoy. Las vencidas, solo como aviso abajo.
+          const venc = ordenar(pend.filter(vencida));
           const deHoyL = ordenar(pend.filter(deHoy));
-          const nVenc = pend.filter(vencida).length;
-          const avisoVencidas = nVenc
-            ? h('a', { href: '#/tareas/hoy/vencidas', class: 'tr-inicio-vencidas' }, `+ ${nVenc} tarea${nVenc > 1 ? 's' : ''} vencida${nVenc > 1 ? 's' : ''}`)
+          const lista = opciones.vencidas === false ? deHoyL : [...venc, ...deHoyL];
+          // Sin "Con subtareas": cada tarea sola, sin desplegar sus subtareas.
+          const dd = opciones.subtareas ? d : Object.assign(Object.create(d), { hijas: () => [] });
+          const sobran = lista.length - Math.min(lista.length, MAX);
+          const avisoVencidas = opciones.vencidas === false && venc.length
+            ? h('a', { href: '#/tareas/hoy/vencidas', class: 'tr-inicio-vencidas' }, `+ ${venc.length} tarea${venc.length > 1 ? 's' : ''} vencida${venc.length > 1 ? 's' : ''}`)
             : null;
-          const pie = h('div', { class: 'tr-inicio-pie' }, [
-            deHoyL.length > MAX ? h('a', { href: '#/tareas/hoy/hoy', class: 'tr-link' }, `Ver las ${deHoyL.length} de hoy`) : null,
+          const pie = [
+            sobran > 0 ? h('a', { href: '#/tareas/hoy', class: 'tr-link' }, `+ ${sobran} más`) : null,
             avisoVencidas,
-            h('a', { href: deHoyL.length || nVenc ? '#/tareas/hoy' : '#/tareas/proximos', class: 'tr-link' }, deHoyL.length || nVenc ? 'Abrir Tareas' : 'Ver próximos días'),
-          ].filter(Boolean));
-          contenedor.replaceChildren(
-            deHoyL.length
-              ? h('ul', { class: 'tr-lista' }, deHoyL.slice(0, MAX).map(t => filaTarea(ctx, m, d, t)))
-              : h('p', { class: 'nota tr-inicio-nada' }, 'No hay tareas para hoy.'),
-            pie);
+          ].filter(Boolean);
+          contenedor.replaceChildren(...[
+            lista.length
+              ? h('ul', { class: 'tr-lista' }, lista.slice(0, MAX).map(t => filaTarea(ctx, m, dd, t)))
+              : h('p', { class: 'nota tr-inicio-nada' }, venc.length ? 'No hay tareas para hoy.' : 'No hay tareas para hoy. ', venc.length ? null : h('a', { href: '#/tareas/proximos', class: 'tr-link' }, 'Ver próximos días')),
+            pie.length ? h('div', { class: 'tr-inicio-pie' }, pie) : null].filter(Boolean));
         }
 
         let espera = null;

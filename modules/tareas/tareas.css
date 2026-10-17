@@ -444,7 +444,8 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
 .tr-grupo-fecha.lejos .tr-grupo-fecha-titulo, .tr-grupo-fecha.sin .tr-grupo-fecha-titulo { color: var(--tinta-2); }
 
 :root { --tr-verde: #2C6A5A; --tr-verde-f: #E1EEE9; --tr-azul: #3B5B7A; --tr-azul-f: #E3EBF2; }
-@media (prefers-color-scheme: dark) { :root { --tr-verde: #6BB79F; --tr-verde-f: #17302A; --tr-azul: #8FB2D4; --tr-azul-f: #1C2A36; } }
+/* oscuro (siempre) */
+:root { --tr-verde: #6BB79F; --tr-verde-f: #17302A; --tr-azul: #8FB2D4; --tr-azul-f: #1C2A36; }
 .tr-meta.tr-fecha { padding: 0.05rem 0.45rem; border-radius: 999px; font-weight: 500; background: var(--superficie-2); color: var(--tinta-2); }
 .tr-meta.tr-fecha.vencida { background: var(--rojo-fondo); color: var(--rojo); }
 .tr-meta.tr-fecha.hoy { background: var(--tr-verde-f); color: var(--tr-verde); }
@@ -615,7 +616,8 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-aviso-ic { width: 1.4rem; height: 1.4rem; display: grid; place-items: center; color: var(--tr-violeta, #6B4E9B); flex: none; margin-top: 0.1rem; }
 .tr-aviso-ic .icono { width: 1.1rem; height: 1.1rem; }
 .tr-tarea.tr-es-aviso .tr-titulo { color: var(--tr-violeta, #6B4E9B); font-weight: 500; }
-@media (prefers-color-scheme: dark) { .tr-aviso-ic, .tr-tarea.tr-es-aviso .tr-titulo { color: #B9A2E0; } }
+/* oscuro (siempre) */
+.tr-aviso-ic, .tr-tarea.tr-es-aviso .tr-titulo { color: #B9A2E0; }
 .tr-compacto .tr-aviso-ic { width: 1.1rem; height: 1.1rem; }
 
 /* ── Plegar y ordenar proyectos y secciones ── */
@@ -652,7 +654,8 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-nodo-area.tr-nodo-sistema { border-radius: var(--radio-control) var(--radio-control) 0 0; border-top-color: transparent; margin-top: 0.3rem; }
 .tr-nodo-proyecto.tr-nodo-sistema { border-radius: 0; }
 .tr-vista-sistema .tr-titulo-vista h2, .tr-vista-sistema .tr-titulo-vista h2 .icono, .tr-vista-sistema .tr-proyecto-nombre { color: var(--tr-gris, #7D888C); }
-@media (prefers-color-scheme: dark) { :root { --tr-gris: #8E989B; --tr-gris-f: #232C30; } }
+/* oscuro (siempre) */
+:root { --tr-gris: #8E989B; --tr-gris-f: #26282B; }
 
 /* Configurar › Google Calendar */
 .tr-cals { display: grid; }

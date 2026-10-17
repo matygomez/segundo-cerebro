@@ -59,9 +59,102 @@ function abrirTecladoYa() {
   setTimeout(() => i.remove(), 2500);
 }
 
+// ── Esta semana (Inicio) ──
+const DSEM = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+const LEYENDA_SEMANA = [['tarea', 'Tareas'], ['reu', 'Reuniones'], ['fin', 'Vencimientos'], ['fer', 'Feriados']];
+function abrirItem(ctx, x) {
+  if (x.tipo === 'fin' && x.clave.startsWith('finanzas:fijo:')) return ctx.navegar('finanzas/detalle/fijos');
+  if (x.tipo === 'fin' && x.clave.startsWith('finanzas:tarjeta:')) return ctx.navegar('finanzas/detalle/credito');
+  ctx.pedir('abrir-tarea', { id: x.id }).catch(e => ctx.aviso(e.message));
+}
+async function dibujarSemana(ctx, contenedor, op) {
+  const { h } = ctx;
+  const vale = (x) => {
+    if (x.tipo === 'reu' || x.tipo === 'ev') return op.reuniones !== false;
+    if (x.tipo === 'fin') return op.pagos !== false;
+    if (x.tipo === 'fer') return op.feriados !== false;
+    return true;
+  };
+  async function pintar() {
+    const cfg = await leerConfig(ctx);
+    const hoyD = new Date(); hoyD.setHours(0, 0, 0, 0);
+    const ini = new Date(hoyD);
+    if (!op.desdeHoy) ini.setDate(hoyD.getDate() - (cfg.semana === 'domingo' ? hoyD.getDay() : (hoyD.getDay() + 6) % 7));
+    const dias = Array.from({ length: 7 }, (_, i) => new Date(ini.getFullYear(), ini.getMonth(), ini.getDate() + i));
+    const desde = aISO(dias[0]), hasta = aISO(dias[6]), hoy = hoyISO();
+    let items = [];
+    try { items = ((await ctx.pedir('calendario-items', { desde, hasta, repetidas: cfg.repetidas })) || []).filter(vale); }
+    catch { contenedor.replaceChildren(h('p', { class: 'nota' }, 'El calendario muestra lo que hay en Tareas, y Tareas no está disponible.')); return; }
+    const porDia = new Map();
+    for (const x of items) { if (!porDia.has(x.fecha)) porDia.set(x.fecha, []); porDia.get(x.fecha).push(x); }
+    const proximos = items.filter(x => !x.hecha && x.fecha >= hoy);
+    const fila = (x) => {
+      const f = deISO(x.fecha);
+      const der = x.hora || (x.tipo === 'fer' ? 'Feriado' : x.lugar || '');
+      return h('button', { type: 'button', class: `cl-sem-it t-${x.tipo}`, onclick: () => abrirItem(ctx, x) },
+        h('span', { class: 'cl-sem-d' }, x.fecha === hoy ? 'Hoy' : DSEM[f.getDay()]),
+        h('span', { class: 'cl-sem-t' }, x.titulo),
+        der ? h('span', { class: 'cl-sem-der' }, der) : null);
+    };
+    const lista = h('div', { class: 'cl-sem-lista' }, proximos.map(fila));
+    const riel = h('span', { class: 'cl-sem-riel', 'aria-hidden': 'true' }, h('i'));
+    contenedor.replaceChildren(...[
+      h('div', { class: 'cl-sem-dias' }, dias.map(f => {
+        const k = aISO(f), del = porDia.get(k) || [];
+        return h('a', {
+          href: `#/calendario/${k}`, class: `cl-sem-dia${k === hoy ? ' hoy' : ''}${del.some(x => x.tipo === 'fer') ? ' feriado' : ''}`,
+          'aria-label': `${f.getDate()}${del.length ? `, ${del.length} cosa${del.length > 1 ? 's' : ''}` : ''}`,
+        },
+        h('small', {}, DSEM[f.getDay()]), h('b', {}, String(f.getDate())),
+        h('span', { class: 'cl-puntos' }, del.slice(0, 5).map(x => h('i', { class: `cl-p t-${x.tipo}${x.repite || x.hecha ? ' suave' : ''}` }))));
+      })),
+      cfg.leyenda !== false ? h('div', { class: 'cl-sem-leyenda' }, LEYENDA_SEMANA.filter(([t]) => vale({ tipo: t })).map(([t, n]) => h('span', {}, h('i', { class: `cl-p t-${t}` }), n))) : null,
+      op.lista !== false ? (proximos.length ? h('div', { class: 'cl-sem-caja' }, lista, riel) : h('p', { class: 'nota cl-sem-nada' }, 'Nada más por esta semana.')) : null,
+    ].filter(Boolean));
+    // Barrita al costado: siempre visible si hay más de lo que entra (en Android la del sistema se esconde).
+    const moverRiel = () => {
+      const sobra = lista.scrollHeight - lista.clientHeight;
+      riel.hidden = sobra <= 1;
+      if (sobra <= 1) return;
+      const alto = Math.max(14, riel.clientHeight * lista.clientHeight / lista.scrollHeight);
+      riel.firstChild.style.height = `${alto}px`;
+      riel.firstChild.style.top = `${(riel.clientHeight - alto) * lista.scrollTop / sobra}px`;
+    };
+    lista.addEventListener('scroll', moverRiel, { passive: true });
+    requestAnimationFrame(moverRiel);
+  }
+  let espera = null;
+  const refrescar = () => { clearTimeout(espera); espera = setTimeout(pintar, 120); };
+  const quitar1 = ctx.alCambiarDatosDe?.('tareas', refrescar);
+  const quitar2 = ctx.alCambiarDatos(refrescar);
+  await pintar();
+  return () => { quitar1?.(); quitar2?.(); clearTimeout(espera); };
+}
+
 export default {
   id: 'calendario',
   nombre: 'Calendario',
+
+  // Cuadro "Esta semana" para el Inicio.
+  bloquesInicio(ctx) {
+    return [{
+      id: 'semana',
+      titulo: 'Esta semana',
+      enlace: { texto: 'Calendario ›', href: '#/calendario' },
+      ancho: 'mitad',
+      opciones: [
+        { id: 'lista', texto: 'Lo que viene', defecto: true },
+        { id: 'reuniones', texto: 'Reuniones', defecto: true },
+        { id: 'pagos', texto: 'Vencimientos', defecto: true },
+        { id: 'feriados', texto: 'Feriados', defecto: true },
+        { id: 'desdeHoy', texto: 'Empieza hoy (no el lunes)', defecto: false },
+      ],
+      async dibujar(contenedor, { opciones = {} } = {}) {
+        cargarEstilos();
+        return dibujarSemana(ctx, contenedor, opciones);
+      },
+    }];
+  },
 
   async pantalla(contenedor, ctx, sub = []) {
     cargarEstilos();

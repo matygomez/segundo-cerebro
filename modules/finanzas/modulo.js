@@ -37,21 +37,28 @@ export default {
   },
 
   botonesInicio(ctx) {
-    return [{
-      id: 'gasto', texto: 'Gasto', icono: 'mas',
-      alTocar: async () => {
-        cargarEstilos();
-        const m = crearModelo(ctx);
-        abrirMovimiento(ctx, m, await m.cargar(), 'gasto');
-      },
-    }];
+    const abrir = (tipo) => async () => {
+      cargarEstilos();
+      const m = crearModelo(ctx);
+      abrirMovimiento(ctx, m, await m.cargar(), tipo);
+    };
+    return [
+      { id: 'gasto', texto: 'Gasto', icono: 'mas', alTocar: abrir('gasto') },
+      { id: 'ingreso', texto: 'Ingreso', icono: 'mas', alTocar: abrir('ingreso'), defecto: false },
+    ];
   },
 
   bloquesInicio(ctx) {
     return [{
       id: 'disponible',
       titulo: 'Disponible',
-      async dibujar(contenedor) {
+      enlace: { texto: 'Finanzas ›', href: '#/finanzas' },
+      ancho: 'mitad',
+      opciones: [
+        { id: 'barra', texto: 'Barra', defecto: true },
+        { id: 'desglose', texto: 'De dónde sale', defecto: true },
+      ],
+      async dibujar(contenedor, { opciones = {} } = {}) {
         cargarEstilos();
         const { h } = ctx;
         const m = crearModelo(ctx);
@@ -63,10 +70,24 @@ export default {
             return;
           }
           const r = d.resumenMes(mesActual());
-          contenedor.replaceChildren(
-            h('a', { href: '#/finanzas', class: 'fz-inicio' },
-              h('span', { class: 'fz-disponible-valor num' }, plata(r.disponible)),
-              h('span', { class: 'nota' }, `Gastos del mes ${plata(r.totalGastos)} · ingresos ${plata(r.totalIngresos)}`)));
+          const comprometido = Math.max(0, r.fijosPendientes) + Math.max(0, r.faltanteCredito);
+          const base = Math.max(r.enCuentas, r.disponible + comprometido, 1);
+          const anchoDisp = Math.max(0, Math.min(100, (r.disponible / base) * 100));
+          const anchoComp = Math.max(0, Math.min(100 - anchoDisp, (comprometido / base) * 100));
+          const datos = [
+            ['Gastado este mes', 'Gastado', r.totalGastos, ''],
+            ['Gastos fijos pendientes', 'Fijos pend.', r.fijosPendientes, ''],
+            ['Falta para la tarjeta', 'Falta tarjeta', r.faltanteCredito, r.faltanteCredito > 0 ? 'rojo' : ''],
+          ];
+          contenedor.replaceChildren(...[
+            h('a', { href: '#/finanzas', class: 'fz-ini-num' },
+              h('span', { class: `fz-ini-valor num${r.disponible < 0 ? ' negativo' : ''}` }, plata(r.disponible)),
+              h('span', { class: 'nota' }, 'hasta fin de mes')),
+            opciones.barra !== false ? h('div', { class: 'fz-ini-barra', title: `Dorado: disponible. Oscuro: lo que ya está comprometido (fijos pendientes y tarjeta) de ${plata(r.enCuentas)} en cuentas.` },
+              h('i', { style: `width:${anchoDisp}%` }), h('i', { style: `width:${anchoComp}%` })) : null,
+            opciones.desglose !== false ? h('div', { class: 'fz-ini-filas' }, datos.map(([largo, , v, cl]) => h('div', {}, h('span', {}, largo), h('b', { class: `num ${cl}` }, plata(v))))) : null,
+            opciones.desglose !== false ? h('div', { class: 'fz-ini-cajas' }, datos.map(([, corto, v, cl]) => h('div', {}, h('small', {}, corto), h('b', { class: `num ${cl}` }, plata(v))))) : null,
+          ].filter(Boolean));
         }
         let espera = null;
         const quitar = ctx.alCambiarDatos(() => { clearTimeout(espera); espera = setTimeout(pintar, 60); });

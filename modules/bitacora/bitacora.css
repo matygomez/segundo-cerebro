@@ -8,9 +8,8 @@
   --bt-violeta: #6B4E9B; --bt-violeta-f: #EEE8F6;
   --bt-laton-f: var(--laton-fondo);
 }
-@media (prefers-color-scheme: dark) {
-  :root { --bt-verde: #6BB79F; --bt-verde-f: #1B2E28; --bt-azul: #8DB4DC; --bt-azul-f: #1B2733; --bt-violeta: #B9A2E0; --bt-violeta-f: #272035; }
-}
+/* oscuro (siempre) */
+:root { --bt-verde: #6BB79F; --bt-verde-f: #1B2E28; --bt-azul: #8DB4DC; --bt-azul-f: #1B2733; --bt-violeta: #B9A2E0; --bt-violeta-f: #272035; }
 
 /* En la PC la Bitácora usa más ancho (árbol a la izquierda) */
 #pantalla:has(> .bt.con-arbol) { max-width: 78rem; }
@@ -321,7 +320,8 @@ a.bt-men:hover { border-color: var(--tinta-2); }
 
 /* ── Filmoteca ── */
 :root { --fm-corazon: #D6455A; }
-@media (prefers-color-scheme: dark) { :root { --fm-corazon: #F06B7E; } }
+/* oscuro (siempre) */
+:root { --fm-corazon: #F06B7E; }
 .fm-aviso { background: var(--laton-fondo); border-radius: 10px; padding: 0.65rem 0.9rem; font-size: 0.92rem; }
 .fm-aviso a { font-weight: 600; }
 .fm-chips { display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
@@ -484,3 +484,30 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-ed .ed-area h1 { font-size: 1.55rem; } .bt-ed .ed-area h2 { font-size: 1.3rem; } .bt-ed .ed-area h3 { font-size: 1.1rem; }
 .bt-ed .ed-emb { display: inline-block; }
 .bt-ed .ed-emb .bt-img-caja { cursor: zoom-in; }
+
+/* ── Cuadros del Inicio (0.19) ── */
+.bt-ini-lista { display: grid; }
+.bt-ini-fila { display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0; border-top: 1px solid var(--linea); color: var(--tinta); text-decoration: none; font-size: 0.93rem; min-width: 0; }
+.bt-ini-fila:first-child { border-top: 0; }
+.bt-ini-fila .icono { width: 1rem; height: 1rem; color: var(--laton); flex: none; }
+.bt-ini-t { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-ini-der { color: var(--tinta-2); font-size: 0.8rem; white-space: nowrap; }
+.bt-ini-estrenos { margin-top: 0.5rem; border-top: 1px solid var(--linea); }
+.bt-ini-estrenos .bt-ini-fila:first-child { border-top: 0; }
+.bt-ini-sv { display: grid; }
+.bt-ini-sv-it { display: grid; grid-template-columns: 3.1rem minmax(0, 1fr); gap: 0.75rem; align-items: center; padding: 0.55rem 0; border-top: 1px solid var(--linea); color: var(--tinta); text-decoration: none; }
+.bt-ini-sv-it:first-child { border-top: 0; padding-top: 0; }
+.bt-ini-sv-tx { display: grid; gap: 0.15rem; min-width: 0; }
+.bt-ini-sv-t { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-ini-sv-s { font-size: 0.78rem; color: var(--tinta-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-ini-sv-p { display: block; height: 4px; border-radius: 3px; background: var(--superficie-2); overflow: hidden; margin-top: 0.25rem; }
+.bt-ini-sv-p i { display: block; height: 100%; background: var(--laton); }
+.bt-ini-sv-it .fm-poster .fm-tipo { display: none; }
+/* Celular: portadas una al lado de la otra, el texto y la barra abajo */
+@media (max-width: 899px) {
+  .bt-ini-sv { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.6rem; }
+  .bt-ini-sv-it { grid-template-columns: 1fr; gap: 0.35rem; padding: 0; border-top: 0; align-items: start; }
+  .bt-ini-sv-t { font-size: 0.85rem; }
+  .bt-ini-sv-s { font-size: 0.72rem; }
+}
+.bloque-cuerpo:has(> .bt-ini-sv) { display: grid; gap: 0.6rem; }
