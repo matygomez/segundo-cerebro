@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.20.2';
+const VERSION = 'sc-0.21.0';
 
 const ARCHIVOS = [
   './',
@@ -34,6 +34,7 @@ const ARCHIVOS = [
   './js/core/ajustes-inicio.js',
   './js/core/espejo.js',
   './js/core/registro.js',
+  './js/core/busqueda.js',
   './js/core/sincronizacion.js',
   './js/core/ui.js',
   './modules/home/modulo.js',
@@ -51,6 +52,10 @@ const ARCHIVOS = [
   './modules/habitos/modelo.js',
   './modules/habitos/vistas.js',
   './modules/habitos/habitos.css',
+  './modules/resumen/modulo.js',
+  './modules/resumen/datos.js',
+  './modules/resumen/vistas.js',
+  './modules/resumen/resumen.css',
   './modules/finanzas/modulo.js',
   './modules/finanzas/modelo.js',
   './modules/finanzas/comun.js',

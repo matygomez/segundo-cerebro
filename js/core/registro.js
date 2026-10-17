@@ -18,6 +18,9 @@
 //   // Botones que el módulo ofrece para Inicio.
 //   botonesInicio(ctx) { return [{ id, texto, icono, alTocar() {} }]; },
 //
+//   // Búsqueda general: devuelve resultados para lo que escribiste.
+//   buscar(texto, ctx, { coincide, fragmento }) { return [{ grupo, icono, titulo, sub, der, fecha, abrir() }]; },
+//
 //   // Recibe lo que escribís en la captura rápida.
 //   capturar(texto, ctx) { ... },
 //
@@ -52,6 +55,7 @@ import * as espejo from './espejo.js';
 import * as compartido from './compartido.js';
 import { crearEditor } from './editor-texto.js';
 import { armarInicio } from './inicio.js';
+import { abrirBusqueda, barraBusqueda } from './busqueda.js';
 
 const cargados = new Map();
 
@@ -131,6 +135,8 @@ export function contexto(moduloId) {
       conectar: drive.conectar,
       FERIADOS_AR: calendario.FERIADOS_AR,
     },
+    // Búsqueda en toda la app.
+    busqueda: { abrir: (texto) => abrirBusqueda(texto), barra: () => barraBusqueda() },
     inicio: {
       bloques: () => juntar('bloquesInicio'),
       botones: () => juntar('botonesInicio'),
@@ -158,6 +164,16 @@ export async function juntar(funcion, { incluirOcultos = false } = {}) {
     }
   }
   return salida;
+}
+
+// Búsqueda: le pregunta a cada módulo visible. Si uno falla, siguen los demás.
+export async function buscarEnModulos(texto, ayuda) {
+  const defs = (await cargarTodos()).filter(d => typeof d.buscar === 'function' && visible(d.id));
+  const res = await Promise.all(defs.map(async (def) => {
+    try { return ((await def.buscar(texto, contexto(def.id), ayuda)) || []).map(r => ({ ...r, modulo: def.id })); }
+    catch (e) { console.error(`"${def.id}" falló al buscar`, e); return []; }
+  }));
+  return res.flat();
 }
 
 // Cuando un adjunto que estaba en espera se sube, se avisa a su módulo.

@@ -210,7 +210,42 @@ export default {
     ctx.alCambiarDatos((e) => { if (e.coleccion === 'recordatorios') { clearTimeout(espera); espera = setTimeout(() => sincronizarRecordatorios(ctx), 800); } });
   },
 
+  // Búsqueda general: notas (título, texto, etiquetas) y la Filmoteca.
+  async buscar(texto, ctx, { coincide, fragmento }) {
+    const d = await crearModelo(ctx).cargar();
+    const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const cuando = (ms) => { if (!ms) return ''; const f = new Date(ms), dias = Math.floor((Date.now() - ms) / 864e5); return dias < 1 ? 'hoy' : dias === 1 ? 'ayer' : dias < 7 ? `hace ${dias} días` : `${f.getDate()} ${MS[f.getMonth()]}`; };
+    const EST = { paraver: 'Para ver', viendo: 'Viendo', vista: 'Vista', volver: 'Vista', abandonada: 'Abandonada' };
+    const salida = [];
+    for (const n of d.notas) {
+      if (n.cine) {
+        const c = n.cine;
+        if (!coincide(n.titulo, c.original, (c.generos || []).join(' '), n.texto)) continue;
+        salida.push({ grupo: 'Películas', icono: 'pelicula', titulo: `${n.titulo}${c.anio ? ` (${c.anio})` : ''}`, sub: `${c.tipo === 'tv' ? 'Serie' : 'Película'} · ${EST[c.estado] || ''}`, der: c.calificacion ? `${c.calificacion}/10` : '', fecha: n.modificado, abrir: () => ctx.navegar(`bitacora/n/${n.id}`) });
+        continue;
+      }
+      if (!coincide(n.titulo, n.texto, (n.etiquetas || []).join(' '), Object.values(n.props || {}).map(v => (typeof v === 'object' ? '' : v)).join(' '))) continue;
+      const frag = !coincide(n.titulo) ? fragmento(n.texto) : '';
+      salida.push({ grupo: 'Notas', icono: 'bitacora', titulo: n.titulo || 'Sin título', sub: [d.nombreRuta(n.carpetaId), frag ? `"${frag}"` : ''].filter(Boolean).join(' · '), der: cuando(n.modificado), fecha: n.modificado, abrir: () => ctx.navegar(`bitacora/n/${n.id}`) });
+    }
+    for (const c of d.carpetas.filter(x => !x.sistema && coincide(x.nombre))) {
+      salida.push({ grupo: 'Notas', icono: 'bitacora', titulo: c.nombre, sub: `Carpeta · ${d.cantidad(c.id)} notas`, der: '', fecha: c.modificado, abrir: () => ctx.navegar(`bitacora/c/${c.id}`) });
+    }
+    return salida.slice(0, 80);
+  },
+
   acciones: {
+    // Para el Resumen: notas nuevas y películas/series vistas en cada período.
+    async 'resumen-bitacora'({ periodos = [] } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const aDia = (ms) => { const f = new Date(ms); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`; };
+      return periodos.map(({ desde, hasta }) => {
+        const notas = d.notas.filter(n => !n.cine && n.creado && aDia(n.creado) >= desde && aDia(n.creado) <= hasta).length;
+        const vistas = d.notas.filter(n => n.cine && (n.cine.vistas || []).some(x => String(x).slice(0, 10) >= desde && String(x).slice(0, 10) <= hasta));
+        const mejor = [...vistas].filter(n => n.cine.calificacion).sort((a, b) => b.cine.calificacion - a.cine.calificacion)[0];
+        return { notas, peliculas: vistas.length, mejor: mejor ? { titulo: mejor.titulo, calificacion: mejor.cine.calificacion } : null };
+      });
+    },
     // Otros módulos pueden abrir una nota: ctx.pedir('abrir-nota', { id })
     'abrir-nota': ({ id } = {}, ctx) => ctx.navegar(`bitacora/n/${id}`),
 

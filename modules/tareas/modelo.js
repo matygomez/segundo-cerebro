@@ -499,6 +499,7 @@ export function crearModelo(ctx) {
         // próxima sigue en el pasado, queda vencida hasta completarla de nuevo.
         const prox = siguienteFecha(base, t.repeticion);
         const corrimiento = diasEntre(base, prox);
+        const ahora = Date.now();
         await col.tareas.actualizar(t.id, {
           ...t,
           fecha: prox,
@@ -506,7 +507,9 @@ export function crearModelo(ctx) {
           recordatorio: t.recordatorio ? `${sumarDias(t.recordatorio.slice(0, 10), corrimiento)}${t.recordatorio.slice(10)}` : '',
           estado: 'pendiente',
           subtareas: (t.subtareas || []).map(s => ({ ...s, hecha: false })),
-          ultimaCompletada: Date.now(),
+          ultimaCompletada: ahora,
+          // Registro de cada vez que se completó (para el Resumen).
+          completadas: [...(t.completadas || []), ahora].slice(-400),
           completada: null,
         });
         return prox;

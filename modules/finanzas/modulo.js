@@ -31,7 +31,71 @@ export default {
     setInterval(() => sincronizarRecordatorios(ctx), 3_600_000);
   },
 
+  // Búsqueda general: movimientos (descripción, categoría, cuenta o importe).
+  async buscar(texto, ctx, { coincide }) {
+    const m = crearModelo(ctx);
+    const d = await m.cargar();
+    const MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const fechaTxt = (iso) => { const [a, mm, dd] = iso.split('-').map(Number); return `${dd} ${MS[mm - 1]}${a !== new Date().getFullYear() ? ` ${a}` : ''}`; };
+    const TIPO = { gasto: 'Gasto', ingreso: 'Ingreso', transferencia: 'Transferencia', rendimiento: 'Rendimiento', prestamo: 'Préstamo' };
+    const soloNumero = /^[\d.,\s$]+$/.test(texto.trim()) ? Number(texto.replace(/[^\d,]/g, '').replace(',', '.')) : null;
+    return d.movimientos.filter(x => {
+      const cat = x.categoriaId ? d.nombreCategoria(x.categoriaId) : '';
+      const cuenta = x.cuentaId ? d.nombreCuenta(x.cuentaId) : x.creditoId ? d.nombreCredito(d.credito(x.creditoId)) : '';
+      if (soloNumero) return Math.round(Number(x.importe)) === Math.round(soloNumero);
+      return coincide(x.descripcion, cat, cuenta);
+    }).slice(0, 60).map(x => {
+      const cat = x.categoriaId ? d.nombreCategoria(x.categoriaId) : '';
+      const cuenta = x.cuentaId ? d.nombreCuenta(x.cuentaId) : x.creditoId ? d.nombreCredito(d.credito(x.creditoId)) : '';
+      return {
+        grupo: 'Finanzas', icono: 'finanzas', titulo: x.descripcion || cat || TIPO[x.tipo] || 'Movimiento',
+        sub: [TIPO[x.tipo], cat && x.descripcion ? cat : '', cuenta, fechaTxt(x.fecha)].filter(Boolean).join(' · '),
+        der: `${x.tipo === 'ingreso' ? '+ ' : ''}${plata(x.importe)}`, fecha: new Date(x.fecha).getTime(),
+        abrir: async () => { cargarEstilos(); const dd = await m.cargar(); const mov = dd.movimientos.find(y => y.id === x.id); if (mov) abrirMovimiento(ctx, m, dd, mov.tipo, mov); },
+      };
+    });
+  },
+
   acciones: {
+    // Para el Resumen: gastado, ingresado y gastos por categoría (con su presupuesto) en cada período.
+    async 'resumen-finanzas'({ periodos = [] } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const diasMes = (mes) => { const [a, mm] = mes.split('-').map(Number); return new Date(a, mm, 0).getDate(); };
+      return periodos.map(({ desde, hasta }) => {
+        const porCat = new Map();
+        let gastado = 0, ingresado = 0;
+        const fin = hasta.slice(0, 7);
+        for (let mes = desde.slice(0, 7); mes <= fin; mes = sumarMes(mes)) {
+          const primero = `${mes}-01`;
+          for (const g of d.gastosDelMes(mes)) {
+            // Las cuotas de crédito cuentan en el mes; en una semana, solo si incluye el día 1.
+            if (g.cuota ? !(primero >= desde && primero <= hasta) : (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
+            const imp = Number(g.importe) || 0;
+            gastado += imp;
+            const cat = d.categoriaPrincipal(g.categoriaId);
+            const k = cat?.id || '-';
+            if (!porCat.has(k)) porCat.set(k, { nombre: cat?.nombre || 'Sin categoría', monto: 0, cat });
+            porCat.get(k).monto += imp;
+          }
+          for (const x of d.ingresosDelMes(mes)) if (x.fecha >= desde && x.fecha <= hasta) ingresado += Number(x.importe) || 0;
+        }
+        // Presupuesto de cada categoría, proporcional a los días del período.
+        const presupuestoDe = (cat) => {
+          if (!cat || cat.id === undefined) return 0;
+          let total = 0;
+          for (let f = new Date(desde + 'T00:00'); ; f.setDate(f.getDate() + 1)) {
+            const iso = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+            if (iso > hasta) break;
+            const mes = iso.slice(0, 7);
+            total += (d.presupuesto(cat, mes) || 0) / diasMes(mes);
+          }
+          return Math.round(total);
+        };
+        const categorias = [...porCat.values()].map(x => ({ nombre: x.nombre, monto: Math.round(x.monto), presupuesto: x.cat?.presupuestos ? presupuestoDe(x.cat) : 0 }))
+          .sort((a, b) => b.monto - a.monto);
+        return { gastado: Math.round(gastado), ingresado: Math.round(ingresado), categorias };
+      });
+    },
     // ¿Está pagado lo que recuerda esta tarea?
     'recordatorio-estado': (datos, ctx) => estadoRecordatorio(ctx, datos),
     // Abre el formulario de pago con todo completo.

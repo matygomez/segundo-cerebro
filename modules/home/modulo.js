@@ -191,13 +191,18 @@ export default {
           continue;
         }
         if (p.clave === 'captura') { caja.append(captura()); grilla.append(caja); continue; }
+        if (p.clave === 'busqueda') { if (ctx.busqueda) { caja.append(ctx.busqueda.barra()); grilla.append(caja); } continue; }
         const b = p.bloque;
         if (!b) continue;
         const cuerpo = h('div', { class: 'bloque-cuerpo' });
-        caja.append(h('section', { class: 'tarjeta bloque' },
-          h('div', { class: 'bloque-cab' }, h('h2', {}, b.titulo || b.nombreModulo),
-            b.enlace ? h('a', { href: b.enlace.href, class: 'bloque-enlace' }, b.enlace.texto) : null),
-          cuerpo));
+        // sinMarco: el bloque dibuja su propia tarjeta (y puede no mostrar nada).
+        if (b.sinMarco) caja.append(cuerpo);
+        else {
+          caja.append(h('section', { class: 'tarjeta bloque' },
+            h('div', { class: 'bloque-cab' }, h('h2', {}, b.titulo || b.nombreModulo),
+              b.enlace ? h('a', { href: b.enlace.href, class: 'bloque-enlace' }, b.enlace.texto) : null),
+            cuerpo));
+        }
         grilla.append(caja);
         try {
           const l = await b.dibujar?.(cuerpo, { opciones: p.op });
@@ -205,6 +210,7 @@ export default {
         } catch (err) {
           cuerpo.replaceChildren(h('p', { class: 'nota error' }, `No se pudo mostrar: ${err.message}`));
         }
+        if (b.sinMarco) caja.hidden = !cuerpo.childElementCount;
         if (mio !== turno) return;
       }
     }

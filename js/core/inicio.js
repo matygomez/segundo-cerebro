@@ -2,7 +2,8 @@
 // Inicio: arma la lista de lo que se ve, según Ajustes › Inicio.
 //
 // Cada cosa del Inicio es una "pieza" con una clave:
-//   mm                Memento mori (siempre está; solo cambia el estilo)
+//   mm                Memento mori
+//   busqueda          "Buscar en todo…"
 //   botones           la fila de botones rápidos (+ Tarea, + Gasto…)
 //   captura           "Anotá algo para no olvidarlo"
 //   <modulo>:<id>     un cuadro que ofrece un módulo (bloquesInicio)
@@ -17,7 +18,7 @@ import { juntar, receptorCaptura } from './registro.js';
 import { configInicio, visible } from './preferencias.js';
 
 // Orden de fábrica. Lo que no está acá va al final, en el orden de los módulos.
-const ORDEN_INICIAL = ['mm', 'botones', 'captura', 'tareas:hoy', 'calendario:semana', 'finanzas:disponible', 'bitacora:notas', 'bitacora:viendo'];
+const ORDEN_INICIAL = ['mm', 'resumen:aviso', 'botones', 'busqueda', 'captura', 'tareas:hoy', 'calendario:semana', 'finanzas:disponible', 'bitacora:notas', 'bitacora:viendo'];
 const BOTONES_INICIALES = ['tareas:nueva-tarea', 'finanzas:gasto', 'bitacora:nota'];
 
 export const MEMENTO_INICIAL = { nacimiento: '', estilo: 'mezcla', frase: 'auto', fraseTexto: '', fraseAutor: '', unaLinea: true };
@@ -37,7 +38,8 @@ export async function armarInicio({ incluirOcultos = false } = {}) {
   ]);
 
   const disponibles = [
-    { clave: 'mm', nombre: 'Memento mori', nombreModulo: 'Inicio', fijo: true, ancho: 'completo' },
+    { clave: 'mm', nombre: 'Memento mori', nombreModulo: 'Inicio', ancho: 'completo' },
+    { clave: 'busqueda', nombre: 'Buscar en todo', nombreModulo: 'Varios', ancho: 'completo' },
     { clave: 'botones', nombre: 'Botones rápidos', nombreModulo: 'Varios', ancho: 'completo' },
     receptor ? { clave: 'captura', nombre: 'Anotá algo para no olvidarlo', nombreModulo: receptor.nombre, ancho: 'completo', oculto: !visible(receptor.id) } : null,
     ...bloques.map(b => ({
@@ -53,6 +55,19 @@ export async function armarInicio({ incluirOcultos = false } = {}) {
     .sort((a, b) => (ORDEN_INICIAL.indexOf(a.clave) + 1 || 999) - (ORDEN_INICIAL.indexOf(b.clave) + 1 || 999));
   // Lo nuevo de fábrica se ubica según el orden inicial; lo que aparece después (un módulo nuevo) va al final.
   const lista = [...guardadas.map(g => ({ g, d: porClave.get(g.clave) })), ...nuevas.map(d => ({ g: null, d }))];
+  // La búsqueda llegó después: si ya tenías el Inicio ordenado, se ubica arriba de "Anotá algo".
+  // Lo mismo con el aviso del Resumen: va abajo del memento mori.
+  const ubicar = (clave, antesDe, despuesDe) => {
+    if (!guardadas.length || vistas.has(clave)) return;
+    const i = lista.findIndex(x => x.d.clave === clave);
+    if (i < 0) return;
+    const [x] = lista.splice(i, 1);
+    let j = antesDe ? lista.findIndex(y => y.d.clave === antesDe) : -1;
+    if (j < 0 && despuesDe) { j = lista.findIndex(y => y.d.clave === despuesDe); if (j > -1) j++; }
+    lista.splice(j > -1 ? j : 0, 0, x);
+  };
+  ubicar('busqueda', 'captura', 'botones');
+  ubicar('resumen:aviso', null, 'mm');
   if (!guardadas.length) lista.sort((a, b) => (ORDEN_INICIAL.indexOf(a.d.clave) + 1 || 999) - (ORDEN_INICIAL.indexOf(b.d.clave) + 1 || 999));
 
   const piezas = lista.map(({ g, d }) => ({

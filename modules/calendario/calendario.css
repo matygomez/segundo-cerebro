@@ -216,3 +216,7 @@ button.cl-sem-dia { font: inherit; cursor: pointer; }
   .cl-cab .cl-titulo { font-size: 1.7rem; }
   .cl-vistas { margin-right: auto; }
 }
+
+/* Foco de la semana (viene de la revisión del Resumen) */
+.pl-foco { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--laton-fondo); border: 1px solid #4a3f24; font-size: 0.9rem; }
+.pl-foco span { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--laton); font-weight: 600; }

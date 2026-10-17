@@ -98,6 +98,9 @@ export async function pantallaSemana(contenedor, ctx, { leerConfig, cabecera }) 
       ]);
     } catch { hayTareas = false; }
     const listaPremios = await premios().listar();
+    // Foco de la semana (lo escribís en la revisión del módulo Resumen).
+    let foco = '';
+    try { if (await ctx.existeAccion('resumen-foco')) foco = await ctx.pedir('resumen-foco', { lunes: claves[0] }); } catch { /* nada */ }
     items = items || []; sinFecha = sinFecha || [];
     const delDia = (k) => items.filter(x => x.fecha === k);
     const tareasDe = (k) => delDia(k).filter(x => ES_TAREA.has(x.tipo));
@@ -118,6 +121,7 @@ export async function pantallaSemana(contenedor, ctx, { leerConfig, cabecera }) 
         h('button', { type: 'button', class: 'pl-flecha', 'aria-label': 'Semana siguiente', onclick: () => irSemana(1) }, ic('der')),
         h('div', { class: 'pl-anillo' }, anillo(total[1] ? total[0] / total[1] : 0),
           h('span', {}, h('b', {}, `${total[0]} de ${total[1]}`), h('small', {}, 'tareas hechas')))),
+      foco ? h('div', { class: 'pl-foco' }, h('span', {}, 'Foco de la semana'), h('b', {}, foco)) : null,
       h('div', { class: 'pl-dias' }, dias.map((f, i) => {
         const [hh, n] = cuenta(claves[i]);
         return h('button', {

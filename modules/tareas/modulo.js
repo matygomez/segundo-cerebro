@@ -104,6 +104,26 @@ export default {
     await crearModelo(ctx).crearTarea({ titulo: texto });
   },
 
+  // Búsqueda general: títulos y notas de las tareas.
+  async buscar(texto, ctx, { coincide, fragmento }) {
+    const d = await crearModelo(ctx).cargar();
+    const DS = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'], MS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    const fechaTxt = (iso) => { const [a, m, dd] = iso.split('-').map(Number); const f = new Date(a, m - 1, dd); return `${DS[f.getDay()]} ${dd} ${MS[m - 1]}`; };
+    const lugar = (t) => [d.area(t.areaId)?.nombre || 'Bandeja', d.proyecto(t.proyectoId)?.nombre].filter(Boolean).join(' › ');
+    return d.todas.filter(t => coincide(t.titulo, t.notas, (t.etiquetas || []).join(' ')))
+      .sort((a, b) => (hecha(a) ? 1 : 0) - (hecha(b) ? 1 : 0))
+      .slice(0, 60)
+      .map(t => {
+        const frag = !coincide(t.titulo) ? fragmento(t.notas) : '';
+        return {
+          grupo: 'Tareas', icono: 'tareas', titulo: t.titulo,
+          sub: [lugar(t), frag ? `"${frag}"` : hecha(t) ? 'hecha' : t.fecha ? fechaTxt(t.fecha) : 'sin fecha'].join(' · '),
+          der: vencida(t) ? 'vencida' : '', fecha: hecha(t) ? 0 : (t.modificado || 0),
+          abrir: async () => { cargarEstilos(); const m = crearModelo(ctx); const dd = await m.cargar(); const x = dd.tarea(t.id); if (x) abrirEditor(ctx, m, dd, x); },
+        };
+      });
+  },
+
   acciones: {
     // Otros módulos pueden pedir: ctx.pedir('crear-tarea', { titulo, fecha, hora, notas })
     // Tareas automáticas de otros módulos (área Sistemas).
@@ -187,6 +207,42 @@ export default {
         .filter(t => !hecha(t) && !t.fecha && !t.padreId && !d.enOculto(t) && !d.area(t.areaId)?.sistema && !d.proyecto(t.proyectoId)?.sistema)
         .sort((a, b) => (a.areaId ? 1 : 0) - (b.areaId ? 1 : 0) || (a.orden || 0) - (b.orden || 0))
         .map(t => ({ id: t.id, titulo: t.titulo, lugar: lugar(t) }));
+    },
+    // ── Resumen ──
+    // Tareas hechas en cada período: total, por área y por día de la semana.
+    async 'resumen-tareas'({ periodos = [] } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const aDia = (ms) => { const f = new Date(ms); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`; };
+      const veces = [];
+      for (const t of d.todas) {
+        if (d.area(t.areaId)?.sistema || d.proyecto(t.proyectoId)?.sistema) continue;
+        const area = d.area(t.areaId)?.nombre || 'Bandeja';
+        const marcas = [...(t.completadas || [])];
+        if (t.ultimaCompletada && !marcas.includes(t.ultimaCompletada)) marcas.push(t.ultimaCompletada);
+        if (hecha(t) && t.completada) marcas.push(t.completada);
+        for (const ms of marcas) veces.push({ dia: aDia(ms), wd: new Date(ms).getDay(), area });
+      }
+      return periodos.map(({ desde, hasta }) => {
+        const l = veces.filter(v => v.dia >= desde && v.dia <= hasta);
+        const porArea = {};
+        const porDia = [0, 0, 0, 0, 0, 0, 0];
+        for (const v of l) { porArea[v.area] = (porArea[v.area] || 0) + 1; porDia[v.wd]++; }
+        const porFecha = {};
+        for (const v of l) porFecha[v.dia] = (porFecha[v.dia] || 0) + 1;
+        return { hechas: l.length, porArea: Object.entries(porArea).sort((a, b) => b[1] - a[1]), porDia, porFecha };
+      });
+    },
+    // Vencidas (sin las de sistemas, como pagos).
+    async 'resumen-vencidas'(_, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const lugar = (t) => [d.area(t.areaId)?.nombre || 'Bandeja', d.proyecto(t.proyectoId)?.nombre].filter(Boolean).join(' › ');
+      return d.tareas.filter(t => vencida(t) && !d.enOculto(t) && !d.area(t.areaId)?.sistema && !d.proyecto(t.proyectoId)?.sistema)
+        .sort((a, b) => a.fecha.localeCompare(b.fecha))
+        .map(t => ({ id: t.id, titulo: t.titulo, lugar: lugar(t), fecha: t.fecha, repite: !!t.repeticion?.tipo }));
+    },
+    // Manda una tarea a la papelera.
+    async 'tarea-borrar'({ id } = {}, ctx) {
+      await crearModelo(ctx).eliminar('tareas', id);
     },
     // ── Metas (Hábitos y metas) ──
     async 'metas-proyectos'(_, ctx) {
