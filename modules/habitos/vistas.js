@@ -374,9 +374,8 @@ async function formMeta(ctx, m, d, meta = null) {
       const campoCond = condCampos.find(x => x.id === est.campoId);
       filas.push(hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Contar notas de la carpeta'), sel(est.carpetaId, (carpetas || []).map(x => [x.id, x.nombre]), v => { est.carpetaId = v; est.campoId = ''; est.valor = ''; est.sumarId = ''; }, 'Elegí una carpeta')));
       if (c) {
-        filas.push(hh('div', { class: 'hb-dos' },
-          hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Que cumplan'), sel(est.campoId, condCampos.map(x => [x.id, x.nombre]), v => { est.campoId = v; est.valor = ''; }, 'Todas las notas')),
-          campoCond ? hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, '='), sel(est.valor, campoCond.tipo === 'sino' ? [['si', 'Sí'], ['no', 'No']] : (campoCond.opciones || []).map(o => [o.id, o.nombre]), v => { est.valor = v; }, 'Elegí')) : null));
+        filas.push(hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Cuáles notas'), sel(est.campoId, condCampos.map(x => [x.id, `Según "${x.nombre}"`]), v => { est.campoId = v; est.valor = ''; }, 'Todas las notas')));
+        if (campoCond) filas.push(hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, `"${campoCond.nombre}" tiene que ser`), sel(est.valor, campoCond.tipo === 'sino' ? [['si', 'Sí'], ['no', 'No']] : (campoCond.opciones || []).map(o => [o.id, o.nombre]), v => { est.valor = v; }, 'Elegí')));
         filas.push(hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Qué suma'), sel(est.sumarId, numCampos.map(x => [x.id, `La suma de "${x.nombre}"`]), v => { est.sumarId = v; }, 'Cada nota suma 1')));
         filas.push(hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Según la fecha'), sel(est.fechaSegun || (c.fechas?.[0]?.[0] || 'modificado'), [...(c.fechas || []), ['modificado', 'En que se editó por última vez'], ['creado', 'En que se creó'], ...fechaCampos.map(x => [x.id, `Del campo "${x.nombre}"`])], v => { est.fechaSegun = v; })));
         filas.push(periodo());
@@ -395,7 +394,7 @@ async function formMeta(ctx, m, d, meta = null) {
       filas.push(hh('small', { class: 'nota' }, 'Avanza con las tareas hechas del proyecto, sobre el total.'));
     }
     if (est.tipo === 'manual') filas.push(hh('small', { class: 'nota' }, 'Avanza con los botones +1 y −1 de la meta.'));
-    poner(zonaFuente, filas);
+    poner(zonaFuente, filas, prueba);
     probar();
   }
   let esperaPrueba = null;
@@ -439,14 +438,15 @@ async function formMeta(ctx, m, d, meta = null) {
   for (const el of [objetivo, unidad, hitos]) el.addEventListener('input', probar);
 
   const error = hh('p', { class: 'formulario-error', role: 'alert' });
-  const dlg = hh('dialog', { class: 'hoja hb-hoja' },
+  const dlg = hh('dialog', { class: 'hoja hb-hoja hb-hoja-meta' },
     hh('form', { class: 'formulario', method: 'dialog', novalidate: true },
       hh('header', { class: 'hoja-cabecera' }, hh('h2', {}, meta ? 'Editar meta' : 'Nueva meta'), hh('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
       hh('div', { class: 'formulario-campos' },
         hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Nombre'), nombre),
-        hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Fecha límite'), limite),
         hh('div', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, '¿Cómo avanza?'), opciones),
-        zonaFuente, zonaObj, prueba,
+        zonaFuente,
+        zonaObj,
+        hh('label', { class: 'fila-campo' }, hh('span', { class: 'etiqueta-campo' }, 'Fecha límite'), limite),
         d.habitos.length ? hh('details', { class: 'hb-det' }, hh('summary', {}, 'Hábitos asociados (opcional)'), elegirHabitos) : null),
       error,
       hh('div', { class: 'hoja-botones' },
@@ -602,26 +602,33 @@ export async function pantallaHabitos(contenedor, ctx, sub = []) {
     if (pestana === 'config') {
       const c = d.cfg;
       const guardar = (cambios) => m.guardarAjustes(d, cambios);
-      const dias = hh('input', { type: 'number', min: 1, max: 30, class: 'hb-num', value: c.diasAtras });
+      const dias = hh('input', { type: 'number', min: 1, max: 30, inputmode: 'numeric', class: 'hb-num', value: c.diasAtras, 'aria-label': 'Días para marcar un pendiente' });
       dias.addEventListener('change', () => guardar({ diasAtras: Math.max(1, Math.min(30, Number(dias.value) || 7)) }));
-      const nDesc = hh('input', { type: 'number', min: 1, max: 31, class: 'hb-num', value: c.descansosMes });
+      const nDesc = hh('input', { type: 'number', min: 1, max: 31, inputmode: 'numeric', class: 'hb-num', value: c.descansosMes, 'aria-label': 'Descansos por mes' });
       nDesc.addEventListener('change', () => guardar({ descansosMes: Math.max(1, Number(nDesc.value) || 2) }));
       const lista = [...d.habitos].sort((a, b) => (a.ordenEst ?? a.orden ?? 0) - (b.ordenEst ?? b.orden ?? 0));
       const moverEst = async (i, dlt) => { const j = i + dlt; if (j < 0 || j >= lista.length) return; [lista[i], lista[j]] = [lista[j], lista[i]]; for (const [k, h] of lista.entries()) await m.guardarHabito(h.id, { ordenEst: k }); };
+      const llave = (on, alTocar, etiqueta) => hh('button', { type: 'button', role: 'switch', class: `aj-switch${on ? ' on' : ''}`, 'aria-checked': String(on), 'aria-label': etiqueta, onclick: alTocar });
+      // Una opción: título y explicación a la izquierda, el control a la derecha (o abajo si es ancho).
+      const opcion = (titulo, texto, control, { abajo = false } = {}) => hh('div', { class: `hb-cf${abajo ? ' abajo' : ''}` },
+        hh('div', { class: 'hb-cf-txt' }, hh('b', {}, titulo), hh('small', {}, texto)),
+        hh('div', { class: 'hb-cf-ctrl' }, control));
       poner(cuerpo, hh('div', { class: 'hb-cols' },
         hh('section', { class: 'tarjeta hb-card' }, hh('h3', {}, 'Configurar'),
-          hh('div', { class: 'aj-fila' }, hh('span', { class: 'aj-nombre' }, 'Días para marcar un pendiente', hh('small', { class: 'nota' }, ' · después cuenta como no hecho')), dias),
-          hh('div', { class: 'aj-fila hb-envuelve' }, hh('span', { class: 'aj-nombre' }, 'Descansos', hh('small', { class: 'nota' }, ' · no cuentan como hechos ni cortan la racha')),
-            hh('span', { class: 'hb-seg' }, [['limite', 'Con límite'], ['libre', 'Sin límite'], ['off', 'Apagado']].map(([v, t]) => hh('button', { type: 'button', class: c.descansos === v ? 'sel' : '', onclick: () => guardar({ descansos: v }) }, t))),
-            c.descansos === 'limite' ? hh('span', { class: 'hb-por-mes' }, nDesc, ' por mes') : null),
-          hh('div', { class: 'aj-fila' }, hh('span', { class: 'aj-nombre' }, 'Lo ya marcado hoy', hh('small', { class: 'nota' }, ' · se agrupa en "N completados"')),
-            hh('button', { type: 'button', role: 'switch', class: `aj-switch${c.agruparHechos !== false ? ' on' : ''}`, 'aria-checked': String(c.agruparHechos !== false), onclick: () => guardar({ agruparHechos: c.agruparHechos === false }) }))),
-        hh('section', { class: 'tarjeta hb-card' }, hh('h3', {}, 'Hábitos en Estadísticas', hh('small', { class: 'nota' }, ' · cuáles y en qué orden')),
-          lista.length ? lista.map((h, i) => hh('div', { class: 'aj-fila' }, hh('span', { class: 'aj-nombre' }, h.nombre),
-            hh('span', { class: 'aj-acciones' },
-              hh('button', { type: 'button', class: 'aj-flecha', disabled: i === 0, onclick: () => moverEst(i, -1) }, '↑'),
-              hh('button', { type: 'button', class: 'aj-flecha', disabled: i === lista.length - 1, onclick: () => moverEst(i, 1) }, '↓'),
-              hh('button', { type: 'button', role: 'switch', class: `aj-switch${h.enEstadisticas !== false ? ' on' : ''}`, 'aria-checked': String(h.enEstadisticas !== false), onclick: () => m.guardarHabito(h.id, { enEstadisticas: h.enEstadisticas === false }) })))) : hh('p', { class: 'nota' }, 'Todavía no tenés hábitos.'))));
+          opcion('Días para marcar un pendiente', 'Pasado ese tiempo sin marcar, el día cuenta como no hecho.', hh('span', { class: 'hb-cf-num' }, dias, 'días')),
+          opcion('Descansos', 'No cuentan como hechos, pero no cortan la racha.', [
+            hh('span', { class: 'hb-seg' }, [['limite', 'Con límite'], ['libre', 'Sin límite'], ['off', 'Apagados']].map(([v, t]) => hh('button', { type: 'button', class: c.descansos === v ? 'sel' : '', onclick: () => guardar({ descansos: v }) }, t))),
+            c.descansos === 'limite' ? hh('span', { class: 'hb-cf-num' }, nDesc, 'por mes') : null], { abajo: true }),
+          opcion('Agrupar lo ya marcado', 'En Hoy, lo que ya marcaste se junta en una línea "N completados".', llave(c.agruparHechos !== false, () => guardar({ agruparHechos: c.agruparHechos === false }), 'Agrupar lo ya marcado'))),
+        hh('section', { class: 'tarjeta hb-card' }, hh('h3', {}, 'Hábitos en Estadísticas'),
+          hh('p', { class: 'nota hb-cf-nota' }, 'Cuáles aparecen y en qué orden.'),
+          lista.length ? lista.map((h, i) => hh('div', { class: 'hb-cf hb-cf-hab' },
+            hh('div', { class: 'hb-cf-txt' }, hh('b', {}, h.nombre)),
+            hh('div', { class: 'hb-cf-ctrl' },
+              hh('span', { class: 'hb-flechas' },
+                hh('button', { type: 'button', 'aria-label': 'Subir', disabled: i === 0, onclick: () => moverEst(i, -1) }, '↑'),
+                hh('button', { type: 'button', 'aria-label': 'Bajar', disabled: i === lista.length - 1, onclick: () => moverEst(i, 1) }, '↓')),
+              llave(h.enEstadisticas !== false, () => m.guardarHabito(h.id, { enEstadisticas: h.enEstadisticas === false }), `Mostrar ${h.nombre}`)))) : hh('p', { class: 'nota' }, 'Todavía no tenés hábitos.'))));
     }
   }
 
