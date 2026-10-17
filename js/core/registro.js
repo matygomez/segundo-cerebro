@@ -50,6 +50,7 @@ import * as calendario from './calendario.js';
 import * as drive from './drive.js';
 import * as espejo from './espejo.js';
 import * as compartido from './compartido.js';
+import { crearEditor } from './editor-texto.js';
 
 const cargados = new Map();
 
@@ -111,6 +112,8 @@ export function contexto(moduloId) {
       esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
     },
+    // Editor de texto con formato (se guarda como Markdown).
+    editorTexto: (opciones) => crearEditor(opciones),
     // Copia legible en Drive (archivos de texto en carpetas reales).
     espejo: {
       definir: (raiz, lista) => espejo.definir(moduloId, raiz, lista),

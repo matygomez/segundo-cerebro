@@ -1,13 +1,14 @@
 // ─────────────────────────────────────────────────────────────
 // Bitácora: una nota.
-//   Leer: el Markdown armado (casillas tildables, [[enlaces]], #etiquetas, imágenes)
-//   Editar: barra de formato + texto; al escribir [[ aparece el buscador de notas
+//   Se escribe sobre la vista final (editor con formato del núcleo): títulos,
+//   negrita, listas, casillas, [[enlaces]], #etiquetas e imágenes. Se guarda
+//   como Markdown (compatible con Obsidian). Al escribir [[ aparece el buscador.
 //   Arriba: título (renombrar actualiza los enlaces), campos si está en una base
 //   y etiquetas. Abajo: archivos, "Mencionada en" y "Menciones sin enlace".
 //   Se guarda solo.
 // ─────────────────────────────────────────────────────────────
 
-import { renderizar, alternarCasilla } from './markdown.js';
+import { renderizar } from './markdown.js';
 import { BANDEJA, sumarDias, hoyISO, escaparRegex, comparar, sincronizarRecordatorios } from './modelo.js';
 import { ic, ventana, menu, elegirCarpeta, haceCuanto, vacio, marcaCarpeta, poner } from './vistas.js';
 import { controlCampo } from './base.js';
@@ -46,8 +47,8 @@ function incrustado(ctx, m, d, n, nombre) {
   if (a && esImagen(a)) {
     const img = h('img', { class: 'bt-img', alt: nombre, loading: 'lazy' });
     const caja = h('button', { type: 'button', class: 'bt-img-caja cargando', title: nombre, onclick: () => visor(ctx, a, img.src) }, img);
-    ctx.archivos.urlImagen(a).then(u => { if (u) { img.src = u; caja.classList.remove('cargando'); } else poner(caja, h('span', { class: 'bt-img-falta' }, `🖼 ${nombre}${a.pendiente ? ' (subiendo…)' : ' (sin conexión)'}`)); })
-      .catch(() => poner(caja, h('span', { class: 'bt-img-falta' }, `🖼 ${nombre}`)));
+    ctx.archivos.urlImagen(a).then(u => { if (u) { img.src = u; caja.classList.remove('cargando'); } else poner(caja, h('span', { class: 'bt-img-falta' }, ic('imagen'), ` ${nombre}${a.pendiente ? ' (subiendo…)' : ' (sin conexión)'}`)); })
+      .catch(() => poner(caja, h('span', { class: 'bt-img-falta' }, ic('imagen'), ` ${nombre}`)));
     return caja;
   }
   if (a) return a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener', class: 'bt-adj-chip' }, ic('clip'), a.nombre) : h('span', { class: 'bt-adj-chip' }, ic('clip'), `${a.nombre} (subiendo…)`);
@@ -74,20 +75,16 @@ function alrededor(texto, buscado) {
   return `${desde ? '…' : ''}${t.slice(desde, hasta).replace(/\s+/g, ' ')}${hasta < t.length ? '…' : ''}`;
 }
 
-// Posición del cursor dentro de un textarea (para ubicar el buscador de [[).
-function coordenadasCursor(ta, pos) {
-  const div = document.createElement('div');
-  const est = getComputedStyle(ta);
-  for (const p of ['boxSizing', 'width', 'fontFamily', 'fontSize', 'fontWeight', 'lineHeight', 'letterSpacing', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderTopWidth', 'borderLeftWidth', 'tabSize']) div.style[p] = est[p];
-  Object.assign(div.style, { position: 'absolute', visibility: 'hidden', whiteSpace: 'pre-wrap', overflowWrap: 'break-word', top: '0', left: '-9999px' });
-  div.textContent = ta.value.slice(0, pos);
-  const marca = document.createElement('span');
-  marca.textContent = '​';
-  div.append(marca);
-  document.body.append(div);
-  const r = { top: marca.offsetTop - ta.scrollTop + parseFloat(est.lineHeight || '20'), left: Math.min(marca.offsetLeft, ta.clientWidth - 40) };
-  div.remove();
-  return r;
+// En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
+// Como la ventana de la tarea se abre un instante después, se enfoca antes un
+// campo invisible y la ventana le pasa el foco al título.
+function abrirTecladoYa() {
+  const i = document.createElement('input');
+  i.setAttribute('aria-hidden', 'true');
+  i.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0';
+  document.body.append(i);
+  i.focus();
+  setTimeout(() => i.remove(), 2500);
 }
 
 export function vistaNota(ctx, m, d, id, main) {
@@ -106,7 +103,6 @@ export function vistaNota(ctx, m, d, id, main) {
 
   const pedidoEditar = sessionStorage.getItem('bt-editar') === id;
   if (pedidoEditar) sessionStorage.removeItem('bt-editar');
-  let modo = pedidoEditar || (!n.cine && !String(n.texto || '').trim()) ? 'editar' : 'leer';
   let texto = n.texto || '';
   let espera = null, pendiente = false;
 
@@ -125,18 +121,16 @@ export function vistaNota(ctx, m, d, id, main) {
   const destinoVolver = () => (n.cine ? '#/bitacora/f' : n.carpetaId ? `#/bitacora/c/${n.carpetaId}` : '#/bitacora/bandeja');
   const textoVolver = (r) => (n.cine ? 'Filmoteca' : r.length ? r.map(c => c.nombre).join(' › ') : 'Bandeja');
   const volver = h('a', { href: destinoVolver(), class: 'bt-volver' }, '‹ ', textoVolver(ruta));
-  const segLeer = h('button', { type: 'button', onclick: () => cambiarModo('leer') }, 'Leer');
-  const segEditar = h('button', { type: 'button', onclick: () => cambiarModo('editar') }, 'Editar');
   const botonPin = h('button', { type: 'button', class: `boton-icono bt-pin${n.fijada ? ' on' : ''}`, title: n.fijada ? 'Quitar de fijadas' : 'Fijar', 'aria-label': 'Fijar', 'aria-pressed': String(!!n.fijada), onclick: () => m.guardarNota(id, { fijada: !n.fijada }) }, ic('pin'));
   const barra = h('div', { class: 'bt-nota-barra' }, volver, h('span', { class: 'bt-espacio' }),
-    h('div', { class: 'bt-seg' }, segLeer, segEditar), botonPin,
+    botonPin,
     h('button', { type: 'button', class: 'boton-icono', title: 'Más opciones', 'aria-label': 'Más opciones', onclick: () => menuNota() }, ic('puntos')));
 
   // ── Título ──
   const titulo = h('textarea', { class: 'bt-nota-titulo', rows: 1, 'aria-label': 'Título', placeholder: 'Título', enterkeyhint: 'done' }, n.titulo);
   const ajustarAlto = (el) => { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; };
   titulo.addEventListener('input', () => ajustarAlto(titulo));
-  titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titulo.blur(); if (modo === 'editar') area.focus(); } });
+  titulo.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); titulo.blur(); editor.enfocar(false); } });
   titulo.addEventListener('change', async () => {
     const nuevo = titulo.value.replace(/\s+/g, ' ').trim();
     if (!nuevo) { titulo.value = n.titulo; return; }
@@ -171,119 +165,55 @@ export function vistaNota(ctx, m, d, id, main) {
     poner(zonaProps, ...filas);
   }
 
-  // ── Cuerpo ──
+  // ── Cuerpo: editor con formato ──
   const zonaCuerpo = h('div', { class: 'bt-cuerpo' });
-  const area = h('textarea', { class: 'bt-editor', 'aria-label': 'Texto de la nota', placeholder: 'Escribí acá… (Markdown: # título, **negrita**, - lista, - [ ] casilla, [[otra nota]], #etiqueta)', spellcheck: 'true' });
-  const pop = h('div', { class: 'bt-pop', hidden: true, role: 'listbox' });
   const elegirArchivo = h('input', { type: 'file', multiple: true, hidden: true });
   elegirArchivo.addEventListener('change', () => { const f = [...elegirArchivo.files]; elegirArchivo.value = ''; subir(f); });
 
+  // Buscador de [[: notas que coinciden y, si no existe, la opción de crearla.
+  function buscarNotas(q0) {
+    const q = sinTildes(String(q0 || '').trim());
+    const lista = d.notas.filter(x => x.id !== id && !x.papelera && (!q || sinTildes(x.titulo).includes(q)))
+      .sort((a, b) => (sinTildes(b.titulo).startsWith(q) ? 1 : 0) - (sinTildes(a.titulo).startsWith(q) ? 1 : 0) || b.modificado - a.modificado).slice(0, 7);
+    const ops = lista.map(x => ({ titulo: x.titulo, sub: d.nombreRuta(x.carpetaId) }));
+    if (q && !lista.some(x => sinTildes(x.titulo) === q)) ops.push({ titulo: String(q0).trim(), sub: 'Enlace a una nota nueva (se crea al tocarlo)', nueva: true });
+    return ops;
+  }
+  const editor = ctx.editorTexto({
+    valor: texto,
+    clase: 'bt-ed',
+    etiqueta: 'Texto de la nota',
+    placeholder: 'Escribí acá…  [[ para enlazar otra nota, #etiqueta para etiquetar',
+    etiquetas: true,
+    enlaces: { buscar: buscarNotas, alAbrir: (t) => { guardarTexto(); abrirPorTitulo(ctx, m, d, t, n.carpetaId || BANDEJA); } },
+    incrustar: (nombre) => incrustado(ctx, m, d, n, nombre),
+    alPegarArchivos: (archivos) => subir(archivos),
+    alCambiar: (md) => { texto = md; programarGuardado(); },
+    alSalir: () => guardarTexto(),
+  });
   const herramienta = (contenido, titulo2, fn) => h('button', { type: 'button', class: 'bt-hb', title: titulo2, 'aria-label': titulo2, onmousedown: (e) => e.preventDefault(), onclick: fn }, contenido);
-  const barraFormato = h('div', { class: 'bt-formato' },
-    herramienta(h('b', {}, 'B'), 'Negrita', () => envolver('**')),
-    herramienta(h('i', {}, 'I'), 'Cursiva', () => envolver('*')),
-    herramienta(h('s', {}, 'S'), 'Tachado', () => envolver('~~')),
-    herramienta('H', 'Título (tocá de nuevo para cambiar el nivel)', ciclarTitulo),
-    herramienta('•', 'Lista', () => prefijo('- ')),
-    herramienta('1.', 'Lista numerada', () => prefijo('1. ')),
-    herramienta('☐', 'Casilla', () => prefijo('- [ ] ')),
-    herramienta('[[ ]]', 'Enlazar otra nota', () => { insertar('[['); revisarPop(); }),
-    herramienta('#', 'Etiqueta', () => insertar('#')),
-    herramienta('🔗', 'Link', () => envolver('[', '](https://)')),
+  const barraArchivos = h('div', { class: 'bt-formato bt-formato-chica' },
+    herramienta('[[ ]]', 'Enlazar otra nota', () => { editor.enfocar(!editor.tieneFoco()); document.execCommand('insertText', false, '[['); }),
     herramienta(ic('clip'), 'Subir archivo o foto', () => elegirArchivo.click()),
     ctx.archivos.selectorDisponible() ? herramienta(ic('drive'), 'Enlazar archivo de Drive', elegirDeDrive) : null,
     navigator.clipboard?.read ? herramienta(ic('portapapeles'), 'Pegar imagen copiada', pegarDesdeBoton) : null,
     elegirArchivo);
+  poner(zonaCuerpo, barraArchivos, editor.el);
 
-  function marcarCambio() { texto = area.value; programarGuardado(); revisarPop(); }
-  area.addEventListener('input', () => { marcarCambio(); ajustarAlto(area); });
-  area.addEventListener('blur', () => { setTimeout(() => { if (!pop.contains(document.activeElement)) cerrarPop(); }, 150); guardarTexto(); });
-  area.addEventListener('click', revisarPop);
-  area.addEventListener('paste', (e) => {
-    const archivos = [...(e.clipboardData?.files || [])];
-    if (!archivos.length) return;
-    e.preventDefault();
-    subir(archivos);
-  });
-  area.addEventListener('dragover', (e) => { if ([...(e.dataTransfer?.items || [])].some(i => i.kind === 'file')) e.preventDefault(); });
-  area.addEventListener('drop', (e) => { const f = [...(e.dataTransfer?.files || [])]; if (!f.length) return; e.preventDefault(); subir(f); });
-
-  function reemplazar(desde, hasta, nuevo, selDesde, selHasta) {
-    area.focus();
-    area.setRangeText(nuevo, desde, hasta, 'end');
-    if (selDesde !== undefined) area.setSelectionRange(selDesde, selHasta ?? selDesde);
-    marcarCambio();
-    ajustarAlto(area);
+  // Para insertar algo donde estaba el cursor aunque se haya ido a otro lado.
+  let rangoGuardado = null;
+  const recordarCursor = () => {
+    const sel = getSelection();
+    rangoGuardado = sel.rangeCount && editor.area.contains(sel.anchorNode) ? sel.getRangeAt(0).cloneRange() : null;
+  };
+  function insertarEnCursor(md) {
+    if (rangoGuardado && editor.area.contains(rangoGuardado.startContainer)) {
+      editor.area.focus();
+      const sel = getSelection(); sel.removeAllRanges(); sel.addRange(rangoGuardado);
+    }
+    rangoGuardado = null;
+    editor.insertarMd(md);
   }
-  function envolver(antes, despues = antes) {
-    const s = area.selectionStart, e = area.selectionEnd;
-    const sel = area.value.slice(s, e) || 'texto';
-    reemplazar(s, e, antes + sel + despues, s + antes.length, s + antes.length + sel.length);
-  }
-  function insertar(t) { const s = area.selectionStart, e = area.selectionEnd; reemplazar(s, e, t); }
-  function lineasSeleccionadas() {
-    const v = area.value, s = area.selectionStart, e = area.selectionEnd;
-    const ini = v.lastIndexOf('\n', s - 1) + 1;
-    let fin = v.indexOf('\n', e); if (fin < 0) fin = v.length;
-    return { ini, fin, lineas: v.slice(ini, fin).split('\n') };
-  }
-  function prefijo(p) {
-    const { ini, fin, lineas } = lineasSeleccionadas();
-    const todas = lineas.every(l => l.startsWith(p));
-    const nuevas = lineas.map(l => (todas ? l.slice(p.length) : p + l.replace(/^(\s*)([-*+]\s+(\[[ xX]\]\s+)?|\d+[.)]\s+)/, '$1')));
-    const t = nuevas.join('\n');
-    reemplazar(ini, fin, t, ini + t.length);
-  }
-  function ciclarTitulo() {
-    const { ini, fin, lineas } = lineasSeleccionadas();
-    const l = lineas[0];
-    const nivel = (l.match(/^(#{1,6})\s/) || ['', ''])[1].length;
-    const sinMarca = l.replace(/^#{1,6}\s+/, '');
-    const nueva = nivel >= 3 ? sinMarca : `${'#'.repeat(nivel + 1)} ${sinMarca}`;
-    reemplazar(ini, ini + l.length, nueva, ini + nueva.length);
-    void fin;
-  }
-
-  // ── Buscador de [[ ──
-  let opcionesPop = [], elegida = 0, inicioPop = -1;
-  function revisarPop() {
-    const antes = area.value.slice(0, area.selectionStart);
-    const mm = antes.match(/\[\[([^\]\n|#]*)$/);
-    if (!mm || area.selectionStart !== area.selectionEnd) { cerrarPop(); return; }
-    inicioPop = antes.length - mm[1].length;
-    const q = sinTildes(mm[1].trim());
-    const lista = d.notas.filter(x => x.id !== id && (!q || sinTildes(x.titulo).includes(q)))
-      .sort((a, b) => (sinTildes(b.titulo).startsWith(q) ? 1 : 0) - (sinTildes(a.titulo).startsWith(q) ? 1 : 0) || b.modificado - a.modificado).slice(0, 7);
-    opcionesPop = lista.map(x => ({ titulo: x.titulo, sub: d.nombreRuta(x.carpetaId) }));
-    if (mm[1].trim() && !lista.some(x => sinTildes(x.titulo) === q)) opcionesPop.push({ titulo: mm[1].trim(), sub: 'Enlace a una nota nueva (se crea al tocarlo)', nueva: true });
-    if (!opcionesPop.length) { cerrarPop(); return; }
-    elegida = Math.min(elegida, opcionesPop.length - 1);
-    pintarPop();
-    const { top, left } = coordenadasCursor(area, area.selectionStart);
-    pop.style.top = `${area.offsetTop + top + 4}px`;
-    pop.style.left = `${area.offsetLeft + Math.max(0, left - 10)}px`;
-    pop.hidden = false;
-  }
-  function pintarPop() {
-    poner(pop, ...opcionesPop.map((o, i) => h('button', { type: 'button', role: 'option', class: `bt-pop-op${i === elegida ? ' sel' : ''}${o.nueva ? ' nueva' : ''}`, 'aria-selected': String(i === elegida), onmousedown: (e) => e.preventDefault(), onclick: () => usarPop(i) },
-      h('b', {}, o.nueva ? `+ ${o.titulo}` : o.titulo), h('small', {}, o.sub))));
-  }
-  function cerrarPop() { pop.hidden = true; opcionesPop = []; elegida = 0; }
-  function usarPop(i) {
-    const o = opcionesPop[i];
-    if (!o) return;
-    const fin = area.selectionStart;
-    const cierra = area.value.slice(fin, fin + 2) === ']]';
-    reemplazar(inicioPop, fin + (cierra ? 2 : 0), `${o.titulo}]]`);
-    cerrarPop();
-  }
-  area.addEventListener('keydown', (e) => {
-    if (pop.hidden) return;
-    if (e.key === 'ArrowDown') { e.preventDefault(); elegida = (elegida + 1) % opcionesPop.length; pintarPop(); }
-    else if (e.key === 'ArrowUp') { e.preventDefault(); elegida = (elegida - 1 + opcionesPop.length) % opcionesPop.length; pintarPop(); }
-    else if (e.key === 'Enter' || e.key === 'Tab') { e.preventDefault(); usarPop(elegida); }
-    else if (e.key === 'Escape') { e.preventDefault(); cerrarPop(); }
-  });
 
   // ── Archivos ──
   const nombreUnico = (nombre) => {
@@ -295,18 +225,21 @@ export function vistaNota(ctx, m, d, id, main) {
     return `${base} (${i})${ext || ''}`;
   };
   async function subir(archivos) {
+    recordarCursor();
     for (const f0 of archivos) {
       const d0 = new Date();
       const base = /^image\.\w+$/i.test(f0.name) || !f0.name ? `Pegado ${d0.getFullYear()}-${pad(d0.getMonth() + 1)}-${pad(d0.getDate())} ${pad(d0.getHours())}${pad(d0.getMinutes())}${pad(d0.getSeconds())}.${(f0.type.split('/')[1] || 'png').replace('jpeg', 'jpg')}` : f0.name;
       const nombre = nombreUnico(base);
       const f = new File([f0], nombre, { type: f0.type });
       const marca = `![[${nombre}]]`;
-      if (modo === 'editar') insertar((area.selectionStart > 0 && area.value[area.selectionStart - 1] !== '\n' ? '\n' : '') + marca + '\n');
-      else { texto = `${texto}${texto && !texto.endsWith('\n') ? '\n' : ''}${marca}\n`; }
       const aviso = ctx.aviso(`Subiendo ${nombre}…`, { duracion: 0 });
       try {
         const info = await ctx.archivos.subir(f);
         n = { ...n, adjuntos: [...(n.adjuntos || []), { ...info, nombre, origen: 'subido' }] };
+        insertarEnCursor(marca);
+        recordarCursor();
+        texto = editor.valor();
+        pendiente = false; clearTimeout(espera);
         await m.guardarNota(id, { adjuntos: n.adjuntos, texto });
         aviso.remove();
         if (info.pendiente) ctx.aviso(`${nombre} se sube a Drive cuando haya conexión.`);
@@ -315,7 +248,6 @@ export function vistaNota(ctx, m, d, id, main) {
         ctx.aviso(`No se pudo subir ${nombre}: ${e.message}`);
       }
     }
-    if (modo === 'leer') pintarCuerpo();
     pintarArchivos();
   }
   async function pegarDesdeBoton() {
@@ -329,13 +261,15 @@ export function vistaNota(ctx, m, d, id, main) {
   }
   async function elegirDeDrive() {
     try {
+      recordarCursor();
       const elegidos = await ctx.archivos.elegirDeDrive();
       if (!elegidos.length) return;
       n = { ...n, adjuntos: [...(n.adjuntos || []), ...elegidos.map(a => ({ ...a, nombre: nombreUnico(a.nombre), origen: 'drive' }))] };
-      const lineas = elegidos.map(a => `[📎 ${a.nombre}](${a.url})`).join('\n');
-      if (modo === 'editar') insertar(lineas + '\n'); else texto = `${texto}\n${lineas}\n`;
+      const lineas = elegidos.map(a => `[${a.nombre}](${a.url})`).join('\n');
+      insertarEnCursor(lineas);
+      texto = editor.valor();
+      pendiente = false; clearTimeout(espera);
       await m.guardarNota(id, { adjuntos: n.adjuntos, texto });
-      if (modo === 'leer') pintarCuerpo();
       pintarArchivos();
     } catch (e) { ctx.aviso(e.message); }
   }
@@ -344,16 +278,17 @@ export function vistaNota(ctx, m, d, id, main) {
     const adj = n.adjuntos || [];
     poner(zonaArchivos, ...(adj.length ? [h('h3', { class: 'bt-sec-h' }, `Archivos (${adj.length})`),
       h('div', { class: 'bt-adj-lista' }, adj.map(a => h('div', { class: 'bt-adj' },
-        h('span', { class: 'bt-adj-ic' }, esImagen(a) ? '🖼' : '📎'),
+        h('span', { class: 'bt-adj-ic' }, ic(esImagen(a) ? 'imagen' : 'clip')),
         a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener' }, a.nombre) : h('span', {}, a.nombre, a.pendiente ? ' (subiendo…)' : ''),
         h('small', {}, a.origen === 'drive' ? 'enlazado de Drive' : 'subido'),
         h('button', { type: 'button', class: 'boton-icono bt-chico', 'aria-label': `Quitar ${a.nombre}`, title: 'Quitar de la nota (el archivo queda en Drive)', onclick: async () => {
           if (!await ctx.confirmar(`¿Quitar "${a.nombre}" de la nota? El archivo queda en tu Drive.`, { si: 'Quitar' })) return;
           n = { ...n, adjuntos: adj.filter(x => x !== a) };
           texto = texto.split('\n').filter(l => l.trim() !== `![[${a.nombre}]]`).join('\n');
-          if (modo === 'editar') area.value = texto;
+          editor.poner(texto);
+          pendiente = false; clearTimeout(espera);
           await m.guardarNota(id, { adjuntos: n.adjuntos, texto });
-          pintarArchivos(); if (modo === 'leer') pintarCuerpo();
+          pintarArchivos();
         } }, ctx.icono('cerrar')))))] : []));
   }
 
@@ -390,28 +325,6 @@ export function vistaNota(ctx, m, d, id, main) {
   const pie = h('p', { class: 'bt-pie' });
   const pintarPie = () => { pie.textContent = `Editada ${haceCuanto(n.modificado)} · Creada ${new Date(n.creado).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}`; };
 
-  function pintarCuerpo() {
-    segLeer.classList.toggle('sel', modo === 'leer');
-    segEditar.classList.toggle('sel', modo === 'editar');
-    if (modo === 'editar') {
-      area.value = texto;
-      poner(zonaCuerpo, barraFormato, h('div', { class: 'bt-editor-caja' }, area, pop));
-      requestAnimationFrame(() => ajustarAlto(area));
-    } else {
-      const cuerpo = String(texto || '').trim()
-        ? cuerpoLectura(ctx, m, d, { ...n, texto }, { alCasilla: async (linea, marcada) => { texto = alternarCasilla(texto, linea, marcada); n = { ...n, texto }; await m.guardarNota(id, { texto }); pintarCuerpo(); } })
-        : h('button', { type: 'button', class: 'bt-vacio-nota', onclick: () => cambiarModo('editar') }, 'Nota vacía. Tocá para escribir.');
-      poner(zonaCuerpo, cuerpo);
-    }
-  }
-  async function cambiarModo(nuevo) {
-    if (modo === nuevo) return;
-    await guardarTexto();
-    modo = nuevo;
-    pintarCuerpo();
-    if (modo === 'editar') setTimeout(() => { area.focus(); area.setSelectionRange(area.value.length, area.value.length); }, 30);
-  }
-
   // ── Menú ⋯ ──
   let puedeRecordar = false, puedeTarea = false;
   ctx.existeAccion?.('sistema-sincronizar').then(x => { puedeRecordar = x; });
@@ -419,7 +332,7 @@ export function vistaNota(ctx, m, d, id, main) {
   function menuNota() {
     menu(ctx, n.titulo, [
       puedeRecordar ? { icono: 'reloj', texto: 'Recordarme esta nota', nota: 'Crea una tarea en Tareas › Sistemas › Bitácora', accion: recordarme } : null,
-      puedeTarea ? { icono: 'check', texto: 'Crear tarea desde esta nota', nota: 'La tarea queda con un link a la nota', accion: () => ctx.pedir('nueva-tarea', { titulo: n.titulo, origen: { modulo: 'bitacora', clave: `bitacora-tarea:${id}:${Date.now()}`, enlace: `bitacora/n/${id}` } }).catch(e => ctx.aviso(e.message)) } : null,
+      puedeTarea ? { icono: 'check', texto: 'Crear tarea desde esta nota', nota: 'La tarea queda con un link a la nota', accion: () => abrirTecladoYa() || ctx.pedir('nueva-tarea', { titulo: n.titulo, origen: { modulo: 'bitacora', clave: `bitacora-tarea:${id}:${Date.now()}`, enlace: `bitacora/n/${id}` } }).catch(e => ctx.aviso(e.message)) } : null,
       { icono: 'carpeta', texto: 'Mover a carpeta…', accion: async () => { const x = await elegirCarpeta(ctx, d, { actual: n.carpetaId || BANDEJA }); if (x !== null && x !== (n.carpetaId || '')) { await m.guardarNota(id, { carpetaId: x }); ctx.aviso(`Movida a ${d.nombreRuta(x)}`); } } },
       { icono: 'pin', texto: n.fijada ? 'Quitar de fijadas' : 'Fijar en el Inicio', accion: () => m.guardarNota(id, { fijada: !n.fijada }) },
       { icono: 'tarjetas', texto: 'Duplicar', accion: async () => { const x = await m.duplicar(id); ctx.navegar(`bitacora/n/${x}`); } },
@@ -463,13 +376,13 @@ export function vistaNota(ctx, m, d, id, main) {
   }
 
   // ── Armar ──
-  pintarProps(); pintarCuerpo(); pintarArchivos(); pintarMenciones(); pintarPie();
+  pintarProps(); pintarArchivos(); pintarMenciones(); pintarPie();
   const cine = n.cine ? encabezadoCine(ctx, m, d, n) : null;
   poner(main, cine
     ? h('article', { class: 'bt-nota fm-nota' }, barra, cine.el, h('h3', { class: 'bt-sec-h fm-notas-h' }, 'Notas'), zonaProps, zonaCuerpo, zonaArchivos, zonaMenciones, pie)
     : h('article', { class: 'bt-nota' }, barra, titulo, zonaProps, zonaCuerpo, zonaArchivos, zonaMenciones, pie));
   requestAnimationFrame(() => ajustarAlto(titulo));
-  if (pedidoEditar) setTimeout(() => { if (n.titulo === 'Sin título') { titulo.focus(); titulo.select(); } else area.focus(); }, 60);
+  if (pedidoEditar) setTimeout(() => { if (n.titulo === 'Sin título') { titulo.focus(); titulo.select(); } else editor.enfocar(); }, 60);
 
   return {
     actualizar(d2) {
@@ -481,9 +394,9 @@ export function vistaNota(ctx, m, d, id, main) {
       if (document.activeElement !== titulo) titulo.value = n.titulo;
       botonPin.classList.toggle('on', !!n.fijada);
       botonPin.setAttribute('aria-pressed', String(!!n.fijada));
-      const escribiendo = pendiente || document.activeElement === area;
-      if (!escribiendo && n.texto !== texto) { texto = n.texto || ''; pintarCuerpo(); }
-      else if (modo === 'leer' && (antes.adjuntos || []).length !== (n.adjuntos || []).length) pintarCuerpo();
+      const escribiendo = pendiente || editor.tieneFoco();
+      if (!escribiendo && (n.texto || '') !== texto) { texto = n.texto || ''; editor.poner(texto); }
+      else if (!escribiendo && (antes.adjuntos || []).length !== (n.adjuntos || []).length) editor.poner(texto);
       if (!zonaProps.contains(document.activeElement)) pintarProps();
       pintarArchivos(); pintarMenciones(); pintarPie();
       const r = n.carpetaId ? d.ruta(n.carpetaId) : [];

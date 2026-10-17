@@ -136,7 +136,10 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
 
   // ── Título y notas ──
   const titulo = h('input', { type: 'text', class: 'tr-titulo-input', value: t.titulo, placeholder: 'Qué hay que hacer', 'aria-label': 'Título', autocomplete: 'off' });
-  const notas = h('textarea', { rows: 3, placeholder: 'Notas', 'aria-label': 'Notas' }, t.notas || '');
+  // Notas con formato (títulos, negrita, listas, casillas, líneas…). Se guardan como Markdown.
+  let notasTocadas = false;
+  const notas = ctx.editorTexto({ valor: t.notas || '', placeholder: 'Notas', etiqueta: 'Notas', clase: 'tr-notas', alCambiar: () => { notasTocadas = true; } });
+  const valorNotas = () => (notasTocadas ? notas.valor() : String(t.notas || '').trim());
 
   // ── Subtareas: son tareas completas; tocándolas se abre su detalle ──
   const listaSub = h('ul', { class: 'tr-subtareas' });
@@ -269,15 +272,17 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   const tieneExtras = t.inicio || t.repeticion?.tipo || t.etiquetas?.length || t.duracion || t.recordatorio;
 
   // ── Comentarios (se guardan al instante, cada uno por separado; pueden llevar imágenes) ──
+  // En una tarea nueva quedan en espera y se guardan al tocar "Crear tarea".
+  let comPendientes = [];
   const zonaComentarios = h('div', { class: 'tr-comentarios' });
   const nuevoCom = h('textarea', { rows: 1, class: 'tr-com-campo', placeholder: 'Escribí un comentario…', 'aria-label': 'Nuevo comentario' });
   // Ctrl+Enter (o Cmd+Enter) comenta.
   nuevoCom.addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); enviarComentario(); } });
   async function enviarComentario() {
-    if (!tarea) return;
     if (subiendoCom) { ctx.aviso('Esperá a que terminen de subirse las imágenes.'); return; }
     if (!nuevoCom.value.trim() && !borrador.length) return;
-    await m.comentar(tarea.id, nuevoCom.value, borrador);
+    if (tarea) await m.comentar(tarea.id, nuevoCom.value, borrador);
+    else comPendientes.push({ texto: nuevoCom.value.trim(), adjuntos: borrador, creado: Date.now() });
     nuevoCom.value = ''; borrador = []; dibujarBorrador();
     dibujarComentarios();
   }
@@ -299,9 +304,40 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     }
   }
   dibujarBorrador();
+  // Botón del clip: elegir imágenes o archivos del dispositivo para el comentario.
+  const elegirCom = h('input', { type: 'file', multiple: true, hidden: true });
+  elegirCom.addEventListener('change', () => {
+    const archivos = [...elegirCom.files];
+    elegirCom.value = '';
+    if (archivos.length) subirAlComentario(archivos);
+  });
+  const cuerpoComentario = (c) => {
+    const adj = c.adjuntos || [];
+    const imgs = adj.filter(a => esImagenAdj(ctx, a)), otros = adj.filter(a => !esImagenAdj(ctx, a));
+    return [
+      c.texto ? h('p', { class: 'tr-comentario-texto' }, c.texto) : null,
+      imgs.length ? h('div', { class: 'tr-miniaturas chicas' }, imgs.map((a, i) => miniatura(ctx, a, { alTocar: () => abrirVisor(ctx, imgs, i) }))) : null,
+      otros.length ? h('ul', { class: 'tr-adjuntos' }, otros.map(a => h('li', {}, icSvg(ICONO_CLIP),
+        a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener', class: 'tr-adjunto-nombre' }, a.nombre) : h('span', { class: 'tr-adjunto-nombre' }, a.nombre)))) : null,
+    ];
+  };
+  const lineaNueva = () => h('div', { class: 'tr-nuevo-comentario' },
+    imgsBorrador,
+    h('div', { class: 'tr-com-linea' }, nuevoCom,
+      h('button', { type: 'button', class: 'tr-com-icono', title: 'Adjuntar imagen o archivo', 'aria-label': 'Adjuntar imagen o archivo', onclick: () => elegirCom.click() }, icSvg(ICONO_CLIP)),
+      navigator.clipboard?.read ? h('button', { type: 'button', class: 'tr-com-icono', title: 'Pegar imagen copiada', 'aria-label': 'Pegar imagen copiada', onclick: () => pegarDesdeBoton(subirAlComentario) }, icSvg(ICONO_PORTAPAPELES)) : null,
+      h('button', { type: 'button', class: 'tr-com-enviar', title: 'Comentar (Ctrl+Enter)', 'aria-label': 'Comentar', onclick: enviarComentario }, icSvg(ICONO_ENVIAR))),
+    elegirCom);
   async function dibujarComentarios() {
     if (!tarea) {
-      poner(zonaComentarios, h('p', { class: 'nota' }, 'Vas a poder comentar una vez creada la tarea.'));
+      poner(zonaComentarios,
+        comPendientes.length ? h('ul', { class: 'tr-lista-comentarios' }, comPendientes.map((c, i) => h('li', { class: 'tr-com-pendiente' },
+          h('div', { class: 'tr-comentario-cabecera' },
+            h('span', { class: 'nota' }, 'Se guarda al crear la tarea'),
+            h('span', { class: 'tr-comentario-acciones' },
+              h('button', { type: 'button', class: 'tr-link peligro', onclick: () => { comPendientes.splice(i, 1); dibujarComentarios(); } }, 'Quitar'))),
+          cuerpoComentario(c)))) : null,
+        lineaNueva());
       return;
     }
     const datos = await m.cargar();
@@ -309,7 +345,6 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     poner(zonaComentarios,
       lista.length ? h('ul', { class: 'tr-lista-comentarios' }, lista.map(c => {
         const adj = c.adjuntos || [];
-        const imgs = adj.filter(a => esImagenAdj(ctx, a)), otros = adj.filter(a => !esImagenAdj(ctx, a));
         return h('li', {},
           h('div', { class: 'tr-comentario-cabecera' },
             h('span', { class: 'nota' }, fechaHora(c.creado), c.editado ? ' · editado' : ''),
@@ -325,16 +360,9 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
                   if (await ctx.confirmar('¿Borrar este comentario?', { si: 'Borrar', peligro: true })) { await m.borrarComentario(c.id); dibujarComentarios(); }
                 },
               }, 'Borrar'))),
-          c.texto ? h('p', { class: 'tr-comentario-texto' }, c.texto) : null,
-          imgs.length ? h('div', { class: 'tr-miniaturas chicas' }, imgs.map((a, i) => miniatura(ctx, a, { alTocar: () => abrirVisor(ctx, imgs, i) }))) : null,
-          otros.length ? h('ul', { class: 'tr-adjuntos' }, otros.map(a => h('li', {}, icSvg(ICONO_CLIP),
-            a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener', class: 'tr-adjunto-nombre' }, a.nombre) : h('span', { class: 'tr-adjunto-nombre' }, a.nombre)))) : null);
+          cuerpoComentario(c));
       })) : null,
-      h('div', { class: 'tr-nuevo-comentario' },
-        imgsBorrador,
-        h('div', { class: 'tr-com-linea' }, nuevoCom,
-          navigator.clipboard?.read ? h('button', { type: 'button', class: 'tr-com-icono', title: 'Pegar imagen copiada', 'aria-label': 'Pegar imagen copiada', onclick: () => pegarDesdeBoton(subirAlComentario) }, icSvg(ICONO_PORTAPAPELES)) : null,
-          h('button', { type: 'button', class: 'tr-com-enviar', title: 'Comentar (Ctrl+Enter)', 'aria-label': 'Comentar', onclick: enviarComentario }, icSvg(ICONO_ENVIAR)))));
+      lineaNueva());
   }
   dibujarComentarios();
 
@@ -366,7 +394,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     const archivos = imagenesDe(e.clipboardData);
     if (!archivos.length) return;
     e.preventDefault();
-    if (document.activeElement === nuevoCom && tarea) subirAlComentario(archivos);
+    if (document.activeElement === nuevoCom) subirAlComentario(archivos);
     else { subirAdjuntos(archivos); ctx.aviso(archivos.length > 1 ? `Pegaste ${archivos.length} imágenes` : 'Imagen pegada'); }
   }
   document.addEventListener('paste', alPegar);
@@ -374,7 +402,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   // ── Lo que se guarda, y para saber si cambió algo ──
   function datosFormulario() {
     return {
-      titulo: titulo.value, notas: notas.value.trim(), fecha: fecha.value, hora: hora.value, inicio: inicio.value,
+      titulo: titulo.value, notas: valorNotas(), fecha: fecha.value, hora: hora.value, inicio: inicio.value,
       repeticion: repTipo.value ? { tipo: repTipo.value, cada: Math.max(1, Number(repCada.value) || 1) } : null,
       etiquetas: etiquetas.value.split(',').map(x => x.trim().replace(/^#/, '')).filter(Boolean),
       adjuntos,
@@ -386,7 +414,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
       padreId: t.padreId || '',
     };
   }
-  const huella = () => JSON.stringify({ ...datosFormulario(), titulo: titulo.value.trim(), adjuntos: adjuntos.map(a => a.nombre), subNuevas, nuevaSub: nuevaSub.value.trim(), comentario: nuevoCom.value.trim(), borrador: borrador.length });
+  const huella = () => JSON.stringify({ ...datosFormulario(), titulo: titulo.value.trim(), adjuntos: adjuntos.map(a => a.nombre), subNuevas, nuevaSub: nuevaSub.value.trim(), comentario: nuevoCom.value.trim(), borrador: borrador.length, pendientes: comPendientes.length });
   const inicial = huella();
   const sucio = () => huella() !== inicial;
 
@@ -409,7 +437,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
       titulo2,
       enlaceOrigen,
       titulo,
-      notas,
+      notas.el,
       bloque('Subtareas', listaSub,
         h('div', { class: 'tr-nueva-sub' }, nuevaSub, h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Agregar subtarea', onclick: agregarSub }, icono('mas')))),
       h('div', { class: 'tr-dos' }, fila('Fecha', fecha), fila('Hora', hora)),
@@ -450,7 +478,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     const archivos = [...(e.dataTransfer?.files || [])];
     if (!archivos.length) return;
     e.preventDefault();
-    const enComentario = tarea && e.target.closest?.('.tr-nuevo-comentario');
+    const enComentario = e.target.closest?.('.tr-nuevo-comentario');
     const imgs = archivos.filter(f => /^image\//.test(f.type));
     if (enComentario && imgs.length) subirAlComentario(imgs);
     else subirAdjuntos(archivos);
@@ -470,13 +498,16 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     if (!titulo.value.trim()) { error.textContent = 'Escribí un título.'; titulo.focus(); return; }
     if (hora.value && !fecha.value) { error.textContent = 'Para poner hora, elegí también una fecha.'; fecha.focus(); return; }
     if (repTipo.value && !fecha.value) { error.textContent = 'Para que se repita, la tarea necesita una fecha.'; fecha.focus(); return; }
-    if (subiendo) { error.textContent = 'Esperá a que terminen de subirse los archivos.'; return; }
+    if (subiendo || subiendoCom) { error.textContent = 'Esperá a que terminen de subirse los archivos.'; return; }
+    // Un comentario escrito pero sin mandar se guarda igual.
+    if (nuevoCom.value.trim() || borrador.length) await enviarComentario();
     const datos = datosFormulario();
     try {
       if (tarea) { await m.guardarTarea(tarea.id, datos); ctx.aviso('Tarea guardada'); }
       else {
         const id = await m.crearTarea(t.origen ? { ...datos, origen: t.origen } : datos);
         for (const texto of subNuevas) await m.crearSubtarea({ ...datos, id }, texto);
+        for (const c of comPendientes) await m.comentar(id, c.texto, c.adjuntos);
         ctx.aviso('Tarea creada');
       }
       cerrar();
@@ -494,6 +525,11 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     if (dlg) dlg.close();
     else alCerrar ? alCerrar() : panel.replaceChildren();   // el panel se vacía al terminar de cerrarse
   }
+  // Nueva tarea: el cursor queda en el título, listo para escribir.
+  function enfocarTitulo() {
+    titulo.focus();
+    requestAnimationFrame(() => { titulo.focus(); titulo.setSelectionRange(titulo.value.length, titulo.value.length); });
+  }
   ctrl = {
     tareaId: tarea?.id || null,
     cerrar,
@@ -510,7 +546,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   if (panel) {
     poner(panel, form);
     panel.scrollTop = 0;
-    if (!tarea) titulo.focus();
+    if (!tarea) enfocarTitulo();
   } else {
     dlg = h('dialog', { class: 'hoja tr-hoja-editor' }, form);
     dlg.addEventListener('close', () => { cerrado = true; document.removeEventListener('paste', alPegar); dlg.remove(); alCerrar?.(); });
@@ -525,7 +561,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
     document.body.append(dlg);
     dlg.showModal();
     dlg.scrollTop = 0;
-    if (!tarea) titulo.focus();
+    if (!tarea) enfocarTitulo();
   }
   return ctrl;
 }

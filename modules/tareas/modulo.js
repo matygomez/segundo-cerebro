@@ -13,6 +13,18 @@ import { pantallaTareas, filaTarea, cargarEstilos } from './vistas.js';
 import { abrirEditor } from './editor.js';
 import { sincronizarCalendario } from './calendario.js';
 
+// En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
+// Como la ventana de la tarea se abre un instante después, se enfoca antes un
+// campo invisible y la ventana le pasa el foco al título.
+function abrirTecladoYa() {
+  const i = document.createElement('input');
+  i.setAttribute('aria-hidden', 'true');
+  i.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0';
+  document.body.append(i);
+  i.focus();
+  setTimeout(() => i.remove(), 2500);
+}
+
 export default {
   id: 'tareas',
   nombre: 'Tareas',
@@ -23,6 +35,7 @@ export default {
     return [{
       id: 'nueva-tarea', texto: 'Nueva tarea', icono: 'mas',
       alTocar: async () => {
+        abrirTecladoYa();
         cargarEstilos();
         const m = crearModelo(ctx);
         abrirEditor(ctx, m, await m.cargar());

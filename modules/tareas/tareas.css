@@ -662,3 +662,7 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-cal-nombre { font-weight: 500; min-width: 0; overflow-wrap: anywhere; }
 .tr-cal-ctl { grid-column: 2; display: flex; gap: 0.4rem; flex-wrap: wrap; align-items: center; }
 .tr-cal-ctl select { width: auto !important; flex: 1 1 9rem; min-height: 2.2rem; font: inherit; font-size: 0.85rem; border: 1px solid var(--linea); border-radius: 8px; padding: 0.3rem 0.5rem; background: var(--superficie); color: var(--tinta); max-width: 100%; }
+
+/* ── Notas con formato y comentarios en espera ── */
+.tr-notas .ed-area { min-height: 4.5rem; }
+.tr-com-pendiente { opacity: 0.9; border-left: 3px solid var(--laton); padding-left: 0.6rem; }

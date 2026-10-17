@@ -47,6 +47,18 @@ async function guardarConfig(ctx, cfg, cambios) {
   else await ctx.datos('ajustes').crear(datos);
 }
 
+// En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
+// Como la ventana de la tarea se abre un instante después, se enfoca antes un
+// campo invisible y la ventana le pasa el foco al título.
+function abrirTecladoYa() {
+  const i = document.createElement('input');
+  i.setAttribute('aria-hidden', 'true');
+  i.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;font-size:16px;border:0;padding:0';
+  document.body.append(i);
+  i.focus();
+  setTimeout(() => i.remove(), 2500);
+}
+
 export default {
   id: 'calendario',
   nombre: 'Calendario',
@@ -147,7 +159,7 @@ export default {
             h('span', { class: 'cl-texto' }, h('b', {}, x.titulo),
               h('small', {}, [x.lugar, x.repite ? `se repite (${x.repeticion.toLowerCase()})` : x.repeticion, x.duracion ? durTexto(x.duracion) : '', x.aviso ? 'aviso' : ''].filter(Boolean).join(' · ')))))))
             : h('p', { class: 'nota cl-vacio' }, 'Nada para este día.'),
-        hayTareas ? h('button', { type: 'button', class: 'cl-agregar', onclick: () => ctx.pedir('nueva-tarea', { fecha: diaElegido }).catch(e => ctx.aviso(e.message)) },
+        hayTareas ? h('button', { type: 'button', class: 'cl-agregar', onclick: () => abrirTecladoYa() || ctx.pedir('nueva-tarea', { fecha: diaElegido }).catch(e => ctx.aviso(e.message)) },
           h('b', {}, '+'), ` Agregar tarea para el ${pad(f.getDate())}/${pad(f.getMonth() + 1)}`) : null);
     }
     const durTexto = (m) => (m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ''}`);
