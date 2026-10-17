@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // Bitácora: pantallas generales.
 //   Árbol de carpetas y etiquetas (a la izquierda en la PC)
-//   Inicio del módulo (bloques elegibles o una nota como portada)
+//   Inicio del módulo (bloques elegibles)
 //   Carpeta, Bandeja, Etiqueta, Buscar, Papelera, Configurar
 //   Menú "+ Nueva", notas rápidas, plantillas y Compartir (Android)
 // ─────────────────────────────────────────────────────────────
@@ -55,8 +55,21 @@ const TRAZOS = {
   suma: '<path d="M17 5H7l6 7-6 7h10"/>',
   arriba: '<path d="m6 15 6-6 6 6"/>',
   abajo: '<path d="m6 9 6 6 6-6"/>',
+  film: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 9h17M8 5l2 4M13 5l2 4M18 5l2 4"/>',
+  grafico: '<path d="M4 20V10M10 20V4M16 20v-7M21 20H3"/>',
+  tilde: '<path d="m5 12.5 4.5 4.5L19 7.5"/>',
+  play: '<path d="M8 5.5v13l10-6.5Z"/>',
+  paleta: '<path d="M12 4a8 8 0 1 0 0 16c1.2 0 1.6-.9 1.2-1.8-.5-1 .2-2.2 1.3-2.2H17a3 3 0 0 0 3-3c0-5-3.6-9-8-9Z"/><circle cx="8" cy="11" r="1"/><circle cx="11" cy="7.5" r="1"/><circle cx="15.5" cy="8.5" r="1"/>',
+  link: '<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/>',
+  telefono: '<path d="M6.5 4h3l1.5 4-2 1.5a10 10 0 0 0 5.5 5.5l1.5-2 4 1.5v3a2 2 0 0 1-2 2A15 15 0 0 1 4.5 6a2 2 0 0 1 2-2Z"/>',
+  mail: '<rect x="3.5" y="6" width="17" height="12" rx="2"/><path d="m4 7 8 6 8-6"/>',
+  imagen: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-5 4 4 2.5-2.5L20 18"/>',
+  calendario: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
   editar: '<path d="M5 19h4l10-10-4-4L5 15Z"/><path d="m13.5 6.5 4 4"/>',
 };
+// Símbolo de un tipo de campo (ícono de trazo o letra).
+export const simboloTipo = (t) => { const s = document.createElement('span'); s.className = 'bt-tipo-sym'; if (t.icono) s.append(ic(t.icono)); else s.textContent = t.sym; return s; };
+
 export function ic(nombre, clase = 'icono') {
   const s = document.createElement('span');
   s.className = clase;
@@ -147,7 +160,7 @@ export function configInicio(d) {
   const a = d.ajuste(`inicio-${disp()}`) || {};
   const guardados = (a.bloques || []).filter(b => BLOQUES.some(x => x.id === b.id));
   for (const b of BLOQUES) if (!guardados.some(x => x.id === b.id)) guardados.push({ id: b.id, on: true });
-  return { bloques: guardados, portada: a.portada || '' };
+  return { bloques: guardados };
 }
 export const plegados = (d) => new Set(d.ajuste(`plegados-${disp()}`)?.ids || []);
 export async function alternarPlegado(m, d, id) {
@@ -173,7 +186,7 @@ export function arbol(ctx, m, d, actual = '') {
   const filas = [
     fila('#/bitacora', [h('span', { class: 'bt-ar-flecha vacia' }), ic('inicio'), h('span', { class: 'bt-ar-nom' }, 'Inicio')], { sel: actual === 'inicio' }),
     fila('#/bitacora/buscar', [h('span', { class: 'bt-ar-flecha vacia' }), ic('buscar'), h('span', { class: 'bt-ar-nom' }, 'Buscar')], { sel: actual === 'buscar' }),
-    fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), h('span', { class: 'bt-emoji' }, '🎬'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
+    fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), ic('film'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
     seccion('sec:carpetas', 'Carpetas', h('button', { type: 'button', class: 'bt-ar-mas', title: 'Nueva carpeta', 'aria-label': 'Nueva carpeta', onclick: () => nuevaCarpeta(ctx, m, '') }, ic('mas'))),
   ];
   if (!pleg.has('sec:carpetas')) {
@@ -239,10 +252,9 @@ export function cabecera(ctx, { titulo, marca = null, volver = null, botones = [
 const botonNueva = (ctx, m, d, carpetaId) => ctx.h('button', { type: 'button', class: 'boton principal bt-nueva', onclick: () => menuNueva(ctx, m, d, carpetaId) }, ic('mas'), 'Nueva');
 
 // ── Inicio del módulo ──
-export function pantallaInicio(ctx, m, d, main, { renderNota }) {
+export function pantallaInicio(ctx, m, d, main) {
   const { h, icono } = ctx;
   const cfg = configInicio(d);
-  const portada = cfg.portada ? d.nota(cfg.portada) : null;
   const cont = [];
   cont.push(cabecera(ctx, {
     titulo: 'Bitácora', marca: icono('bitacora'),
@@ -253,11 +265,7 @@ export function pantallaInicio(ctx, m, d, main, { renderNota }) {
   }));
   cont.push(h('a', { href: '#/bitacora/buscar', class: 'bt-busca' }, ic('buscar'), h('span', {}, 'Buscar en títulos, texto y #etiquetas…')));
 
-  if (portada && !portada.papelera) {
-    cont.push(h('section', { class: 'tarjeta bt-portada' },
-      h('div', { class: 'bt-bloque-tit' }, h('h2', {}, portada.titulo), h('a', { href: `#/bitacora/n/${portada.id}`, class: 'bt-link-chico' }, 'Abrir ›')),
-      renderNota(portada)));
-  } else {
+  {
     for (const b of cfg.bloques.filter(x => x.on)) {
       if (b.id === 'fijadas') {
         const fijas = d.notas.filter(n => n.fijada).sort((a, b2) => comparar(a.titulo, b2.titulo));
@@ -340,7 +348,7 @@ export function menuCarpeta(ctx, m, d, c) {
   menu(ctx, c.nombre, [
     { icono: 'mas', texto: 'Nueva subcarpeta', accion: () => nuevaCarpeta(ctx, m, c.id) },
     { icono: 'editar', texto: 'Renombrar', accion: async () => { const n = await pedirTexto(ctx, 'Renombrar carpeta', c.nombre); if (n) await m.guardarCarpeta(c.id, { nombre: n }); } },
-    { icono: '🎨', texto: 'Ícono y color', accion: () => iconoYColor(ctx, m, c) },
+    { icono: 'paleta', texto: 'Ícono y color', accion: () => iconoYColor(ctx, m, c) },
     { icono: 'carpeta', texto: 'Mover a…', accion: async () => { const id = await elegirCarpeta(ctx, d, { titulo: `Mover "${c.nombre}" a…`, actual: c.padreId || '', excluir: c.id, conBandeja: false }); if (id !== null) { try { await m.moverCarpeta(c.id, id); } catch (e) { ctx.aviso(e.message); } } } },
     { icono: 'arriba', texto: 'Subir en la lista', accion: () => m.ordenarCarpeta(c.id, -1) },
     { icono: 'abajo', texto: 'Bajar en la lista', accion: () => m.ordenarCarpeta(c.id, 1) },
@@ -424,7 +432,7 @@ export function pantallaPapelera(ctx, m, d, main) {
 export function pantallaAjustes(ctx, m, d, main) {
   const { h } = ctx;
   const cfg = configInicio(d);
-  const guardarInicio = (cambios) => m.guardarAjuste(`inicio-${disp()}`, { bloques: cfg.bloques, portada: cfg.portada, ...cambios });
+  const guardarInicio = (cambios) => m.guardarAjuste(`inicio-${disp()}`, { bloques: cfg.bloques, ...cambios });
   const filasBloques = cfg.bloques.map((b, i) => {
     const def = BLOQUES.find(x => x.id === b.id);
     return h('div', { class: 'aj-fila' },
@@ -434,29 +442,25 @@ export function pantallaAjustes(ctx, m, d, main) {
         h('button', { type: 'button', class: 'aj-flecha', disabled: i === cfg.bloques.length - 1, 'aria-label': 'Bajar', onclick: () => { const l = [...cfg.bloques]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; guardarInicio({ bloques: l }); } }, '↓'),
         h('button', { type: 'button', class: `aj-switch${b.on ? ' on' : ''}`, role: 'switch', 'aria-checked': String(b.on), 'aria-label': def.nombre, onclick: () => guardarInicio({ bloques: cfg.bloques.map(x => (x.id === b.id ? { ...x, on: !x.on } : x)) }) })));
   });
-  const portada = h('select', { 'aria-label': 'Portada', onchange: (e) => guardarInicio({ portada: e.target.value }) },
-    h('option', { value: '' }, 'Inicio de la Bitácora (los bloques de arriba)'),
-    [...d.notas].sort((a, b) => comparar(a.titulo, b.titulo)).map(n => h('option', { value: n.id, selected: n.id === cfg.portada }, n.titulo)));
 
   const ocultos = tiposOcultos(d);
   const tipos = h('div', { class: 'bt-tipos' }, TIPOS.map(t => h('button', {
     type: 'button', class: `bt-tipo${ocultos.has(t.id) ? ' off' : ''}`, 'aria-pressed': String(!ocultos.has(t.id)),
     onclick: () => { const s = new Set(ocultos); if (s.has(t.id)) s.delete(t.id); else s.add(t.id); m.guardarAjuste('general', { tiposOcultos: [...s] }); },
-  }, h('span', { class: 'bt-tipo-sym' }, t.sym), t.nombre)));
+  }, simboloTipo(t), t.nombre)));
 
   const est = ctx.espejo?.estado?.() || {};
   poner(main, 
     cabecera(ctx, { titulo: 'Configurar Bitácora', marca: ic('ajustes'), volver: { href: '#/bitacora', texto: 'Bitácora' } }),
     h('section', { class: 'tarjeta' }, h('h2', {}, `Inicio de la Bitácora · ${esPC() ? 'en la PC' : 'en el celular'}`),
       h('p', { class: 'nota' }, 'Qué bloques se ven y en qué orden. Se guarda por separado en la PC y en el celular.'),
-      h('div', { class: 'aj-tabla' }, filasBloques),
-      h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Portada (en vez de los bloques, una nota tuya)'), portada)),
+      h('div', { class: 'aj-tabla' }, filasBloques)),
     h('section', { class: 'tarjeta' },
       h('div', { class: 'bt-bloque-tit' }, h('h2', {}, 'Plantillas y notas rápidas'), h('button', { type: 'button', class: 'boton', onclick: () => editarPlantilla(ctx, m, d, null) }, ic('mas'), 'Nueva')),
       h('p', { class: 'nota' }, 'Una plantilla arma la nota con un texto inicial. Si la marcás como "nota rápida", aparece arriba en "+ Nueva" como un formulario corto (y si va a una base de datos, con sus campos).'),
       d.plantillas.length
         ? h('div', { class: 'aj-tabla' }, d.plantillas.map(p => h('div', { class: 'aj-fila' },
-          h('span', { class: 'aj-nombre' }, h('span', { class: 'bt-emoji' }, p.icono || '📄'), p.nombre, h('small', { class: 'bt-nota-chica' }, `→ ${p.carpetaId === '@actual' ? 'la carpeta donde estés' : d.nombreRuta(p.carpetaId)}${p.rapida ? ' · nota rápida' : ''}`)),
+          h('span', { class: 'aj-nombre' }, p.icono ? h('span', { class: 'bt-emoji' }, p.icono) : ic('nota'), p.nombre, h('small', { class: 'bt-nota-chica' }, `→ ${p.carpetaId === '@actual' ? 'la carpeta donde estés' : d.nombreRuta(p.carpetaId)}${p.rapida ? ' · nota rápida' : ''}`)),
           h('span', { class: 'aj-acciones' },
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Editar plantilla', onclick: () => editarPlantilla(ctx, m, d, p) }, ic('editar')),
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Borrar plantilla', onclick: async () => { if (await ctx.confirmar(`¿Borrar la plantilla "${p.nombre}"? Las notas ya creadas no cambian.`, { si: 'Borrar', peligro: true })) await m.borrarPlantilla(p.id); } }, ic('papelera'))))))
@@ -513,9 +517,9 @@ export function menuNueva(ctx, m, d, carpetaId = BANDEJA) {
     base ? { icono: 'base', texto: `Nuevo en ${base.nombre}`, nota: 'Formulario con los campos de la base', accion: () => notaRapida(ctx, m, d, { plantilla: rapidaBase, carpetaId: base.id }) } : null,
     { icono: 'nota', texto: base ? 'Nota en blanco en la base' : 'Nota en blanco', nota: `en ${d.nombreRuta(carpetaId)}`, accion: () => crearYAbrir(ctx, m, d, { carpetaId }) },
     rapidas.length ? { separador: 'Notas rápidas' } : null,
-    ...rapidas.map(p => ({ icono: p.icono || '⚡', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => notaRapida(ctx, m, d, { plantilla: p, carpetaId: destinoDe(p) }) })),
+    ...rapidas.map(p => ({ icono: p.icono || 'nota', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => notaRapida(ctx, m, d, { plantilla: p, carpetaId: destinoDe(p) }) })),
     otras.length ? { separador: 'Plantillas' } : null,
-    ...otras.map(p => ({ icono: p.icono || '📄', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => crearYAbrir(ctx, m, d, { carpetaId: destinoDe(p), titulo: plantillaTitulo(p.titulo) || p.nombre, texto: p.texto || '' }) })),
+    ...otras.map(p => ({ icono: p.icono || 'nota', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => crearYAbrir(ctx, m, d, { carpetaId: destinoDe(p), titulo: plantillaTitulo(p.titulo) || p.nombre, texto: p.texto || '' }) })),
     { separador: '' },
     { icono: 'ajustes', texto: 'Administrar plantillas', accion: () => ctx.navegar('bitacora/ajustes') },
   ]);
@@ -593,7 +597,7 @@ export async function recibirCompartido(ctx, m) {
     else ctx.aviso(`Guardado en ${dd.nombreRuta(destino)}`);
   };
   const dlg = ventana(ctx, 'Guardar en Bitácora', h('div', { class: 'formulario-campos' },
-    h('div', { class: 'bt-compartido' }, url ? h('span', {}, '🔗 ', host || url) : null, c.archivos.length ? h('span', {}, `📎 ${c.archivos.map(f => f.name).join(', ')}`) : null, !url && !c.archivos.length ? h('span', {}, resumen(c.texto, 90)) : null),
+    h('div', { class: 'bt-compartido' }, url ? h('span', { class: 'bt-con-ic' }, ic('link'), host || url) : null, c.archivos.length ? h('span', { class: 'bt-con-ic' }, ic('clip'), c.archivos.map(f => f.name).join(', ')) : null, !url && !c.archivos.length ? h('span', {}, resumen(c.texto, 90)) : null),
     h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Título'), tit),
     h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Carpeta'), botonCarpeta),
     h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Nota'), extra)),
@@ -622,7 +626,7 @@ function seccionFilmoteca(ctx, m, d) {
       estado.textContent = '✓ Funciona. Clave guardada.';
     } catch (e) { estado.textContent = e.message; }
   };
-  return h('section', { class: 'tarjeta' }, h('h2', {}, '🎬 Filmoteca'),
+  return h('section', { class: 'tarjeta' }, h('h2', { class: 'bt-con-ic' }, ic('film'), 'Filmoteca'),
     h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Clave de TMDB (se carga una sola vez y queda en tu Drive para la PC y el celular)'),
       h('div', { class: 'bt-ctrl-con-acc' }, clave, ver)),
     h('div', { class: 'botonera' }, h('button', { type: 'button', class: 'boton principal', onclick: probar }, 'Probar y guardar'), estado),

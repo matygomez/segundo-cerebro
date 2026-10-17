@@ -10,7 +10,7 @@ import {
   TIPOS, tipo, NUMERICOS, COLORES_OPCION, valorCampo, textoValor, vacioV, aplicarVista, operadoresDe, necesitaValor,
   totalesDe, totalPorDefecto, calcularTotal, nuevoIdCorto, comparar, fechaCorta,
 } from './modelo.js';
-import { ic, ventana, menu, pedirTexto, tiposOcultos, vacio, cabecera, marcaCarpeta, poner } from './vistas.js';
+import { simboloTipo, ic, ventana, menu, pedirTexto, tiposOcultos, vacio, cabecera, marcaCarpeta, poner } from './vistas.js';
 
 const colorClase = (c) => `bt-op c-${COLORES_OPCION.includes(c) ? c : 'gris'}`;
 
@@ -26,7 +26,7 @@ export function mostrarValor(ctx, campo, v, d) {
     case 'link': return h('a', { href: /^https?:/i.test(v) ? v : `https://${v}`, target: '_blank', rel: 'noopener', class: 'bt-link', onclick: (e) => e.stopPropagation() }, String(v).replace(/^https?:\/\/(www\.)?/, '').slice(0, 40));
     case 'mail': return h('a', { href: `mailto:${v}`, class: 'bt-link', onclick: (e) => e.stopPropagation() }, v);
     case 'telefono': return h('a', { href: `tel:${String(v).replace(/[^\d+]/g, '')}`, class: 'bt-link', onclick: (e) => e.stopPropagation() }, v);
-    case 'archivo': return v?.url ? h('a', { href: v.url, target: '_blank', rel: 'noopener', class: 'bt-link', onclick: (e) => e.stopPropagation() }, '📎 ', v.nombre) : h('span', {}, '📎 ', v?.nombre || '');
+    case 'archivo': return v?.url ? h('a', { href: v.url, target: '_blank', rel: 'noopener', class: 'bt-link', onclick: (e) => e.stopPropagation() }, ic('clip'), v.nombre) : h('span', {}, ic('clip'), v?.nombre || '');
     case 'calificacion': return h('span', { class: 'bt-estrellas' }, '★'.repeat(Number(v) || 0), h('span', { class: 'bt-estrellas-off' }, '★'.repeat(5 - (Number(v) || 0))));
     case 'progreso': return h('span', { class: 'bt-prog' }, h('span', { class: 'bt-prog-barra' }, h('span', { style: `width:${Math.max(0, Math.min(100, Number(v) || 0))}%` })), `${Number(v) || 0}%`);
     case 'numero': return h('span', { class: 'bt-num' }, textoValor(campo, v, d));
@@ -109,8 +109,8 @@ export function controlCampo(ctx, m, d, campo, valor, alCambiar) {
         if (!x) { poner(acciones, ); return; }
         if (campo.tipo === 'telefono') {
           const num = x.replace(/[^\d+]/g, '');
-          poner(acciones, h('a', { href: `tel:${num}`, class: 'boton bt-chico', title: 'Llamar' }, '📞'), h('a', { href: `https://wa.me/${num.replace(/^\+/, '')}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico', title: 'WhatsApp' }, 'WhatsApp'));
-        } else if (campo.tipo === 'mail') poner(acciones, h('a', { href: `mailto:${x}`, class: 'boton bt-chico' }, '✉️'));
+          poner(acciones, h('a', { href: `tel:${num}`, class: 'boton bt-chico', title: 'Llamar', 'aria-label': 'Llamar' }, ic('telefono')), h('a', { href: `https://wa.me/${num.replace(/^\+/, '')}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico', title: 'WhatsApp' }, 'WhatsApp'));
+        } else if (campo.tipo === 'mail') poner(acciones, h('a', { href: `mailto:${x}`, class: 'boton bt-chico', 'aria-label': 'Escribir mail' }, ic('mail')));
         else poner(acciones, h('a', { href: /^https?:/i.test(x) ? x : `https://${x}`, target: '_blank', rel: 'noopener', class: 'boton bt-chico' }, 'Abrir'));
       };
       i.addEventListener('change', () => { pintarAcc(); alCambiar(i.value.trim()); });
@@ -279,7 +279,7 @@ export function renderBase(ctx, m, d, c, zona) {
     cuerpo = h('div', { class: 'bt-tabla-w' }, h('table', { class: 'bt-tabla' },
       h('thead', {}, h('tr', {},
         h('th', { onclick: () => ordenar('_titulo') }, 'Nombre', flechaOrden('_titulo')),
-        visibles.map(f => h('th', { class: NUMERICOS.includes(f.tipo) ? 'num' : '', onclick: () => ordenar(f.id) }, h('span', { class: 'bt-th-sym' }, tipo(f.tipo).sym), f.nombre, flechaOrden(f.id))))),
+        visibles.map(f => h('th', { class: NUMERICOS.includes(f.tipo) ? 'num' : '', onclick: () => ordenar(f.id) }, h('span', { class: 'bt-th-sym' }, simboloTipo(tipo(f.tipo))), f.nombre, flechaOrden(f.id))))),
       h('tbody', {}, grupos.map(g => [
         g.titulo ? h('tr', { class: 'bt-tr-grupo' }, h('td', { colspan: String(visibles.length + 1) }, g.titulo, h('small', {}, ` ${g.notas.length}`))) : null,
         g.notas.map(n => h('tr', {},
@@ -326,7 +326,7 @@ export function pantallaCampos(ctx, m, d, c, main) {
   const campos = c.campos || [];
   const guardar = (lista) => m.guardarCarpeta(c.id, { campos: lista });
   const filas = campos.map((f, i) => h('div', { class: 'aj-fila' },
-    h('span', { class: 'aj-nombre' }, h('span', { class: 'bt-tipo-sym' }, tipo(f.tipo).sym), f.nombre, h('small', { class: 'bt-nota-chica' }, tipo(f.tipo).nombre + (f.tipo === 'auto' ? ` (${f.auto === 'creada' ? 'creada' : 'editada'})` : ''))),
+    h('span', { class: 'aj-nombre' }, simboloTipo(tipo(f.tipo)), f.nombre, h('small', { class: 'bt-nota-chica' }, tipo(f.tipo).nombre + (f.tipo === 'auto' ? ` (${f.auto === 'creada' ? 'creada' : 'editada'})` : ''))),
     h('span', { class: 'aj-acciones' },
       h('button', { type: 'button', class: 'aj-flecha', disabled: i === 0, 'aria-label': 'Subir', onclick: () => { const l = [...campos]; [l[i - 1], l[i]] = [l[i], l[i - 1]]; guardar(l); } }, '↑'),
       h('button', { type: 'button', class: 'aj-flecha', disabled: i === campos.length - 1, 'aria-label': 'Bajar', onclick: () => { const l = [...campos]; [l[i + 1], l[i]] = [l[i], l[i + 1]]; guardar(l); } }, '↓'),
@@ -356,7 +356,7 @@ export function editorCampo(ctx, m, d, c, f) {
   const nombre = h('input', { type: 'text', value: f?.nombre || '', placeholder: 'Ej: Teléfono, Estado, Pagó', 'aria-label': 'Nombre del campo' });
   const zonaTipos = h('div', { class: 'bt-tipos' });
   const extra = h('div', { class: 'formulario-campos' });
-  const pintarTipos = () => poner(zonaTipos, ...TIPOS.filter(t => !ocultos.has(t.id) || t.id === tipoSel).map(t => h('button', { type: 'button', class: `bt-tipo${t.id === tipoSel ? ' sel' : ''}`, onclick: () => { tipoSel = t.id; pintarTipos(); pintarExtra(); } }, h('span', { class: 'bt-tipo-sym' }, t.sym), t.nombre)));
+  const pintarTipos = () => poner(zonaTipos, ...TIPOS.filter(t => !ocultos.has(t.id) || t.id === tipoSel).map(t => h('button', { type: 'button', class: `bt-tipo${t.id === tipoSel ? ' sel' : ''}`, onclick: () => { tipoSel = t.id; pintarTipos(); pintarExtra(); } }, simboloTipo(t), t.nombre)));
   const selRel = h('select', { 'aria-label': 'Notas de' }, h('option', { value: '' }, 'Cualquier nota'), d.carpetas.map(x => h('option', { value: x.id, selected: f?.carpetaRel === x.id }, d.nombreRuta(x.id))));
   const selAuto = h('select', { 'aria-label': 'Fecha automática' }, h('option', { value: 'editada', selected: f?.auto !== 'creada' }, 'Última edición'), h('option', { value: 'creada', selected: f?.auto === 'creada' }, 'Creación'));
   function pintarExtra() {

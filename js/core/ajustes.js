@@ -158,7 +158,7 @@ export function pantallaAjustes(contenedor) {
     if (!await confirmar('Se borra la copia guardada de la app y se vuelve a bajar de internet. Tus datos no se tocan.', { si: 'Forzar actualización' })) return;
     try {
       for (const r of await navigator.serviceWorker.getRegistrations()) await r.unregister();
-      for (const k of await caches.keys()) if (k !== 'sc-imagenes' && k !== 'sc-fuentes') await caches.delete(k);
+      for (const k of await caches.keys()) if (k !== 'sc-imagenes' && k !== 'sc-fuentes' && k !== 'sc-compartido') await caches.delete(k);
     } catch (e) { console.warn(e); }
     location.reload();
   }

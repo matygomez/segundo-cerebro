@@ -21,18 +21,18 @@ export const DIAS_PAPELERA = 30;
 export const TIPOS = [
   { id: 'texto', nombre: 'Texto', sym: 'Aa' },
   { id: 'numero', nombre: 'Número', sym: '#' },
-  { id: 'fecha', nombre: 'Fecha', sym: '📅' },
+  { id: 'fecha', nombre: 'Fecha', sym: '', icono: 'calendario' },
   { id: 'sino', nombre: 'Sí / No', sym: '✓' },
   { id: 'opcion', nombre: 'Opción única', sym: '◉' },
   { id: 'opciones', nombre: 'Varias opciones', sym: '☰' },
-  { id: 'link', nombre: 'Link', sym: '🔗' },
-  { id: 'telefono', nombre: 'Teléfono', sym: '☎' },
+  { id: 'link', nombre: 'Link', sym: '', icono: 'link' },
+  { id: 'telefono', nombre: 'Teléfono', sym: '', icono: 'telefono' },
   { id: 'mail', nombre: 'Mail', sym: '@' },
   { id: 'relacion', nombre: 'Relación con nota', sym: '↗' },
-  { id: 'archivo', nombre: 'Archivo', sym: '📎' },
+  { id: 'archivo', nombre: 'Archivo', sym: '', icono: 'clip' },
   { id: 'calificacion', nombre: 'Calificación', sym: '★' },
   { id: 'progreso', nombre: 'Progreso', sym: '%' },
-  { id: 'auto', nombre: 'Creada / editada', sym: '🕓' },
+  { id: 'auto', nombre: 'Creada / editada', sym: '', icono: 'reloj' },
 ];
 export const tipo = (id) => TIPOS.find(t => t.id === id) || TIPOS[0];
 export const NUMERICOS = ['numero', 'calificacion', 'progreso'];
@@ -86,7 +86,7 @@ export function renombrarEnlaces(texto, viejo, nuevo) {
 export function resumen(texto, largo = 120) {
   const limpio = String(texto || '')
     .replace(/```[\s\S]*?```/g, ' ')
-    .replace(/!\[\[[^\]]*\]\]/g, '🖼')
+    .replace(/!\[\[[^\]]*\]\]/g, '[imagen]')
     .replace(/\[\[([^\]|]+)(\|([^\]]+))?\]\]/g, (_, a, __, b) => b || a)
     .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
     .replace(/^#{1,6}\s+/gm, '').replace(/^\s*[-*+]\s+\[[ xX]\]\s+/gm, '').replace(/^\s*[-*+>]\s+/gm, '')

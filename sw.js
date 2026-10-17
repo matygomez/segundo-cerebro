@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.19.0';
+const VERSION = 'sc-0.19.1';
 
 const ARCHIVOS = [
   './',
@@ -89,8 +89,19 @@ async function recibirCompartido(req) {
   return Response.redirect(new URL('./#/bitacora/compartir', self.registration.scope).href, 303);
 }
 
+// Al instalar una versión se bajan TODOS los archivos frescos: sin copias del
+// navegador ni de GitHub (el "?v=" obliga a traer la versión nueva). Así no
+// quedan archivos viejos mezclados con nuevos. Si alguno falla, no se instala
+// a medias: se reintenta la próxima vez.
 self.addEventListener('install', (e) => {
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(ARCHIVOS)));
+  e.waitUntil((async () => {
+    const c = await caches.open(VERSION);
+    await Promise.all(ARCHIVOS.map(async (u) => {
+      const r = await fetch(new Request(`${u}${u.includes('?') ? '&' : '?'}v=${VERSION}`, { cache: 'reload' }));
+      if (!r.ok) throw new Error(`No se pudo bajar ${u}`);
+      await c.put(u, r);
+    }));
+  })());
 });
 
 self.addEventListener('activate', (e) => {
@@ -138,7 +149,7 @@ self.addEventListener('fetch', (e) => {
     const guardada = await c.match(req, { ignoreSearch: true });
     if (guardada) return guardada;
     try {
-      const r = await fetch(req);
+      const r = await fetch(req, { cache: 'reload' });
       if (r.ok) c.put(req, r.clone());
       return r;
     } catch (err) {

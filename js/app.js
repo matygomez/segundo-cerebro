@@ -99,11 +99,24 @@ async function mostrar() {
   } catch (e) {
     console.error(e);
     if (mio !== turno) return;
-    pantalla.replaceChildren(h('section', { class: 'tarjeta' },
+    pantalla.replaceChildren(h('section', { class: 'tarjeta error-seccion' },
       h('h2', {}, 'No se pudo abrir esta sección'),
-      h('p', {}, e.message),
-      h('a', { href: '#/' + INICIO, class: 'boton' }, 'Volver a Inicio')));
+      h('p', { class: 'error-msj' }, e.message),
+      h('p', { class: 'nota' }, 'Puede pasar si la app quedó a medio actualizar. "Forzar actualización" vuelve a bajar la app completa; tus datos no se tocan.'),
+      h('div', { class: 'botonera' },
+        h('button', { type: 'button', class: 'boton principal', onclick: forzarActualizacion }, 'Forzar actualización'),
+        h('a', { href: '#/' + INICIO, class: 'boton' }, 'Volver a Inicio'))));
   }
+}
+
+// Borra la copia guardada de la app y la vuelve a bajar. Los datos no se tocan.
+async function forzarActualizacion() {
+  if (!navigator.onLine) { aviso('Necesitás internet para forzar la actualización.'); return; }
+  try {
+    for (const r of (await navigator.serviceWorker?.getRegistrations()) || []) await r.unregister();
+    for (const k of await caches.keys()) if (k !== 'sc-imagenes' && k !== 'sc-fuentes' && k !== 'sc-compartido') await caches.delete(k);
+  } catch (e) { console.warn(e); }
+  location.reload();
 }
 
 function dibujarEstado() {

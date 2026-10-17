@@ -101,5 +101,5 @@ export async function detalle(clave, tipo, id) {
 
 export async function temporada(clave, id, n) {
   const x = await pedir(clave, `/tv/${id}/season/${n}`);
-  return (x.episodes || []).map(e => ({ e: e.episode_number, nombre: e.name || '', fecha: e.air_date || '', duracion: e.runtime || 0 }));
+  return (x.episodes || []).map(e => ({ e: e.episode_number, nombre: e.name || '', fecha: e.air_date || '', duracion: e.runtime || 0, imagen: e.still_path || '', resumen: e.overview || '' }));
 }

@@ -525,3 +525,6 @@ dialog.hoja::backdrop { background: rgb(10 15 18 / 0.45); }
   .mm-mezcla .mm-der { font-size: 0.78rem; }
   .mm-mezcla .mm-linea { gap: 0.45rem; }
 }
+
+/* Pantalla "No se pudo abrir esta sección" */
+.error-msj { font-family: ui-monospace, Consolas, monospace; font-size: 0.8rem; color: var(--tinta-2); background: var(--superficie-2); border-radius: 8px; padding: 0.5rem 0.65rem; overflow-wrap: anywhere; }
