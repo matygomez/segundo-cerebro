@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { crearModelo, hecha, vencida, deHoy, ordenar, siguienteFecha, textoRepeticion } from './modelo.js';
-import { pantallaTareas, filaTarea, cargarEstilos } from './vistas.js';
+import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha } from './vistas.js';
 import { abrirEditor } from './editor.js';
 import { sincronizarCalendario } from './calendario.js';
 
@@ -157,6 +157,46 @@ export default {
       cargarEstilos();
       const m = crearModelo(ctx);
       abrirEditor(ctx, m, await m.cargar(), null, { fecha, titulo, notas, ...(origen ? { origen } : {}) });
+    },
+
+    // ── Planificador semanal (Calendario) ──
+    // Completar o reabrir una tarea (con las mismas preguntas que en la lista).
+    async 'tarea-completar'({ id } = {}, ctx) {
+      const m = crearModelo(ctx);
+      const d = await m.cargar();
+      const t = d.tarea(id);
+      if (!t) throw new Error('Esa tarea ya no existe.');
+      cargarEstilos();
+      return alternarHecha(ctx, m, d, t);
+    },
+    // Ponerle otra fecha (o sacársela: fecha '').
+    async 'tarea-fecha'({ id, fecha = '' } = {}, ctx) {
+      const m = crearModelo(ctx);
+      const d = await m.cargar();
+      const t = d.tarea(id);
+      if (!t) throw new Error('Esa tarea ya no existe.');
+      if (!fecha && t.repeticion?.tipo) throw new Error('Las tareas que se repiten necesitan una fecha.');
+      await m.cambiarFecha(t, fecha);
+    },
+    // Lo que todavía no tiene día: Bandeja y tareas sin fecha (sin las de Sistemas).
+    async 'tareas-sin-fecha'(_, ctx) {
+      const m = crearModelo(ctx);
+      const d = await m.cargar();
+      const lugar = (t) => { const a = d.area(t.areaId), p = d.proyecto(t.proyectoId); return [a?.nombre || 'Bandeja', p?.nombre].filter(Boolean).join(' › '); };
+      return d.tareas
+        .filter(t => !hecha(t) && !t.fecha && !t.padreId && !d.enOculto(t) && !d.area(t.areaId)?.sistema && !d.proyecto(t.proyectoId)?.sistema)
+        .sort((a, b) => (a.areaId ? 1 : 0) - (b.areaId ? 1 : 0) || (a.orden || 0) - (b.orden || 0))
+        .map(t => ({ id: t.id, titulo: t.titulo, lugar: lugar(t) }));
+    },
+    // ── Metas (Hábitos y metas) ──
+    async 'metas-proyectos'(_, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      return d.proyectos.filter(p => !p.archivado && !p.sistema).map(p => ({ id: p.id, nombre: `${d.area(p.areaId)?.nombre || 'Bandeja'} › ${p.nombre}` }));
+    },
+    async 'metas-proyecto'({ proyectoId } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const l = d.todas.filter(t => t.proyectoId === proyectoId && !t.padreId);
+      return { hechas: l.filter(hecha).length, total: l.length };
     },
 
     'sistema-pendientes': (datos, ctx) => crearModelo(ctx).pendientesDeSistema(String(datos?.prefijo || '')),

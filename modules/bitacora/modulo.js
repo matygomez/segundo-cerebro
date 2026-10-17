@@ -213,6 +213,71 @@ export default {
   acciones: {
     // Otros módulos pueden abrir una nota: ctx.pedir('abrir-nota', { id })
     'abrir-nota': ({ id } = {}, ctx) => ctx.navegar(`bitacora/n/${id}`),
+
+    // Para las metas de Hábitos: qué carpetas hay y qué campos se pueden usar.
+    // La Filmoteca aparece como una carpeta más, con campos propios (@estado, @tipo…).
+    async 'metas-carpetas'(_, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const UTILES = ['opcion', 'opciones', 'sino', 'numero', 'calificacion', 'progreso', 'fecha'];
+      const lista = d.carpetas.filter(c => !c.sistema).map(c => ({
+        id: c.id, nombre: d.nombreRuta(c.id),
+        campos: (c.campos || []).filter(f => UTILES.includes(f.tipo)).map(f => ({ id: f.id, nombre: f.nombre, tipo: f.tipo, opciones: (f.opciones || []).map(o => ({ id: o.id, nombre: o.nombre })) })),
+      }));
+      if (d.carpetas.some(c => c.sistema === 'filmoteca')) {
+        lista.unshift({
+          id: '@film', nombre: 'Filmoteca',
+          fechas: [['@vista', 'En que la vi'], ['@agregada', 'En que la agregué']],
+          campos: [
+            { id: '@estado', nombre: 'Lista', tipo: 'opcion', opciones: [['paraver', 'Pendientes'], ['viendo', 'Viendo'], ['vista', 'Vista'], ['abandonada', 'Abandonada']].map(([id, nombre]) => ({ id, nombre })) },
+            { id: '@tipo', nombre: 'Tipo', tipo: 'opcion', opciones: [{ id: 'movie', nombre: 'Película' }, { id: 'tv', nombre: 'Serie' }] },
+            { id: '@calif', nombre: 'Calificación', tipo: 'calificacion' },
+          ],
+        });
+      }
+      return lista;
+    },
+
+    // Cuenta (o suma un campo de) las notas de una carpeta que cumplen una condición,
+    // con fecha entre desde y hasta (AAAA-MM-DD).
+    async 'metas-contar'({ carpetaId = '', campoId = '', valor = '', sumarId = '', fechaSegun = 'modificado', desde = '0000', hasta = '9999' } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const aDia = (ms) => { if (!ms) return ''; const f = new Date(ms); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`; };
+      const enRango = (x) => !!x && x >= desde && x <= hasta;
+      if (carpetaId === '@film') {
+        const film = new Set(d.carpetas.filter(c => c.sistema === 'filmoteca').map(c => c.id));
+        let total = 0;
+        for (const n of d.notas) {
+          const c = n.cine;
+          if (!c || !film.has(n.carpetaId)) continue;
+          if (campoId === '@estado' && valor) { if (!(c.estado === valor || (valor === 'vista' && c.estado === 'volver'))) continue; }
+          if (campoId === '@tipo' && valor && c.tipo !== valor) continue;
+          const fechas = fechaSegun === '@vista' ? (c.vistas || []).map(x => String(x).slice(0, 10))
+            : fechaSegun === '@agregada' ? [aDia(c.agregada || n.creado)]
+              : [aDia(fechaSegun === 'creado' ? n.creado : n.modificado)];
+          if (!fechas.some(enRango)) continue;
+          total += sumarId === '@calif' ? (Number(c.calificacion) || 0) : 1;
+        }
+        return total;
+      }
+      const c = d.carpeta(carpetaId);
+      if (!c) throw new Error('la carpeta ya no existe');
+      const ids = new Set([c.id, ...d.descendientes(c.id).map(x => x.id)]);
+      const campo = (c.campos || []).find(f => f.id === campoId);
+      let total = 0;
+      for (const n of d.notas) {
+        if (!ids.has(n.carpetaId)) continue;
+        const v = n.props?.[campoId];
+        if (campo && valor) {
+          if (campo.tipo === 'sino' && !!v !== (valor === 'si')) continue;
+          if (campo.tipo === 'opcion' && v !== valor) continue;
+          if (campo.tipo === 'opciones' && !(Array.isArray(v) && v.includes(valor))) continue;
+        }
+        const fecha = fechaSegun === 'creado' ? aDia(n.creado) : fechaSegun === 'modificado' || !fechaSegun ? aDia(n.modificado) : String(n.props?.[fechaSegun] || '').slice(0, 10);
+        if (!enRango(fecha)) continue;
+        total += sumarId ? (Number(n.props?.[sumarId]) || 0) : 1;
+      }
+      return total;
+    },
   },
 
   // Un adjunto que estaba en espera ya se subió.

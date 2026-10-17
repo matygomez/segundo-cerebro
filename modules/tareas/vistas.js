@@ -134,6 +134,36 @@ let verMasAdelante = false;          // en Hoy: mostrar también lo que viene de
 
 // ── Fila de una tarea (se usa también en el bloque de Inicio) ──
 
+// Completar (o reabrir) una tarea con todas sus preguntas: pago de Finanzas,
+// subtareas pendientes y aviso con Deshacer. Lo usan la lista y el Planificador.
+export async function alternarHecha(ctx, m, d, t) {
+  const subs = d.hijas ? d.hijas(t.id) : [];
+    if (hecha(t)) { await m.reabrir(t); return; }
+    // Recordatorio de Finanzas sin pagar: ¿registrar el pago?
+    if (t.origen?.modulo === 'finanzas' && t.origen.clave) {
+      let estado = null;
+      try { estado = await ctx.pedir('recordatorio-estado', { clave: t.origen.clave }); } catch { /* Finanzas no está */ }
+      if (estado?.existe && !estado.pagado) {
+        const r = await preguntarPago(ctx, t);
+        if (!r) return false;
+        if (r === 'registrar') {
+          try { await ctx.pedir('recordatorio-pagar', { clave: t.origen.clave }); } catch (e) { ctx.aviso(e.message); }
+          return false;   // si se guardó el pago, Finanzas completa la tarea sola
+        }
+      }
+    }
+    // Si tiene subtareas sin terminar, pregunta qué hacer con ellas.
+    const pendientes = subs.filter(x => !hecha(x)).length;
+    if (pendientes) {
+      const r = await preguntarSubtareas(ctx, t, pendientes);
+      if (!r) return false;
+      if (r === 'todas') await m.completarSubtareas(t);
+    }
+    const prox = await m.completar(t);
+    if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
+    else ctx.aviso(`Completada: "${t.titulo}"`, { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }), duracion: 6000 });
+  }
+
 export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, nivel = 0, marcaMadre = false } = {}) {
   const { h } = ctx;
   const subs = d.hijas ? d.hijas(t.id) : [];
@@ -175,32 +205,7 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
   if (marcaMadre && madre) meta.push(h('span', { class: 'tr-meta tr-de-madre', title: 'Es subtarea de' }, '↳ ', madre.titulo));
   for (const e of t.etiquetas || []) meta.push(h('span', { class: 'tr-etiqueta' }, `#${e}`));
 
-  const completar = async () => {
-    if (hecha(t)) { await m.reabrir(t); return; }
-    // Recordatorio de Finanzas sin pagar: ¿registrar el pago?
-    if (t.origen?.modulo === 'finanzas' && t.origen.clave) {
-      let estado = null;
-      try { estado = await ctx.pedir('recordatorio-estado', { clave: t.origen.clave }); } catch { /* Finanzas no está */ }
-      if (estado?.existe && !estado.pagado) {
-        const r = await preguntarPago(ctx, t);
-        if (!r) return false;
-        if (r === 'registrar') {
-          try { await ctx.pedir('recordatorio-pagar', { clave: t.origen.clave }); } catch (e) { ctx.aviso(e.message); }
-          return false;   // si se guardó el pago, Finanzas completa la tarea sola
-        }
-      }
-    }
-    // Si tiene subtareas sin terminar, pregunta qué hacer con ellas.
-    const pendientes = subs.filter(x => !hecha(x)).length;
-    if (pendientes) {
-      const r = await preguntarSubtareas(ctx, t, pendientes);
-      if (!r) return false;
-      if (r === 'todas') await m.completarSubtareas(t);
-    }
-    const prox = await m.completar(t);
-    if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
-    else ctx.aviso(`Completada: "${t.titulo}"`, { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }), duracion: 6000 });
-  };
+  const completar = () => alternarHecha(ctx, m, d, t);
   const aManana = async () => {
     const antes = t.fecha || '';
     await m.cambiarFecha(t, sumarDias(hoy(), 1));

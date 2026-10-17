@@ -533,6 +533,9 @@ export function crearModelo(ctx) {
 
     reabrir: (t) => col.tareas.actualizar(t.id, { ...t, estado: 'pendiente', completada: null }),
 
+    // Cambiar solo la fecha (Planificador). Sin fecha, tampoco queda la hora.
+    cambiarFecha: (t, fecha) => col.tareas.actualizar(t.id, fecha ? { fecha } : { fecha: '', hora: '' }),
+
     async alternarSubtarea(t, subId) {
       const subtareas = (t.subtareas || []).map(s => s.id === subId ? { ...s, hecha: !s.hecha } : s);
       return col.tareas.actualizar(t.id, { ...t, subtareas });

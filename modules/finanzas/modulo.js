@@ -8,6 +8,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import { crearModelo, plata, mesActual } from './modelo.js';
+
+const sumarMes = (mes) => { const [a, m] = mes.split('-').map(Number); const f = new Date(a, m, 1); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`; };
 import { pantallaFinanzas } from './vistas.js';
 import { abrirMovimiento } from './formularios.js';
 import { cargarEstilos } from './comun.js';
@@ -34,6 +36,35 @@ export default {
     'recordatorio-estado': (datos, ctx) => estadoRecordatorio(ctx, datos),
     // Abre el formulario de pago con todo completo.
     'recordatorio-pagar': (datos, ctx) => pagarRecordatorio(ctx, datos),
+
+    // Para las metas de Hábitos: cuentas y categorías que se pueden elegir.
+    async 'metas-cuentas'(_, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const cats = d.categorias.filter(c => !c.archivada).map(c => ({ id: c.id, nombre: d.nombreCategoria(c.id), tipo: c.tipo }));
+      return { cuentas: d.cuentas.filter(c => !c.archivada).map(c => ({ id: c.id, nombre: c.nombre })), categorias: cats };
+    },
+    // Un número para una meta: saldo de una cuenta, o lo gastado / ingresado
+    // en una categoría (y sus subcategorías) entre desde y hasta.
+    async 'metas-valor'({ medida = 'saldo', id = '', desde = '0000-01-01', hasta = '9999-12-31' } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      if (medida === 'saldo') { if (!d.cuenta(id)) throw new Error('la cuenta ya no existe'); return d.saldo(id); }
+      const esDe = (catId) => catId === id || d.categoria(catId)?.padreId === id;
+      const hoy = mesActual();
+      const fin = (hasta.slice(0, 7) < hoy ? hasta.slice(0, 7) : hoy);
+      let total = 0;
+      for (let mes = desde.slice(0, 7); mes <= fin; mes = sumarMes(mes)) {
+        if (medida === 'gastado') {
+          for (const g of d.gastosDelMes(mes)) {
+            if (!esDe(g.categoriaId)) continue;
+            if (!g.cuota && (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
+            total += Number(g.importe) || 0;
+          }
+        } else {
+          for (const m of d.ingresosDelMes(mes)) if (esDe(m.categoriaId) && m.fecha >= desde && m.fecha <= hasta) total += Number(m.importe) || 0;
+        }
+      }
+      return total;
+    },
   },
 
   botonesInicio(ctx) {

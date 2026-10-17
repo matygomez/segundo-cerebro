@@ -7,13 +7,14 @@
 // línea acá. El orden de la lista es el orden del menú.
 // ─────────────────────────────────────────────────────────────
 
-export const VERSION = '0.19.1';
+export const VERSION = '0.20.0';
 
 export const MODULOS = [
   { id: 'home', nombre: 'Inicio', icono: 'inicio', archivo: './modules/home/modulo.js' },
   { id: 'tareas', nombre: 'Tareas', icono: 'tareas', archivo: './modules/tareas/modulo.js' },
   { id: 'finanzas', nombre: 'Finanzas', icono: 'finanzas', archivo: './modules/finanzas/modulo.js' },
   { id: 'bitacora', nombre: 'Bitácora', icono: 'bitacora', archivo: './modules/bitacora/modulo.js' },
+  { id: 'habitos', nombre: 'Hábitos', icono: 'habitos', archivo: './modules/habitos/modulo.js' },
   // También se abre tocando la fecha en Inicio. Arranca fuera de la barra del celular.
   { id: 'calendario', nombre: 'Calendario', icono: 'calendario', archivo: './modules/calendario/modulo.js', fueraDeBarra: true },
 ];

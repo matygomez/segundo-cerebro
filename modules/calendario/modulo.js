@@ -9,10 +9,17 @@
 // Arranca oculto (no está en el menú): se abre tocando la fecha en
 // Inicio. Desde Ajustes › Módulos se puede mostrar en el menú.
 //
-// Rutas: #/calendario  ·  #/calendario/AAAA-MM-DD (abre ese día)
+// Dos vistas: "Semana" (el Planificador semanal, en semana.js) y "Mes".
+// Rutas: #/calendario (la última vista usada)  ·  #/calendario/semana
+//        #/calendario/mes  ·  #/calendario/AAAA-MM-DD (el mes, en ese día)
 // ─────────────────────────────────────────────────────────────
 
+import { pantallaSemana } from './semana.js';
+
 const pad = (n) => String(n).padStart(2, '0');
+// Última vista usada en este dispositivo.
+const vistaGuardada = () => { try { return localStorage.getItem('sc-cal-vista') || 'semana'; } catch { return 'semana'; } };
+const guardarVista = (v) => { try { localStorage.setItem('sc-cal-vista', v); } catch { /* nada */ } };
 const aISO = (f) => `${f.getFullYear()}-${pad(f.getMonth() + 1)}-${pad(f.getDate())}`;
 const deISO = (s) => { const [a, m, d] = s.split('-').map(Number); return new Date(a, m - 1, d); };
 const hoyISO = () => aISO(new Date());
@@ -57,6 +64,28 @@ function abrirTecladoYa() {
   document.body.append(i);
   i.focus();
   setTimeout(() => i.remove(), 2500);
+}
+
+// Configuración del Calendario (vale para Semana y Mes).
+async function abrirConfigCal(ctx, alCerrar) {
+  const { h, icono } = ctx;
+  const cfg = await leerConfig(ctx);
+  const fila = (texto, opciones, actual, clave) => h('div', { class: 'cl-cfg-fila' }, h('span', {}, texto),
+    h('span', { class: 'cl-seg', role: 'group', 'aria-label': texto }, opciones.map(([v, t]) => h('button', {
+      type: 'button', class: v === actual ? 'activo' : '', 'aria-pressed': String(v === actual),
+      onclick: async () => { await guardarConfig(ctx, cfg, { [clave]: v }); dlg.close(); abrirConfigCal(ctx, alCerrar); },
+    }, t))));
+  const dlg = h('dialog', { class: 'hoja cl-config' },
+    h('header', { class: 'hoja-cabecera' }, h('h2', {}, 'Configurar Calendario'),
+      h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
+    fila('La semana empieza el', [['lunes', 'Lunes'], ['domingo', 'Domingo']], cfg.semana, 'semana'),
+    fila('Tareas que se repiten', [[true, 'Mostrar'], [false, 'No']], cfg.repetidas, 'repetidas'),
+    fila('Completadas en días pasados', [[true, 'Mostrar'], [false, 'No']], cfg.completadas, 'completadas'),
+    fila('Leyenda de colores', [[true, 'Mostrar'], [false, 'No']], cfg.leyenda, 'leyenda'),
+    h('p', { class: 'nota' }, `Se guarda por separado en la PC y en el celular (ahora estás en ${esPC() ? 'la PC' : 'el celular'}). Qué calendarios de Google llegan, y a dónde, se elige en Tareas › ⚙.`));
+  dlg.addEventListener('close', () => { dlg.remove(); alCerrar?.(); });
+  document.body.append(dlg);
+  dlg.showModal();
 }
 
 // ── Esta semana (Inicio) ──
@@ -159,6 +188,21 @@ export default {
   async pantalla(contenedor, ctx, sub = []) {
     cargarEstilos();
     const { h, icono } = ctx;
+    const vista = sub[0] === 'semana' || sub[0] === 'mes' ? sub[0] : (sub[0] ? 'mes' : vistaGuardada());
+    guardarVista(vista);
+    // Cabecera común: título, Semana / Mes y configuración.
+    const cabecera = (v) => h('header', { class: 'cl-cab' },
+      h('div', { class: 'cl-titulos' },
+        h('h1', { class: 'cl-titulo' }, icono('calendario'), v === 'semana' ? 'Planificador semanal' : 'Calendario'),
+        v === 'semana' ? h('p', { class: 'nota cl-sub' }, 'Repartí tus tareas de la semana y ponete un premio por cumplirlas.') : null),
+      h('span', { class: 'cl-vistas', role: 'group', 'aria-label': 'Vista' },
+        h('button', { type: 'button', class: v === 'semana' ? 'activo' : '', 'aria-pressed': String(v === 'semana'), onclick: () => ctx.navegar('calendario/semana') }, 'Semana'),
+        h('button', { type: 'button', class: v === 'mes' ? 'activo' : '', 'aria-pressed': String(v === 'mes'), onclick: () => ctx.navegar('calendario/mes') }, 'Mes')),
+      h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Calendario', title: 'Configurar Calendario', onclick: () => abrirConfigCal(ctx, () => alCerrarConfig()) }, icono('ajustes')));
+    let alCerrarConfig = () => {};
+    if (vista === 'semana') {
+      return pantallaSemana(contenedor, ctx, { leerConfig: () => leerConfig(ctx), cabecera });
+    }
     if (sub[0] && /^\d{4}-\d{2}-\d{2}$/.test(sub[0])) { diaElegido = sub[0]; mesVista = new Date(deISO(sub[0]).getFullYear(), deISO(sub[0]).getMonth(), 1); }
     if (!diaElegido) diaElegido = hoyISO();
     if (!mesVista) { const d = deISO(diaElegido); mesVista = new Date(d.getFullYear(), d.getMonth(), 1); }
@@ -171,9 +215,7 @@ export default {
     const mover = (n) => { mesVista = new Date(mesVista.getFullYear(), mesVista.getMonth() + n, 1); pintar(); };
 
     contenedor.replaceChildren(
-      h('header', { class: 'cl-cab' },
-        h('h1', { class: 'cl-titulo' }, icono('calendario'), 'Calendario'),
-        h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Configurar Calendario', title: 'Configurar Calendario', onclick: () => abrirConfig() }, icono('ajustes'))),
+      cabecera('mes'),
       h('div', { class: 'cl-barra' }, titMes,
         h('button', { type: 'button', class: 'boton cl-nav', 'aria-label': 'Mes anterior', onclick: () => mover(-1) }, '‹'),
         h('button', { type: 'button', class: 'boton cl-hoy', onclick: () => { diaElegido = hoyISO(); const d = new Date(); mesVista = new Date(d.getFullYear(), d.getMonth(), 1); pintar(); } }, 'Hoy'),
@@ -264,25 +306,7 @@ export default {
       ctx.pedir('abrir-tarea', { id: x.id }).catch(e => ctx.aviso(e.message));
     }
 
-    function abrirConfig() {
-      const fila = (texto, opciones, actual, clave) => h('div', { class: 'cl-cfg-fila' }, h('span', {}, texto),
-        h('span', { class: 'cl-seg', role: 'group', 'aria-label': texto }, opciones.map(([v, t]) => h('button', {
-          type: 'button', class: v === actual ? 'activo' : '', 'aria-pressed': String(v === actual),
-          onclick: async () => { await guardarConfig(ctx, cfg, { [clave]: v }); cfg = await leerConfig(ctx); dlg.close(); abrirConfig(); },
-        }, t))));
-      const dlg = h('dialog', { class: 'hoja cl-config' },
-        h('header', { class: 'hoja-cabecera' }, h('h2', {}, 'Configurar Calendario'),
-          h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
-        fila('La semana empieza el', [['lunes', 'Lunes'], ['domingo', 'Domingo']], cfg.semana, 'semana'),
-        fila('Tareas que se repiten', [[true, 'Mostrar'], [false, 'No']], cfg.repetidas, 'repetidas'),
-        fila('Completadas en días pasados', [[true, 'Mostrar'], [false, 'No']], cfg.completadas, 'completadas'),
-        fila('Leyenda de colores', [[true, 'Mostrar'], [false, 'No']], cfg.leyenda, 'leyenda'),
-        h('p', { class: 'nota' }, `Se guarda por separado en la PC y en el celular (ahora estás en ${esPC() ? 'la PC' : 'el celular'}). Qué calendarios de Google llegan, y a dónde, se elige en Tareas › ⚙.`));
-      dlg.addEventListener('close', () => { dlg.remove(); pintar(); });
-      document.body.append(dlg);
-      dlg.showModal();
-    }
-
+    alCerrarConfig = () => pintar();
     let espera = null;
     const refrescar = () => { clearTimeout(espera); espera = setTimeout(pintar, 120); };
     const quitar1 = ctx.alCambiarDatosDe?.('tareas', refrescar);
