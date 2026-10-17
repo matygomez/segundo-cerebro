@@ -89,6 +89,12 @@
 .cl-sem-dias { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
 .cl-sem-dia { background: var(--superficie-2); border: 1px solid transparent; border-radius: 10px; padding: 0.4rem 0.1rem; display: grid; justify-items: center; gap: 0.2rem; text-decoration: none; color: var(--tinta); min-width: 0; }
 .cl-sem-dia.hoy { border-color: var(--laton); }
+button.cl-sem-dia { font: inherit; cursor: pointer; }
+.cl-sem-dia.sel { background: var(--laton); color: #17130a; }
+.cl-sem-dia.sel small { color: #3a2e14; }
+.cl-sem-lista { position: relative; }
+.cl-sem-it { transition: background 0.4s; border-radius: 6px; }
+.cl-sem-it.marcado { background: var(--laton-fondo); }
 .cl-sem-dia small { font-size: 0.66rem; color: var(--tinta-2); text-transform: uppercase; }
 .cl-sem-dia b { font-family: var(--fuente-titulo); font-size: 1.15rem; line-height: 1; }
 .cl-sem-dia.feriado b { color: var(--cl-violeta); }

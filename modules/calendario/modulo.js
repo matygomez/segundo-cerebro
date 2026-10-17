@@ -120,7 +120,7 @@ async function dibujarSemana(ctx, contenedor, op) {
     const fila = (x) => {
       const f = deISO(x.fecha);
       const der = x.hora || (x.tipo === 'fer' ? 'Feriado' : x.lugar || '');
-      return h('button', { type: 'button', class: `cl-sem-it t-${x.tipo}`, onclick: () => abrirItem(ctx, x) },
+      return h('button', { type: 'button', class: `cl-sem-it t-${x.tipo}`, 'data-fecha': x.fecha, onclick: () => abrirItem(ctx, x) },
         h('span', { class: 'cl-sem-d' }, x.fecha === hoy ? 'Hoy' : DSEM[f.getDay()]),
         h('span', { class: 'cl-sem-t' }, x.titulo),
         der ? h('span', { class: 'cl-sem-der' }, der) : null);
@@ -130,9 +130,10 @@ async function dibujarSemana(ctx, contenedor, op) {
     contenedor.replaceChildren(...[
       h('div', { class: 'cl-sem-dias' }, dias.map(f => {
         const k = aISO(f), del = porDia.get(k) || [];
-        return h('a', {
-          href: `#/calendario/${k}`, class: `cl-sem-dia${k === hoy ? ' hoy' : ''}${del.some(x => x.tipo === 'fer') ? ' feriado' : ''}`,
+        return h('button', {
+          type: 'button', 'data-fecha': k, class: `cl-sem-dia${k === hoy ? ' hoy' : ''}${del.some(x => x.tipo === 'fer') ? ' feriado' : ''}`,
           'aria-label': `${f.getDate()}${del.length ? `, ${del.length} cosa${del.length > 1 ? 's' : ''}` : ''}`,
+          onclick: () => irAlDia(k),
         },
         h('small', {}, DSEM[f.getDay()]), h('b', {}, String(f.getDate())),
         h('span', { class: 'cl-puntos' }, del.slice(0, 5).map(x => h('i', { class: `cl-p t-${x.tipo}${x.repite || x.hecha ? ' suave' : ''}` }))));
@@ -149,6 +150,21 @@ async function dibujarSemana(ctx, contenedor, op) {
       riel.firstChild.style.height = `${alto}px`;
       riel.firstChild.style.top = `${(riel.clientHeight - alto) * lista.scrollTop / sobra}px`;
     };
+    // Tocar un día: la lista baja hasta lo de ese día y lo resalta.
+    function irAlDia(k) {
+      contenedor.querySelectorAll('.cl-sem-dia.sel').forEach(b => b.classList.remove('sel'));
+      contenedor.querySelector(`.cl-sem-dia[data-fecha="${k}"]`)?.classList.add('sel');
+      lista.querySelectorAll('.cl-sem-it.marcado').forEach(b => b.classList.remove('marcado'));
+      const filas = [...lista.querySelectorAll(`.cl-sem-it[data-fecha="${k}"]`)];
+      if (!filas.length) {
+        const f = deISO(k);
+        ctx.aviso(k < hoy ? `El ${DSEM[f.getDay()].toLowerCase()} ${f.getDate()} ya pasó.` : `Nada pendiente el ${DSEM[f.getDay()].toLowerCase()} ${f.getDate()}.`, { duracion: 2200 });
+        return;
+      }
+      lista.scrollTo({ top: filas[0].offsetTop, behavior: 'smooth' });
+      filas.forEach(b => b.classList.add('marcado'));
+      setTimeout(() => filas.forEach(b => b.classList.remove('marcado')), 1600);
+    }
     lista.addEventListener('scroll', moverRiel, { passive: true });
     requestAnimationFrame(moverRiel);
   }
