@@ -607,3 +607,30 @@ dialog.fz-hoja.ancha { max-width: 42rem; width: calc(100vw - 1.5rem); }
 }
 .bloque-cuerpo:has(> .fz-ini-num) { display: grid; gap: 0.65rem; }
 @media (max-width: 899px) { .bloque-cuerpo:has(> .fz-ini-num) { gap: 0.5rem; } }
+
+/* Controlar resumen de crédito */
+.fz-ctrl-abrir { font-size: 0.82rem; padding: 0.3rem 0.7rem; }
+dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
+.fz-ctrl-meses { display: flex; gap: 0.35rem; overflow-x: auto; padding-bottom: 0.2rem; scrollbar-width: none; }
+.fz-ctrl-meses button { flex: none; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta-2, #9A9C9F); border-radius: 999px; padding: 0.3rem 0.75rem; font: inherit; font-size: 0.85rem; cursor: pointer; }
+.fz-ctrl-meses button.sel { background: var(--laton); border-color: var(--laton); color: #17130a; font-weight: 600; }
+.fz-ctrl-fechas { margin: 0; }
+.fz-ctrl-panel { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta, 12px); padding: 0.75rem 0.9rem; display: grid; gap: 0.55rem; }
+.fz-ctrl-fila { display: flex; justify-content: space-between; align-items: baseline; gap: 0.6rem; }
+.fz-ctrl-prog { height: 6px; background: var(--superficie-2); border-radius: 99px; overflow: hidden; }
+.fz-ctrl-prog i { display: block; height: 100%; background: var(--laton); transition: width .2s; }
+.fz-ctrl-dif { margin: 0; font-size: 0.88rem; padding: 0.45rem 0.65rem; border-radius: 8px; }
+.fz-ctrl-dif.ok { background: #17302A; color: #6FB4A0; }
+.fz-ctrl-dif.mal { background: #3A201D; color: #E2786C; }
+.fz-ctrl-lista { display: grid; }
+.fz-ctrl-item { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) auto; gap: 0.6rem; align-items: center; padding: 0.6rem 0.1rem; border-bottom: 1px solid var(--linea); cursor: pointer; }
+.fz-ctrl-item:last-child { border-bottom: 0; }
+.fz-ctrl-item:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; border-radius: 6px; }
+.fz-ctrl-tilde { width: 1.35rem; height: 1.35rem; border-radius: 6px; border: 1.5px solid var(--tinta-3, #6B6E72); display: grid; place-items: center; }
+.fz-ctrl-item.ok .fz-ctrl-tilde { background: var(--laton); border-color: var(--laton); }
+.fz-ctrl-item.ok .fz-ctrl-tilde::after { content: ""; width: 0.35rem; height: 0.7rem; border: solid #17130a; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg) translate(-1px, -1px); }
+.fz-ctrl-item.ok .fz-ctrl-desc b { color: var(--tinta-2, #9A9C9F); }
+.fz-ctrl-desc { display: grid; min-width: 0; }
+.fz-ctrl-desc b { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fz-ctrl-desc small { color: var(--tinta-3, #6B6E72); font-size: 0.8rem; }
+.fz-ctrl-agregar { border: 1px dashed var(--laton); background: none; color: var(--laton); border-radius: 10px; padding: 0.6rem; font: inherit; font-weight: 600; cursor: pointer; }

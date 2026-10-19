@@ -26,6 +26,7 @@ export function abrirMovimiento(ctx, m, d, tipo, mov = null, base = {}) {
     const medio = selectCuentas(ctx, d, { tipos: ['cuenta', 'reserva'], creditos: true, valor: valorMedio, yaHecho: esAjuste ? null : 'Ya pagado' });
     const cuotas = h('input', { type: 'number', min: 1, max: 60, step: 1, inputmode: 'numeric', value: v.cuotas || 1 });
     const ayudaCuotas = h('span', { class: 'nota' });
+    const ayudaResumen = h('p', { class: 'nota' });
     const filaCuotas = h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Cuotas'), cuotas, ayudaCuotas);
     // Compra con tarjeta cargada después: las cuotas que ya vencieron se toman como pagadas.
     const vencidas = h('input', { type: 'checkbox', checked: !!v.pagadasHasta || !!v.cuotasPagadas });
@@ -44,10 +45,13 @@ export function abrirMovimiento(ctx, m, d, tipo, mov = null, base = {}) {
       filaVencidas.hidden = !vieja;
       const n = Math.max(1, Number(cuotas.value) || 1), imp = leerImporte(importe);
       ayudaCuotas.textContent = credito && n > 1 && imp > 0 ? `${n} cuotas de ${plata(imp / n)}, desde el resumen donde cae la compra` : '';
+      // A qué resumen va, para cargar compras viejas en el mes correcto.
+      const cr = credito && fecha.value ? d.credito(medio.value.slice(2)) : null;
+      ayudaResumen.textContent = cr ? `Entra en el resumen de ${nombreMes(d.mesResumenDe(cr, fecha.value), false).toLowerCase()}.` : '';
     };
     [medio, cuotas, importe, fecha].forEach(x => x.addEventListener('input', actualizar));
     filas.push(campo(ctx, 'Pagado con', medio, esAjuste ? null : '"Ya pagado" (al final de la lista) es para gastos que hiciste antes: suman al mes pero no tocan ninguna cuenta.'),
-      filaCuotas, filaVencidas,
+      filaCuotas, filaVencidas, ayudaResumen,
       esAjuste ? h('p', { class: 'nota' }, 'Categoría: Ajuste sin detalle') : h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Categoría'), cat.elemento));
     setTimeout(actualizar);
     validar = () => {

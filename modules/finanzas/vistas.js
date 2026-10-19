@@ -14,6 +14,7 @@ import { abrirMovimiento, abrirAjuste, abrirPresupuesto, abrirActualizarInversio
 import { vistaMovimientos } from './movimientos.js';
 import { vistaConfig } from './config.js';
 import { vistaAnalisis } from './analisis.js';
+import { abrirControlResumen } from './control.js';
 
 let mesVista = mesActual();
 
@@ -614,7 +615,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
             h('p', { class: 'nota' }, 'En verde, los meses que el fondo ya cubre.'))),
         h('div', { class: 'fz-det-grilla' }, d.creditosActivos().map(c => {
           const r = resumenActual(c);
-          return tarjeta(h('h2', {}, `${d.nombreCredito(c)}`, r ? h('span', { class: 'nota' }, ` · resumen de ${nombreMes(r.mes, false).toLowerCase()}`) : null),
+          const cab = h('div', { class: 'fz-cab-flex' },
+            h('h2', {}, `${d.nombreCredito(c)}`, r ? h('span', { class: 'nota' }, ` · resumen de ${nombreMes(r.mes, false).toLowerCase()}`) : null),
+            h('button', { type: 'button', class: 'boton fz-ctrl-abrir', onclick: () => abrirControlResumen(ctx, m, d, c, r?.mes || d.mesResumenDe(c, hoy())) }, 'Controlar resumen'));
+          return tarjeta(cab,
             r ? [h('p', { class: 'nota' }, `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}${r.sugeridas ? ' (sugeridas)' : ''}`),
               r.items.map(q => linea(ctx, h('span', {}, q.mov.descripcion || d.nombreCategoria(q.mov.categoriaId),
                 q.total > 1 ? h('span', { class: 'nota' }, ` cuota ${q.numero}/${q.total}${q.total - q.numero ? ` · quedan ${q.total - q.numero} por ${plata(q.importe * (q.total - q.numero))}` : ''}`) : null), plata(q.importe))),
