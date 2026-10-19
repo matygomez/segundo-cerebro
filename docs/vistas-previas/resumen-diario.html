@@ -16,7 +16,7 @@ body { margin: 0; background: var(--papel); color: var(--tinta); font-family: Ba
 .pest button { flex: 1; padding: 8px 6px; border-radius: 9px; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta-2); font: inherit; font-size: .85rem; cursor: pointer; }
 .pest button.sel { color: var(--tinta); border-color: var(--laton); }
 .fecha { color: var(--tinta-2); font-size: 1.05rem; }
-.fecha b { display: block; color: var(--tinta); font-family: 'Barlow Condensed'; font-size: 2rem; font-weight: 600; text-transform: capitalize; }
+.fecha b { display: block; color: var(--tinta); font-family: 'Barlow Condensed'; font-size: 2rem; font-weight: 600; }
 .tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
 .tarjeta h3 { margin: 0; font-size: 1rem; display: flex; gap: 8px; align-items: baseline; }
 .tarjeta h3 small { margin-left: auto; color: var(--tinta-2); font-weight: 400; font-size: .78rem; }
@@ -28,17 +28,24 @@ body { margin: 0; background: var(--papel); color: var(--tinta); font-family: Ba
 .pistas::-webkit-scrollbar { display: none; }
 .aviso { flex: 0 0 100%; scroll-snap-align: start; position: relative; background: linear-gradient(120deg, var(--laton-fondo), var(--superficie) 70%);
   border: 1px solid #4a3f24; border-radius: 14px; padding: 14px 16px; display: grid; gap: 9px; align-content: start; }
-.aviso.dia { background: linear-gradient(120deg, #16212b, var(--superficie) 70%); border-color: #2a3a4a; }
+.aviso.mes { background: linear-gradient(120deg, #4a3a16, var(--superficie) 75%); border-color: #8a6f33; }
+.aviso.dia { background: linear-gradient(120deg, #1d1a12, var(--superficie) 70%); border-color: #3a3324; }
+.aviso.mes .et { color: #F2C66B; } .aviso.dia .et { color: #A88A4E; }
+.aviso.dia .bt.p { background: #8a7140; border-color: #8a7140; color: #f3ead6; }
+.flecha { position: absolute; top: 50%; transform: translateY(-70%); width: 32px; height: 32px; border-radius: 50%; border: 1px solid var(--linea);
+  background: var(--superficie-2); color: var(--tinta); font-size: 1.1rem; cursor: pointer; display: none; z-index: 2; }
+.flecha.izq { left: -12px; } .flecha.der { right: -12px; }
+@media (hover: hover) and (pointer: fine) { .flecha { display: grid; place-items: center; } .flecha[disabled] { opacity: .25; cursor: default; } }
+.pistas.arrastrando { scroll-snap-type: none; cursor: grabbing; user-select: none; }
+.lineas a { color: inherit; text-decoration: underline; text-decoration-color: var(--tinta-3); }
 .aviso-x { position: absolute; top: 8px; right: 8px; border: 0; background: none; color: var(--tinta-2); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
 .et { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--laton); font-weight: 600; }
-.dia .et { color: var(--azul); }
 .titulo { font-size: 1.15rem; padding-right: 22px; }
 .mini { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: .84rem; color: var(--tinta-2); }
 .mini b { color: var(--tinta); font-family: 'Barlow Condensed'; font-size: 1.25rem; font-weight: 600; margin-right: 4px; }
 .bot { display: flex; gap: 8px; flex-wrap: wrap; }
 .bt { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--linea); background: var(--superficie-2); color: var(--tinta); font: inherit; font-size: .88rem; cursor: pointer; }
 .bt.p { background: var(--laton); color: #1a1408; border-color: var(--laton); font-weight: 600; }
-.dia .bt.p { background: var(--azul); border-color: var(--azul); color: #0d1620; }
 .puntos { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
 .puntos i { width: 7px; height: 7px; border-radius: 50%; background: var(--linea); }
 .puntos i.sel { background: var(--tinta-2); width: 18px; border-radius: 4px; }
@@ -84,20 +91,14 @@ input, select { background: var(--superficie-2); border: 1px solid var(--linea);
 </head>
 <body>
 <div class="app">
-  <div class="nota-previa">Vista previa con datos de ejemplo. Tocá las pestañas para ver cada pantalla. En el Inicio deslizá el cuadro hacia los costados.</div>
-  <div class="pest">
-    <button class="sel" data-p="inicio">Inicio</button>
-    <button data-p="dia">Tu día</button>
-    <button data-p="config">Configurar</button>
-  </div>
-
+  <div class="nota-previa">Vista previa con datos de ejemplo. Así quedaría el Inicio. En el celular deslizá el cuadro; en la PC usá las flechas ‹ › o arrastrá con el mouse.</div>
   <!-- INICIO -->
   <section class="pantalla" id="p-inicio">
     <div class="fecha">Hoy<b>domingo 1 de noviembre</b></div>
     <p class="nota-previa" style="margin:0">Ejemplo de un día que termina semana y empieza mes: aparecen los 3 cuadros, primero el del mes.</p>
     <div class="carru">
       <div class="pistas" id="pistas">
-        <section class="aviso">
+        <section class="aviso mes">
           <button class="aviso-x" aria-label="Cerrar">✕</button>
           <span class="et">Terminó el mes</span>
           <b class="titulo">Resumen de octubre</b>
@@ -117,98 +118,26 @@ input, select { background: var(--superficie-2); border: 1px solid var(--linea);
           <b class="titulo">Tu domingo 1</b>
           <span class="mini"><span><b>19°</b>parcial nublado</span><span><b>4</b>tareas</span><span><b>1</b>vence</span><span><b>5</b>hábitos</span></span>
           <div class="lineas">
-            <span><em>🎂</em>Cumpleaños de Laura</span>
+            <span><em>🎂</em><a href="#" onclick="alert('Te lleva a los cumpleaños en Tareas');return false">Cumpleaños de Laura ›</a></span>
             <span><em>📰</em>El dólar cerró estable tras el anuncio del BCRA</span>
           </div>
-          <span class="bot"><button class="bt p" data-ir="dia">Ver mi día</button><button class="bt cerrar">Ahora no</button></span>
+          <span class="bot"><button class="bt p">Ver mi día</button><button class="bt cerrar">Ahora no</button></span>
         </section>
       </div>
+      <button class="flecha izq" id="ant" aria-label="Anterior">‹</button><button class="flecha der" id="sig" aria-label="Siguiente">›</button>
       <div class="puntos" id="puntos"></div>
     </div>
     <div class="tarjeta"><div class="relleno">… el resto de tus cuadros, como hoy …</div></div>
   </section>
 
-  <!-- TU DÍA -->
-  <section class="pantalla" id="p-dia" hidden>
-    <div class="fecha">Resumen<b>Tu domingo 1</b></div>
-    <div class="tarjeta">
-      <h3>Tiempo <small>📍 Ubicación actual</small></h3>
-      <div class="clima"><b>19°</b><span>Parcial nublado<br><small style="color:var(--tinta-2)">Máx 24° · mín 12° · lluvia 10%</small></span>
-        <div class="horas"><span>9h<b>15°</b></span><span>15h<b>23°</b></span><span>21h<b>17°</b></span></div></div>
-    </div>
-    <div class="tarjeta">
-      <h3>Para hoy <small>Tareas, vencimientos y hábitos</small></h3>
-      <div class="fila"><span class="chk"></span>Llamar al plomero<small>Casa</small></div>
-      <div class="fila"><span class="chk"></span>Preparar informe de recepción<small>Trabajo</small></div>
-      <div class="fila"><span class="chk"></span>Comprar regalo Laura<small>Personal</small></div>
-      <div class="fila"><span class="chk"></span>Pasear al perro<small>Casa</small></div>
-      <div class="fila">💳 Vence la tarjeta Visa<small>$ 214.300</small></div>
-      <div class="fila">✅ Hábitos del día<small>0 de 5</small></div>
-    </div>
-    <div class="tarjeta">
-      <h3>Cumpleaños</h3>
-      <div class="fila">🎂 Laura<small>hoy · cumple 34</small></div>
-      <div class="pend">Pendiente: de dónde se toman los cumpleaños.</div>
-    </div>
-    <div class="tarjeta">
-      <h3>Noticias para vos <small>Tocá una para verla completa</small></h3>
-      <div class="noti" data-n="0"><span class="tema">Economía argentina</span><b>El dólar cerró estable tras el anuncio del BCRA</b><span>Las reservas subieron y el mercado reaccionó con calma.</span></div>
-      <div class="noti" data-n="1"><span class="tema">Economía mundial</span><b>La Fed mantiene las tasas y anticipa un recorte en diciembre</b><span>Los mercados de Asia abren en alza.</span></div>
-      <div class="noti" data-n="2"><span class="tema">Tecnología</span><b>Nuevo récord en chips de bajo consumo</b><span>Promete baterías que duren el doble en celulares.</span></div>
-      <div class="noti" data-n="3"><span class="tema">Política internacional</span><b>Avanzan las negociaciones de alto el fuego</b><span>Se reúnen los mediadores esta semana.</span></div>
-      <div class="noti" data-n="4"><span class="tema">Política argentina</span><b>El Senado trata hoy el presupuesto</b><span>Se espera una sesión larga.</span></div>
-      <span style="font-size:.78rem;color:var(--tinta-3)">Buscadas hoy a las 7:02 con Gemini · se actualizan una vez por día</span>
-    </div>
-  </section>
-
-  <!-- CONFIGURAR -->
-  <section class="pantalla" id="p-config" hidden>
-    <div class="fecha">Resumen<b>Configurar</b></div>
-    <div class="tarjeta">
-      <h3>Resumen del día</h3>
-      <label class="campo">Aparece desde las<input type="time" value="05:00"><small>Se muestra la primera vez que abrís la app desde esa hora, hasta que lo cerrás o termina el día.</small></label>
-    </div>
-    <div class="tarjeta">
-      <h3>Tiempo</h3>
-      <label class="campo">Lugar<select><option>📍 Ubicación actual (GPS)</option><option>Buenos Aires</option><option>Córdoba</option><option>+ Agregar ciudad…</option></select></label>
-    </div>
-    <div class="tarjeta">
-      <h3>Intereses <small>Tocá para activar o quitar</small></h3>
-      <div class="chips">
-        <span class="chip on">Economía mundial</span><span class="chip on">Economía argentina</span><span class="chip on">Tecnología</span>
-        <span class="chip on">Guerras y política internacional</span><span class="chip on">Política argentina</span><span class="chip">+ Agregar</span>
-      </div>
-      <h3 style="margin-top:6px">Te sugiero <small>Según lo que abrís</small></h3>
-      <div class="chips"><span class="chip sug">+ Inteligencia artificial</span><span class="chip sug">+ Energía</span><span class="chip sug">+ Mercado inmobiliario</span></div>
-      <small style="color:var(--tinta-2);font-size:.8rem">La app aprende de las noticias que abrís y de las que marcás "No me interesa".</small>
-    </div>
-    <div class="tarjeta">
-      <h3>Cumpleaños</h3>
-      <div class="pend">Pendiente: de dónde se toman los datos.</div>
-    </div>
-  </section>
 </div>
 
 <div class="velo" id="velo"><div class="hoja" id="hoja"></div></div>
 
 <script>
-const NOTIS = [
-  ['Economía argentina', 'El dólar cerró estable tras el anuncio del BCRA', 'El Banco Central anunció una nueva compra de reservas y el dólar oficial terminó el día sin cambios. Los analistas consultados creen que la calma puede seguir mientras entren dólares de la cosecha.\n\nQué significa para vos: los precios en dólares no deberían moverse esta semana.'],
-  ['Economía mundial', 'La Fed mantiene las tasas y anticipa un recorte en diciembre', 'La Reserva Federal de EE.UU. dejó las tasas como estaban y dio señales de un recorte a fin de año. Las bolsas reaccionaron en alza.'],
-  ['Tecnología', 'Nuevo récord en chips de bajo consumo', 'Un fabricante presentó un chip que gasta la mitad de energía. Llegaría a los celulares en 2027.'],
-  ['Política internacional', 'Avanzan las negociaciones de alto el fuego', 'Los mediadores se reúnen esta semana con ambas partes. Hay un borrador de acuerdo de tres etapas.'],
-  ['Política argentina', 'El Senado trata hoy el presupuesto', 'La sesión empieza a las 11. El oficialismo dice tener los votos; la oposición pide cambios en dos artículos.'],
-];
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 
-function ir(p) {
-  $$('.pest button').forEach(b => b.classList.toggle('sel', b.dataset.p === p));
-  $$('.pantalla').forEach(s => s.hidden = s.id !== 'p-' + p);
-  scrollTo({ top: 0 });
-}
-$$('.pest button').forEach(b => b.onclick = () => ir(b.dataset.p));
-$$('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
 
 // Carrusel: puntitos y cerrar → pasa al siguiente
 const pistas = $('#pistas'), puntos = $('#puntos');
@@ -216,22 +145,23 @@ function pintarPuntos() {
   const n = pistas.children.length;
   const i = Math.round(pistas.scrollLeft / (pistas.clientWidth + 10));
   puntos.innerHTML = n > 1 ? Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'sel' : ''}"></i>`).join('') : '';
+  $('#ant').disabled = i <= 0; $('#sig').disabled = i >= n - 1;
+  $('#ant').style.visibility = $('#sig').style.visibility = n > 1 ? '' : 'hidden';
   if (!n) $('.carru').innerHTML = '<p class="nota-previa">Cerraste todos: el cuadro desaparece hasta mañana.</p>';
 }
 pistas.addEventListener('scroll', pintarPuntos);
+// En la PC: flechas y arrastrar con el mouse
+const ancho = () => pistas.clientWidth + 10;
+$('#ant').onclick = () => pistas.scrollBy({ left: -ancho(), behavior: 'smooth' });
+$('#sig').onclick = () => pistas.scrollBy({ left: ancho(), behavior: 'smooth' });
+let x0 = null, s0 = 0;
+pistas.addEventListener('mousedown', e => { if (e.target.closest('button,a')) return; x0 = e.clientX; s0 = pistas.scrollLeft; pistas.classList.add('arrastrando'); });
+addEventListener('mousemove', e => { if (x0 !== null) pistas.scrollLeft = s0 - (e.clientX - x0); });
+addEventListener('mouseup', () => { if (x0 === null) return; const d = pistas.scrollLeft - s0; x0 = null; pistas.classList.remove('arrastrando');
+  const i = Math.round(s0 / ancho()) + (Math.abs(d) > 40 ? Math.sign(d) : 0); pistas.scrollTo({ left: i * ancho(), behavior: 'smooth' }); });
 $$('.aviso-x, .cerrar').forEach(b => b.onclick = () => { b.closest('.aviso').remove(); pistas.scrollTo({ left: pistas.scrollLeft }); pintarPuntos(); });
 pintarPuntos();
 
-// Detalle de noticia
-$$('.noti').forEach(el => el.onclick = () => {
-  const [tema, t, txt] = NOTIS[el.dataset.n];
-  $('#hoja').innerHTML = `<span class="et">${tema}</span><h2>${t}</h2>${txt.split('\n\n').map(p => `<p>${p}</p>`).join('')}
-    <a href="#">Leer en la fuente original ›</a>
-    <span class="bot"><button class="bt" onclick="cerrarHoja()">Cerrar</button><button class="bt" onclick="cerrarHoja()">No me interesa este tema</button></span>`;
-  $('#velo').classList.add('on');
-});
-function cerrarHoja() { $('#velo').classList.remove('on'); }
-$('#velo').onclick = e => { if (e.target.id === 'velo') cerrarHoja(); };
 </script>
 </body>
 </html>
