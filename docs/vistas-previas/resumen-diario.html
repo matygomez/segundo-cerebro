@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa · Resumen del día</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root { --papel:#0B0B0C; --superficie:#1B1C1E; --superficie-2:#242528; --linea:#2E3033; --laton:#D3AB5C; --laton-fondo:#2B2416;
+  --tinta:#E6E6E6; --tinta-2:#9A9C9F; --tinta-3:#6B6E72; --verde:#7BC47F; --rojo:#E07A6B; --azul:#8DB4DC; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--papel); color: var(--tinta); font-family: Barlow, sans-serif; }
+.app { max-width: 460px; margin: 0 auto; padding: 16px 16px 90px; display: grid; gap: 14px; }
+.nota-previa { font-size: .8rem; color: var(--tinta-3); border: 1px dashed var(--linea); border-radius: 10px; padding: 8px 10px; }
+.pest { display: flex; gap: 6px; flex-wrap: wrap; }
+.pest button { flex: 1; padding: 8px 6px; border-radius: 9px; border: 1px solid var(--linea); background: var(--superficie); color: var(--tinta-2); font: inherit; font-size: .85rem; cursor: pointer; }
+.pest button.sel { color: var(--tinta); border-color: var(--laton); }
+.fecha { color: var(--tinta-2); font-size: 1.05rem; }
+.fecha b { display: block; color: var(--tinta); font-family: 'Barlow Condensed'; font-size: 2rem; font-weight: 600; text-transform: capitalize; }
+.tarjeta { background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 14px 16px; display: grid; gap: 10px; }
+.tarjeta h3 { margin: 0; font-size: 1rem; display: flex; gap: 8px; align-items: baseline; }
+.tarjeta h3 small { margin-left: auto; color: var(--tinta-2); font-weight: 400; font-size: .78rem; }
+.relleno { height: 60px; display: grid; place-items: center; color: var(--tinta-3); font-size: .85rem; }
+
+/* Carrusel: un solo cuadro que se desliza */
+.carru { position: relative; }
+.pistas { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; gap: 10px; scrollbar-width: none; }
+.pistas::-webkit-scrollbar { display: none; }
+.aviso { flex: 0 0 100%; scroll-snap-align: start; position: relative; background: linear-gradient(120deg, var(--laton-fondo), var(--superficie) 70%);
+  border: 1px solid #4a3f24; border-radius: 14px; padding: 14px 16px; display: grid; gap: 9px; align-content: start; }
+.aviso.dia { background: linear-gradient(120deg, #16212b, var(--superficie) 70%); border-color: #2a3a4a; }
+.aviso-x { position: absolute; top: 8px; right: 8px; border: 0; background: none; color: var(--tinta-2); font-size: 1rem; cursor: pointer; padding: 4px 6px; }
+.et { font-size: .7rem; letter-spacing: .08em; text-transform: uppercase; color: var(--laton); font-weight: 600; }
+.dia .et { color: var(--azul); }
+.titulo { font-size: 1.15rem; padding-right: 22px; }
+.mini { display: flex; gap: 6px 16px; flex-wrap: wrap; font-size: .84rem; color: var(--tinta-2); }
+.mini b { color: var(--tinta); font-family: 'Barlow Condensed'; font-size: 1.25rem; font-weight: 600; margin-right: 4px; }
+.bot { display: flex; gap: 8px; flex-wrap: wrap; }
+.bt { padding: 7px 12px; border-radius: 9px; border: 1px solid var(--linea); background: var(--superficie-2); color: var(--tinta); font: inherit; font-size: .88rem; cursor: pointer; }
+.bt.p { background: var(--laton); color: #1a1408; border-color: var(--laton); font-weight: 600; }
+.dia .bt.p { background: var(--azul); border-color: var(--azul); color: #0d1620; }
+.puntos { display: flex; justify-content: center; gap: 6px; margin-top: 8px; }
+.puntos i { width: 7px; height: 7px; border-radius: 50%; background: var(--linea); }
+.puntos i.sel { background: var(--tinta-2); width: 18px; border-radius: 4px; }
+.lineas { display: grid; gap: 5px; font-size: .88rem; }
+.lineas span { display: flex; gap: 8px; }
+.lineas em { font-style: normal; color: var(--tinta-2); min-width: 18px; }
+
+/* Pantalla del día */
+.fila { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px solid var(--linea); font-size: .92rem; }
+.fila:first-of-type { border-top: 0; }
+.fila small { color: var(--tinta-2); margin-left: auto; white-space: nowrap; }
+.chk { width: 16px; height: 16px; border: 1.5px solid var(--tinta-3); border-radius: 4px; flex: none; }
+.clima { display: flex; align-items: center; gap: 14px; }
+.clima b { font-family: 'Barlow Condensed'; font-size: 2.6rem; font-weight: 600; line-height: 1; }
+.clima .horas { display: flex; gap: 12px; margin-left: auto; font-size: .78rem; color: var(--tinta-2); text-align: center; }
+.clima .horas b { font-size: 1rem; display: block; color: var(--tinta); }
+.pend { font-size: .82rem; color: var(--tinta-3); border: 1px dashed var(--linea); border-radius: 9px; padding: 8px 10px; }
+.noti { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--linea); cursor: pointer; }
+.noti:first-of-type { border-top: 0; }
+.noti .tema { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--laton); }
+.noti b { font-size: .95rem; font-weight: 500; }
+.noti span { font-size: .84rem; color: var(--tinta-2); }
+
+/* Detalle de noticia (hoja de abajo) */
+.velo { position: fixed; inset: 0; background: #000a; display: none; align-items: flex-end; justify-content: center; z-index: 5; }
+.velo.on { display: flex; }
+.hoja { background: var(--superficie); border-radius: 16px 16px 0 0; max-width: 460px; width: 100%; max-height: 85vh; overflow: auto; padding: 18px 16px 24px; display: grid; gap: 10px; }
+.hoja h2 { margin: 0; font-size: 1.2rem; }
+.hoja p { margin: 0; line-height: 1.45; font-size: .93rem; color: #cfd0d2; }
+.hoja a { color: var(--laton); }
+
+/* Configuración */
+.campo { display: grid; gap: 6px; font-size: .9rem; }
+.campo small { color: var(--tinta-2); }
+input, select { background: var(--superficie-2); border: 1px solid var(--linea); color: var(--tinta); border-radius: 9px; padding: 8px 10px; font: inherit; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--superficie-2); font-size: .84rem; }
+.chip.on { border-color: var(--laton); color: var(--laton); }
+.chip.sug { border-style: dashed; color: var(--tinta-2); }
+.pantalla[hidden] { display: none; }
+.pantalla { display: grid; gap: 14px; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="nota-previa">Vista previa con datos de ejemplo. Tocá las pestañas para ver cada pantalla. En el Inicio deslizá el cuadro hacia los costados.</div>
+  <div class="pest">
+    <button class="sel" data-p="inicio">Inicio</button>
+    <button data-p="dia">Tu día</button>
+    <button data-p="config">Configurar</button>
+  </div>
+
+  <!-- INICIO -->
+  <section class="pantalla" id="p-inicio">
+    <div class="fecha">Hoy<b>domingo 1 de noviembre</b></div>
+    <p class="nota-previa" style="margin:0">Ejemplo de un día que termina semana y empieza mes: aparecen los 3 cuadros, primero el del mes.</p>
+    <div class="carru">
+      <div class="pistas" id="pistas">
+        <section class="aviso">
+          <button class="aviso-x" aria-label="Cerrar">✕</button>
+          <span class="et">Terminó el mes</span>
+          <b class="titulo">Resumen de octubre</b>
+          <span class="mini"><span><b>42</b>tareas</span><span><b>78%</b>hábitos</span><span><b>$ 812.400</b>gastado</span><span><b>6</b>películas</span></span>
+          <span class="bot"><button class="bt p">Ver el resumen</button><button class="bt cerrar">Ahora no</button></span>
+        </section>
+        <section class="aviso">
+          <button class="aviso-x" aria-label="Cerrar">✕</button>
+          <span class="et">Terminó la semana</span>
+          <b class="titulo">Revisión del 26 oct – 1 nov</b>
+          <span class="mini"><span><b>11</b>tareas</span><span><b>82%</b>hábitos</span><span><b>$ 164.000</b>gastado</span><span><b>2</b>vencidas</span></span>
+          <span class="bot"><button class="bt p">Hacer la revisión · 5 min</button><button class="bt cerrar">Ahora no</button></span>
+        </section>
+        <section class="aviso dia">
+          <button class="aviso-x" aria-label="Cerrar">✕</button>
+          <span class="et">Buen día, Matías</span>
+          <b class="titulo">Tu domingo 1</b>
+          <span class="mini"><span><b>19°</b>parcial nublado</span><span><b>4</b>tareas</span><span><b>1</b>vence</span><span><b>5</b>hábitos</span></span>
+          <div class="lineas">
+            <span><em>🎂</em>Cumpleaños de Laura</span>
+            <span><em>📰</em>El dólar cerró estable tras el anuncio del BCRA</span>
+          </div>
+          <span class="bot"><button class="bt p" data-ir="dia">Ver mi día</button><button class="bt cerrar">Ahora no</button></span>
+        </section>
+      </div>
+      <div class="puntos" id="puntos"></div>
+    </div>
+    <div class="tarjeta"><div class="relleno">… el resto de tus cuadros, como hoy …</div></div>
+  </section>
+
+  <!-- TU DÍA -->
+  <section class="pantalla" id="p-dia" hidden>
+    <div class="fecha">Resumen<b>Tu domingo 1</b></div>
+    <div class="tarjeta">
+      <h3>Tiempo <small>📍 Ubicación actual</small></h3>
+      <div class="clima"><b>19°</b><span>Parcial nublado<br><small style="color:var(--tinta-2)">Máx 24° · mín 12° · lluvia 10%</small></span>
+        <div class="horas"><span>9h<b>15°</b></span><span>15h<b>23°</b></span><span>21h<b>17°</b></span></div></div>
+    </div>
+    <div class="tarjeta">
+      <h3>Para hoy <small>Tareas, vencimientos y hábitos</small></h3>
+      <div class="fila"><span class="chk"></span>Llamar al plomero<small>Casa</small></div>
+      <div class="fila"><span class="chk"></span>Preparar informe de recepción<small>Trabajo</small></div>
+      <div class="fila"><span class="chk"></span>Comprar regalo Laura<small>Personal</small></div>
+      <div class="fila"><span class="chk"></span>Pasear al perro<small>Casa</small></div>
+      <div class="fila">💳 Vence la tarjeta Visa<small>$ 214.300</small></div>
+      <div class="fila">✅ Hábitos del día<small>0 de 5</small></div>
+    </div>
+    <div class="tarjeta">
+      <h3>Cumpleaños</h3>
+      <div class="fila">🎂 Laura<small>hoy · cumple 34</small></div>
+      <div class="pend">Pendiente: de dónde se toman los cumpleaños.</div>
+    </div>
+    <div class="tarjeta">
+      <h3>Noticias para vos <small>Tocá una para verla completa</small></h3>
+      <div class="noti" data-n="0"><span class="tema">Economía argentina</span><b>El dólar cerró estable tras el anuncio del BCRA</b><span>Las reservas subieron y el mercado reaccionó con calma.</span></div>
+      <div class="noti" data-n="1"><span class="tema">Economía mundial</span><b>La Fed mantiene las tasas y anticipa un recorte en diciembre</b><span>Los mercados de Asia abren en alza.</span></div>
+      <div class="noti" data-n="2"><span class="tema">Tecnología</span><b>Nuevo récord en chips de bajo consumo</b><span>Promete baterías que duren el doble en celulares.</span></div>
+      <div class="noti" data-n="3"><span class="tema">Política internacional</span><b>Avanzan las negociaciones de alto el fuego</b><span>Se reúnen los mediadores esta semana.</span></div>
+      <div class="noti" data-n="4"><span class="tema">Política argentina</span><b>El Senado trata hoy el presupuesto</b><span>Se espera una sesión larga.</span></div>
+      <span style="font-size:.78rem;color:var(--tinta-3)">Buscadas hoy a las 7:02 con Gemini · se actualizan una vez por día</span>
+    </div>
+  </section>
+
+  <!-- CONFIGURAR -->
+  <section class="pantalla" id="p-config" hidden>
+    <div class="fecha">Resumen<b>Configurar</b></div>
+    <div class="tarjeta">
+      <h3>Resumen del día</h3>
+      <label class="campo">Aparece desde las<input type="time" value="05:00"><small>Se muestra la primera vez que abrís la app desde esa hora, hasta que lo cerrás o termina el día.</small></label>
+    </div>
+    <div class="tarjeta">
+      <h3>Tiempo</h3>
+      <label class="campo">Lugar<select><option>📍 Ubicación actual (GPS)</option><option>Buenos Aires</option><option>Córdoba</option><option>+ Agregar ciudad…</option></select></label>
+    </div>
+    <div class="tarjeta">
+      <h3>Intereses <small>Tocá para activar o quitar</small></h3>
+      <div class="chips">
+        <span class="chip on">Economía mundial</span><span class="chip on">Economía argentina</span><span class="chip on">Tecnología</span>
+        <span class="chip on">Guerras y política internacional</span><span class="chip on">Política argentina</span><span class="chip">+ Agregar</span>
+      </div>
+      <h3 style="margin-top:6px">Te sugiero <small>Según lo que abrís</small></h3>
+      <div class="chips"><span class="chip sug">+ Inteligencia artificial</span><span class="chip sug">+ Energía</span><span class="chip sug">+ Mercado inmobiliario</span></div>
+      <small style="color:var(--tinta-2);font-size:.8rem">La app aprende de las noticias que abrís y de las que marcás "No me interesa".</small>
+    </div>
+    <div class="tarjeta">
+      <h3>Cumpleaños</h3>
+      <div class="pend">Pendiente: de dónde se toman los datos.</div>
+    </div>
+  </section>
+</div>
+
+<div class="velo" id="velo"><div class="hoja" id="hoja"></div></div>
+
+<script>
+const NOTIS = [
+  ['Economía argentina', 'El dólar cerró estable tras el anuncio del BCRA', 'El Banco Central anunció una nueva compra de reservas y el dólar oficial terminó el día sin cambios. Los analistas consultados creen que la calma puede seguir mientras entren dólares de la cosecha.\n\nQué significa para vos: los precios en dólares no deberían moverse esta semana.'],
+  ['Economía mundial', 'La Fed mantiene las tasas y anticipa un recorte en diciembre', 'La Reserva Federal de EE.UU. dejó las tasas como estaban y dio señales de un recorte a fin de año. Las bolsas reaccionaron en alza.'],
+  ['Tecnología', 'Nuevo récord en chips de bajo consumo', 'Un fabricante presentó un chip que gasta la mitad de energía. Llegaría a los celulares en 2027.'],
+  ['Política internacional', 'Avanzan las negociaciones de alto el fuego', 'Los mediadores se reúnen esta semana con ambas partes. Hay un borrador de acuerdo de tres etapas.'],
+  ['Política argentina', 'El Senado trata hoy el presupuesto', 'La sesión empieza a las 11. El oficialismo dice tener los votos; la oposición pide cambios en dos artículos.'],
+];
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+
+function ir(p) {
+  $$('.pest button').forEach(b => b.classList.toggle('sel', b.dataset.p === p));
+  $$('.pantalla').forEach(s => s.hidden = s.id !== 'p-' + p);
+  scrollTo({ top: 0 });
+}
+$$('.pest button').forEach(b => b.onclick = () => ir(b.dataset.p));
+$$('[data-ir]').forEach(b => b.onclick = () => ir(b.dataset.ir));
+
+// Carrusel: puntitos y cerrar → pasa al siguiente
+const pistas = $('#pistas'), puntos = $('#puntos');
+function pintarPuntos() {
+  const n = pistas.children.length;
+  const i = Math.round(pistas.scrollLeft / (pistas.clientWidth + 10));
+  puntos.innerHTML = n > 1 ? Array.from({ length: n }, (_, k) => `<i class="${k === i ? 'sel' : ''}"></i>`).join('') : '';
+  if (!n) $('.carru').innerHTML = '<p class="nota-previa">Cerraste todos: el cuadro desaparece hasta mañana.</p>';
+}
+pistas.addEventListener('scroll', pintarPuntos);
+$$('.aviso-x, .cerrar').forEach(b => b.onclick = () => { b.closest('.aviso').remove(); pistas.scrollTo({ left: pistas.scrollLeft }); pintarPuntos(); });
+pintarPuntos();
+
+// Detalle de noticia
+$$('.noti').forEach(el => el.onclick = () => {
+  const [tema, t, txt] = NOTIS[el.dataset.n];
+  $('#hoja').innerHTML = `<span class="et">${tema}</span><h2>${t}</h2>${txt.split('\n\n').map(p => `<p>${p}</p>`).join('')}
+    <a href="#">Leer en la fuente original ›</a>
+    <span class="bot"><button class="bt" onclick="cerrarHoja()">Cerrar</button><button class="bt" onclick="cerrarHoja()">No me interesa este tema</button></span>`;
+  $('#velo').classList.add('on');
+});
+function cerrarHoja() { $('#velo').classList.remove('on'); }
+$('#velo').onclick = e => { if (e.target.id === 'velo') cerrarHoja(); };
+</script>
+</body>
+</html>
