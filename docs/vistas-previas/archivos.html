@@ -1,0 +1,211 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa: Archivos inteligentes (Bitácora)</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--papel:#0B0B0C;--superficie:#1B1C1E;--superficie-2:#242528;--superficie-3:#2c2d31;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--tinta-3:#6B6E72;--linea:#2E3033;--laton:#D3AB5C;--laton-f:#2B2416;--verde:#6FB4A0;--verde-f:#17302A;--rojo:#E2786C;--rojo-f:#3A201D;--azul:#8DB4DC;--azul-f:#1A2633;--titulo:'Barlow Condensed','Barlow',sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#050506;color:var(--tinta);font-family:'Barlow',system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.ic{width:18px;height:18px;flex:none}
+.control{position:sticky;top:0;z-index:20;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.05rem;letter-spacing:.02em;color:var(--laton)}
+.g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.g>span{font-size:.8rem;color:var(--tinta-2)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--linea);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--superficie);padding:6px 11px;font-size:.85rem;cursor:pointer;color:var(--tinta-2)}
+.seg button.sel{background:var(--laton);color:#17130a;font-weight:600}
+.nota-prev{max-width:1240px;margin:12px auto 0;padding:0 16px;color:var(--tinta-2);font-size:.86rem;line-height:1.45}
+.escena{padding:16px 16px 50px;display:flex;justify-content:center}
+.app{width:1240px;max-width:100%;background:var(--papel);border:1px solid var(--linea);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:210px 1fr;grid-template-rows:auto 1fr;min-height:780px;position:relative}
+.app.cel{width:390px;grid-template-columns:1fr;border-radius:28px}
+.barra{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:12px 22px;border-bottom:1px solid var(--linea)}
+.marca{display:flex;align-items:center;gap:8px;font-weight:600}.marca i{width:15px;height:15px;border-radius:50%;border:2px solid var(--laton);background:radial-gradient(circle,var(--laton) 0 3px,transparent 3.5px)}
+.chip{border:1px solid var(--linea);background:var(--superficie);border-radius:999px;padding:4px 11px;font-size:.78rem;color:var(--tinta-2)}
+.menu{background:var(--superficie);border-right:1px solid var(--linea);padding:18px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:9px;color:var(--tinta-2);font-size:.95rem}
+.menu a.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}.menu a.sel svg{color:var(--laton)}
+.app.cel .menu{position:absolute;bottom:0;left:0;right:0;flex-direction:row;justify-content:space-around;padding:8px 4px 14px;border-right:0;border-top:1px solid var(--linea);z-index:3}
+.app.cel .menu a{flex-direction:column;gap:3px;font-size:.68rem;padding:4px;background:none}
+.contenido{padding:24px 28px 40px;min-width:0}
+.app.cel .contenido{padding:16px 14px 100px}
+.cab{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cab h1{font-family:var(--titulo);font-weight:600;font-size:2.2rem;margin:0;line-height:1}
+.cab p{margin:4px 0 0;color:var(--tinta-2);font-size:.92rem}
+.app.cel .cab h1{font-size:1.8rem}
+.pest{display:inline-flex;background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:3px;margin-bottom:16px}
+.pest button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:.88rem;color:var(--tinta-2);cursor:pointer;display:flex;gap:6px;align-items:center}
+.pest button.sel{background:var(--superficie-3);color:var(--tinta);font-weight:600}
+.num{background:var(--laton);color:#17130a;border-radius:999px;font-size:.7rem;font-weight:700;padding:0 6px;min-width:18px;text-align:center}
+.caja{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;padding:14px 16px}
+.subir{border:1.5px dashed var(--linea);border-radius:14px;padding:18px;display:flex;gap:14px;align-items:center;color:var(--tinta-2);margin-bottom:16px;cursor:pointer}
+.subir:hover{border-color:var(--laton);color:var(--tinta)}
+.subir .ic{width:28px;height:28px;color:var(--laton)}.subir b{color:var(--tinta);display:block}
+.lista{display:grid;gap:10px}
+.arch{display:flex;gap:12px;align-items:center;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:12px 14px;cursor:pointer}
+.arch:hover{border-color:#44474b}
+.pdf{width:38px;height:46px;border-radius:6px;background:var(--superficie-3);display:grid;place-items:center;font-size:.62rem;font-weight:700;color:var(--rojo);flex:none}
+.arch .t{flex:1;min-width:0}.arch .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arch .t small{color:var(--tinta-2);font-size:.8rem;display:block}
+.est{font-size:.72rem;font-weight:600;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.est.confirmar{background:var(--laton-f);color:var(--laton)}.est.duda{background:var(--azul-f);color:var(--azul)}
+.est.repetido{background:var(--rojo-f);color:var(--rojo)}.est.leyendo{background:var(--superficie-3);color:var(--tinta-2)}
+.vacio{color:var(--tinta-3);text-align:center;padding:30px}
+.volver{display:inline-flex;gap:6px;align-items:center;color:var(--tinta-2);cursor:pointer;margin-bottom:12px;font-size:.9rem}
+.rev{display:grid;grid-template-columns:1fr 1fr;gap:14px}.app.cel .rev{grid-template-columns:1fr}
+.rev h3{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.campo{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin-bottom:8px;font-size:.92rem}
+.campo span{color:var(--tinta-2)}
+.campo input,select{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 9px;width:100%;min-width:0}
+.ubic{display:flex;gap:10px;align-items:center;background:var(--superficie-2);border-radius:10px;padding:10px 12px}
+.ubic b{flex:1}.ubic .ic{color:var(--laton)}
+.link{color:var(--laton);cursor:pointer;font-size:.88rem;border:0;background:none;padding:0}
+.opc{display:grid;gap:6px;margin-top:8px}
+.opc button{text-align:left;border:1px solid var(--linea);background:var(--superficie-2);border-radius:9px;padding:8px 11px;cursor:pointer}
+.opc button.sel{border-color:var(--laton);background:var(--laton-f)}
+.aviso{border-radius:10px;padding:11px 13px;font-size:.9rem;line-height:1.4}
+.aviso.duda{background:var(--azul-f);color:var(--azul)}.aviso.rep{background:var(--rojo-f);color:var(--rojo)}
+.sug{border:1px solid var(--linea);border-radius:12px;padding:12px;display:grid;gap:8px}
+.sug .fila{display:flex;gap:10px;align-items:flex-start}
+.sug .fila p{margin:0;flex:1;font-size:.92rem}.sug .fila p small{display:block;color:var(--tinta-2)}
+.tog{width:38px;height:22px;border-radius:999px;background:var(--superficie-3);position:relative;cursor:pointer;flex:none;border:0}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--tinta-2);transition:.15s}
+.tog.on{background:var(--laton)}.tog.on::after{left:19px;background:#17130a}
+.botones{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;grid-column:1/-1}
+.btn{border:1px solid var(--linea);background:var(--superficie-2);border-radius:10px;padding:9px 16px;cursor:pointer}
+.btn.si{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.btn.peligro{color:var(--rojo)}
+.carpetas{display:grid;grid-template-columns:240px 1fr;gap:14px}.app.cel .carpetas{grid-template-columns:1fr}
+.arbol div{padding:6px 8px;border-radius:7px;color:var(--tinta-2);font-size:.92rem;display:flex;gap:7px;align-items:center}
+.arbol div.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}
+.ficha{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.app.cel .ficha{grid-template-columns:1fr 1fr}
+.ficha div{background:var(--superficie-2);border-radius:9px;padding:8px 10px}.ficha small{display:block;color:var(--tinta-2);font-size:.72rem}
+.verpdf{display:flex;gap:12px;align-items:center;border:1px solid var(--linea);border-radius:10px;padding:10px}
+.adentro{color:var(--tinta-2);font-size:.88rem;line-height:1.5;margin-top:10px}
+.mes{display:flex;align-items:center;gap:10px;margin-bottom:12px}.mes b{font-size:1.1rem}
+.carga{display:flex;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--linea)}
+.carga:last-child{border:0}.carga .t{flex:1}.carga .t small{display:block;color:var(--tinta-2);font-size:.8rem}
+.ok{color:var(--verde);font-weight:600;font-size:.85rem}.falta{color:var(--rojo);font-weight:600;font-size:.85rem}
+.area h2{font-family:var(--titulo);font-size:1.3rem;margin:18px 0 8px;display:flex;gap:8px;align-items:center}
+.area h2 .nuevo{font-size:.6rem;font-weight:700;color:#17130a;background:var(--laton);border-radius:5px;padding:1px 5px;font-family:'Barlow'}
+.area h2.cerr{color:var(--tinta-3)}
+.tar{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;font-size:.92rem}
+.tar .c{width:17px;height:17px;border-radius:5px;border:1.6px solid var(--tinta-2);flex:none;margin-top:2px}
+.tar .tt{flex:1}.tar .tt small{display:block;color:var(--tinta-3);font-size:.78rem}
+.busca{display:flex;gap:10px;align-items:center;background:var(--superficie);border:1px solid var(--laton);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.busca input{flex:1;background:none;border:0;outline:0;font-size:1rem}
+.grupo{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2);margin:12px 0 6px}
+.res{display:flex;gap:12px;padding:10px;border-radius:10px;background:var(--superficie);margin-bottom:8px}
+.res .t small{display:block;color:var(--tinta-2);font-size:.8rem}.res .t p{margin:4px 0 0;font-size:.85rem;color:var(--tinta-2)}
+mark{background:var(--laton-f);color:var(--laton);border-radius:3px;padding:0 2px}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--superficie-3);border:1px solid var(--linea);border-radius:10px;padding:10px 16px;font-size:.9rem;z-index:30;display:none;white-space:nowrap}
+.app.cel .toast{bottom:90px;white-space:normal;width:86%}
+.toast.ver{display:block}
+</style></head><body>
+<div class="control">
+  <b>VISTA PREVIA</b>
+  <div class="g"><span>Pantalla</span><div class="seg" id="pant">
+    <button class="sel" data-v="pend">Pendientes</button><button data-v="nota">Archivo guardado</button><button data-v="mens">Cargas mensuales</button><button data-v="sis">Tareas › Sistemas</button><button data-v="busq">Buscador</button><button data-v="aj">Ajustes</button></div></div>
+  <div class="g"><span>Ver en</span><div class="seg" id="disp"><button class="sel" data-v="pc">PC</button><button data-v="cel">Celular</button></div></div>
+</div>
+<p class="nota-prev"><b style="color:var(--laton)">Archivos inteligentes en Bitácora.</b> Le pasás archivos (desde "Compartir" en el celular o dejándolos en la carpeta Bandeja de Drive en la PC), la app los lee, te propone nombre, carpeta y datos, y vos confirmás. Es una maqueta con datos de ejemplo y no toca la app. Tocá cada archivo de Pendientes para revisarlo y probá el buscador.</p>
+<div class="escena"><div class="app" id="app">
+  <div class="barra"><div class="marca"><i></i>Segundo Cerebro</div><span class="chip">Al día</span></div>
+  <nav class="menu" id="menu"></nav>
+  <main class="contenido" id="cont"></main>
+  <div class="toast" id="toast"></div>
+</div></div>
+<script>
+const S=(t,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${t}</svg>`;
+const I={home:'<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z"/>',tareas:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>',fin:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>',bit:'<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6Z"/><path d="M6 3v18M10 8h5M10 12h5"/>',aj:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',izq:'<path d="m15 6-6 6 6 6"/>',der:'<path d="m9 6 6 6-6 6"/>',carp:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',subir:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3"/>',lupa:'<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>'};
+let pant='pend',cel=false,sel=null,eleg=null;
+// Archivos que esperan revisión (datos de ejemplo).
+let PEND=[
+ {id:1,est:'confirmar',orig:'factura_0458812.pdf',nuevo:'2026-10 Gas Metrogas.pdf',carp:'Casa › Servicios › Gas',de:'Metrogas',fecha:'05/10/2026',monto:'$ 18.430',vence:'27/10/2026',que:'Factura de gas, período septiembre',via:'Compartido desde WhatsApp',mensual:'Gas'},
+ {id:2,est:'duda',orig:'IMG_20261018_1932.jpg',nuevo:'2026-10 Expensas Consorcio.jpg',carp:null,opc:['Casa › Expensas','Casa › Alquiler'],de:'Administración Pérez',fecha:'18/10/2026',monto:'$ 95.000',vence:'10/11/2026',que:'Liquidación de expensas de octubre',via:'Bandeja de Drive (PC)'},
+ {id:3,est:'repetido',orig:'luz_octubre.pdf',nuevo:'2026-10 Luz Edenor.pdf',carp:'Casa › Servicios › Luz',de:'Edenor',fecha:'08/10/2026',monto:'$ 22.910',vence:'24/10/2026',que:'Factura de luz',via:'Compartido desde Gmail',igual:'2026-10 Luz Edenor.pdf, guardado el 12/10'},
+ {id:4,est:'leyendo',orig:'scan_002.pdf',via:'Bandeja de Drive (PC)'}];
+const EST={confirmar:'Para confirmar',duda:'No sé dónde va',repetido:'Repetido',leyendo:'Leyendo…'};
+// Archivos ya guardados, con lo que "dice adentro" para el buscador.
+const GUARD=[
+ {n:'2026-10 Gas Metrogas.pdf',c:'Casa › Servicios › Gas',t:'Metrogas S.A. Período 09/2026. Total a pagar $ 18.430. Vencimiento 27/10/2026. Cliente Matías Gómez.'},
+ {n:'2026-09 Gas Metrogas.pdf',c:'Casa › Servicios › Gas',t:'Metrogas S.A. Período 08/2026. Total a pagar $ 16.920. Vencimiento 26/09/2026.'},
+ {n:'2026-10 Luz Edenor.pdf',c:'Casa › Servicios › Luz',t:'Edenor. Consumo 312 kWh. Total $ 22.910. Vence 24/10/2026.'},
+ {n:'2026-09 Recibo de sueldo.pdf',c:'Trabajo › Recibos',t:'Recibo de haberes septiembre 2026. Neto a cobrar. Muchtek S.A.'},
+ {n:'2026-03 Póliza auto.pdf',c:'Auto › Seguro',t:'Póliza de seguro automotor. Vigencia hasta 03/2027. La Caja Seguros.'}];
+let MENS=[{n:'Gas',c:'Casa › Servicios › Gas',d:10,ok:'19/10'},{n:'Luz',c:'Casa › Servicios › Luz',d:15,ok:'12/10'},{n:'Agua',c:'Casa › Servicios › Agua',d:15,ok:null},{n:'Recibo de sueldo',c:'Trabajo › Recibos',d:5,ok:'03/10'},{n:'Internet',c:'Casa › Servicios › Internet',d:20,ok:null}];
+let sugMens=true;
+const tg=(on,k)=>`<button class="tog${on?' on':''}" data-tog="${k}"></button>`;
+const tit=(h,p)=>`<div class="cab"><div><h1>${h}</h1>${p?`<p>${p}</p>`:''}</div></div>`;
+const pestB=a=>`<div class="pest">${[['notas','Notas'],['pend','Pendientes',PEND.length],['mens','Mensuales']].map(([k,n,c])=>`<button data-ir="${k==='notas'?'nota':k}" class="${a===k?'sel':''}">${n}${c?`<span class="num">${c}</span>`:''}</button>`).join('')}</div>`;
+function menu(){const ac={pend:'bit',nota:'bit',mens:'bit',sis:'tareas',busq:'home',aj:'aj'}[pant];
+ document.getElementById('menu').innerHTML=[['home','Inicio'],['tareas','Tareas'],['fin','Finanzas'],['bit','Bitácora'],['aj','Ajustes']].map(([i,n])=>`<a class="${i===ac?'sel':''}">${S(I[i])}<span>${n}</span></a>`).join('');}
+function vPend(){return tit('Bitácora')+pestB('pend')+`<div class="subir">${S(I.subir)}<span><b>${cel?'Subir archivos':'Soltá archivos acá o tocá para elegir'}</b>${cel?'O compartilos desde cualquier app con "Compartir › Segundo Cerebro"':'También podés dejarlos en Drive, en Segundo Cerebro › Bandeja'}</span></div>
+ <div class="lista">${PEND.length?PEND.map(a=>`<div class="arch" data-rev="${a.id}"><span class="pdf">${a.orig.endsWith('.jpg')?'FOTO':'PDF'}</span><span class="t"><b>${a.nuevo||a.orig}</b><small>${a.est==='leyendo'?'Leyendo el archivo…':(a.carp||'¿Dónde lo guardo?')} · ${a.via}</small></span><span class="est ${a.est}">${EST[a.est]}</span></div>`).join(''):'<div class="vacio">No hay nada pendiente. Todo ordenado.</div>'}</div>`;}
+function vRev(){const a=PEND.find(x=>x.id===sel);if(!a)return vPend();
+ if(a.est==='leyendo')return `<span class="volver" data-ir="pend">${S(I.izq)} Pendientes</span><div class="caja">Todavía estoy leyendo <b>${a.orig}</b>. Cuando termine aparece para que lo confirmes.</div>`;
+ const ub=a.est==='duda'
+  ?`<div class="aviso duda">No estoy seguro de dónde va. ¿Es alguna de estas?</div><div class="opc">${a.opc.map(o=>`<button data-el="${o}" class="${eleg===o?'sel':''}">${S(I.carp)} ${o}</button>`).join('')}<button data-el="otra">+ Otra carpeta o una nueva…</button></div>`
+  :`<div class="ubic">${S(I.carp)}<b>${a.carp}</b><button class="link">Cambiar</button></div>`;
+ return `<span class="volver" data-ir="pend">${S(I.izq)} Pendientes</span>
+ <div class="cab"><div><h1 style="font-size:1.6rem">Revisar archivo</h1><p>${a.orig} · ${a.via}</p></div></div>
+ ${a.est==='repetido'?`<div class="aviso rep" style="margin-bottom:14px">Parece que ya lo tenés: <b>${a.igual}</b>. ¿Lo guardo igual?</div>`:''}
+ <div class="rev">
+  <div class="caja"><h3>Nombre y lugar</h3><div class="campo"><span>Nombre</span><input value="${a.nuevo}"></div>${ub}</div>
+  <div class="caja"><h3>Lo que leí</h3>
+   <div class="campo"><span>Qué es</span><input value="${a.que}"></div><div class="campo"><span>De</span><input value="${a.de}"></div>
+   <div class="campo"><span>Fecha</span><input value="${a.fecha}"></div><div class="campo"><span>Monto</span><input value="${a.monto}"></div><div class="campo"><span>Vence</span><input value="${a.vence}"></div></div>
+  <div class="sug" style="grid-column:1/-1"><h3 style="margin:0">Sugerencias</h3>
+   <div class="fila">${tg(true,'t')}<p>Crear tarea para pagarlo antes del ${a.vence.slice(0,5)}<small>Va a Tareas › Sistemas › Bitácora.</small></p><select style="width:auto"><option>El mismo día</option><option>1 día antes</option><option selected>3 días antes</option><option>1 semana antes</option></select></div>
+   <div class="fila">${tg(true,'f')}<p>Cargar el gasto de ${a.monto} en Finanzas<small>Como gasto pendiente, categoría Servicios.</small></p></div>
+   ${a.mensual?`<div class="fila">${tg(false,'m')}<p>Ya es una carga mensual (${a.mensual})<small>Se marca octubre como subido.</small></p></div>`:`<div class="fila">${tg(false,'m')}<p>¿Llega todos los meses? Agregarlo a Cargas mensuales</p></div>`}
+  </div>
+  <div class="botones">${a.est==='repetido'?`<button class="btn" data-desc="${a.id}">No guardar</button><button class="btn si" data-ok="${a.id}">Guardar igual</button>`:`<button class="btn peligro" data-desc="${a.id}">Descartar</button><button class="btn si" data-ok="${a.id}">Confirmar</button>`}</div>
+ </div>`;}
+function vNota(){const arb=['Casa','  Servicios','    Gas','    Luz','    Agua','  Expensas','Auto','Trabajo'];
+ return tit('Bitácora')+pestB('notas')+`<div class="carpetas"><div class="caja arbol">${arb.map(x=>`<div class="${x.trim()==='Gas'?'sel':''}" style="padding-left:${8+(x.length-x.trimStart().length)*6}px">${S(I.carp)} ${x.trim()}</div>`).join('')}</div>
+ <div class="caja"><small style="color:var(--tinta-2)">Casa › Servicios › Gas</small><h2 style="font-family:var(--titulo);margin:4px 0 0;font-size:1.6rem">2026-10 Gas Metrogas</h2>
+ <div class="ficha"><div><small>De</small>Metrogas</div><div><small>Fecha</small>05/10/2026</div><div><small>Monto</small>$ 18.430</div><div><small>Vence</small>27/10/2026</div></div>
+ <div class="verpdf"><span class="pdf">PDF</span><span style="flex:1"><b>2026-10 Gas Metrogas.pdf</b><small style="display:block;color:var(--tinta-2)">En tu Drive: Segundo Cerebro › Casa › Servicios › Gas</small></span><button class="btn">Abrir</button></div>
+ <div class="adentro"><b style="color:var(--tinta)">Qué dice adentro:</b> Metrogas S.A. Período 09/2026. Total a pagar $ 18.430. Vencimiento 27/10/2026. Cliente Matías Gómez.</div>
+ <p class="adentro">Tarea creada: "Pagar gas Metrogas", aviso el 24/10. Gasto cargado en Finanzas.</p></div></div>`;}
+function vMens(){return tit('Bitácora')+pestB('mens')+`<div class="mes"><button class="btn" style="padding:5px 8px">${S(I.izq)}</button><b>Octubre 2026</b><button class="btn" style="padding:5px 8px">${S(I.der)}</button><span style="margin-left:auto;color:var(--tinta-2);font-size:.88rem">${MENS.filter(m=>m.ok).length} de ${MENS.length} subidos</span></div>
+ ${sugMens?`<div class="sug" style="margin-bottom:14px"><div class="fila"><p>Subiste <b>Seguro del auto</b> en agosto y septiembre. ¿Lo agrego a las cargas mensuales?<small>Carpeta Auto › Seguro, avisar si falta el día 15.</small></p></div><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn" data-sug="no">No</button><button class="btn si" data-sug="si">Sí, agregar</button></div></div>`:''}
+ <div class="caja">${MENS.map(m=>`<div class="carga"><span class="t">${m.n}<small>${m.c} · si falta, aviso el día ${m.d}</small></span>${m.ok?`<span class="ok">Subido ${m.ok}</span>`:`<span class="falta">Falta</span>`}</div>`).join('')}
+ <div style="padding-top:10px"><button class="link">+ Agregar a mano</button></div></div>`;}
+function vSis(){return tit('Tareas','Área Sistemas: las tareas que la app crea sola.')+`<div class="area">
+ <h2 class="cerr">${S(I.der)} Finanzas</h2><h2 class="cerr">${S(I.der)} Feriados</h2>
+ <h2>Bitácora <span class="nuevo">NUEVO</span></h2>
+ <div class="caja">
+  <div class="tar"><span class="c"></span><span class="tt">Pagar gas Metrogas ($ 18.430)<small>Vence 27/10 · aviso 24/10 · tocá para abrir el archivo</small></span></div>
+  <div class="tar"><span class="c"></span><span class="tt">Falta subir: Agua de octubre<small>Cargas mensuales · se tilda sola cuando lo subas</small></span></div>
+  <div class="tar"><span class="c"></span><span class="tt">Falta subir: Internet de octubre<small>Cargas mensuales · aviso el 20/10</small></span></div>
+  <div class="tar"><span class="c"></span><span class="tt">Revisar 3 archivos pendientes en Bitácora<small>Esperan tu confirmación</small></span></div>
+ </div></div>`;}
+const marcar=(t,q)=>q?t.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),m=>`<mark>${m}</mark>`):t;
+function resultados(q){const s=q.trim().toLowerCase();if(!s)return '<div class="vacio">Escribí algo: "metrogas", "sueldo", "póliza"…</div>';
+ const r=GUARD.filter(g=>(g.n+' '+g.c+' '+g.t).toLowerCase().includes(s));
+ return r.length?`<div class="grupo">Bitácora · Archivos (${r.length})</div>`+r.map(g=>`<div class="res"><span class="pdf">PDF</span><span class="t"><b>${marcar(g.n,s)}</b><small>${marcar(g.c,s)}</small><p>${marcar(g.t,s)}</p></span></div>`).join(''):'<div class="vacio">Nada con eso.</div>';}
+function vBusq(){return tit('Inicio')+`<div class="busca">${S(I.lupa)}<input id="q" value="metrogas" placeholder="Buscar en todo…"></div><div id="res">${resultados('metrogas')}</div>`;}
+function vAj(){return tit('Ajustes')+`<div class="caja" style="display:grid;gap:12px;max-width:620px"><h3 style="margin:0;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)">Archivos inteligentes</h3>
+ <div class="campo"><span>Clave de Gemini</span><input value="••••••••••••••••••••"></div>
+ <p class="adentro" style="margin:0">La sacás gratis en Google AI Studio. Se guarda en tu cuenta. <button class="link">Probar clave</button></p>
+ <div class="campo"><span>Carpeta de la PC</span><input value="Drive › Segundo Cerebro › Bandeja" readonly></div>
+ <p class="adentro" style="margin:0">La app la revisa cada vez que la abrís y pasa lo que encuentre a Pendientes.</p>
+ <p class="adentro" style="margin:0">En el celular, "Segundo Cerebro" aparece en el menú Compartir de cualquier app.</p></div>`;}
+function pintar(){document.getElementById('app').classList.toggle('cel',cel);menu();
+ const v={pend:sel?vRev:vPend,nota:vNota,mens:vMens,sis:vSis,busq:vBusq,aj:vAj}[pant];document.getElementById('cont').innerHTML=v();
+ document.querySelectorAll('#pant button').forEach(b=>b.classList.toggle('sel',b.dataset.v===pant));
+ const q=document.getElementById('q');if(q)q.oninput=()=>document.getElementById('res').innerHTML=resultados(q.value);}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('ver');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('ver'),2600);}
+document.getElementById('pant').onclick=e=>{const b=e.target.closest('button');if(!b)return;pant=b.dataset.v;sel=null;pintar();};
+document.getElementById('disp').onclick=e=>{const b=e.target.closest('button');if(!b)return;cel=b.dataset.v==='cel';document.querySelectorAll('#disp button').forEach(x=>x.classList.toggle('sel',x===b));pintar();};
+document.getElementById('cont').addEventListener('click',e=>{const t=e.target.closest('[data-rev],[data-ir],[data-tog],[data-el],[data-ok],[data-desc],[data-sug]');if(!t)return;const d=t.dataset;
+ if(d.rev){sel=+d.rev;eleg=null;}
+ else if(d.ir){pant=d.ir;sel=null;}
+ else if(d.tog){t.classList.toggle('on');return;}
+ else if(d.el){eleg=d.el==='otra'?null:d.el;if(d.el==='otra'){toast('Acá elegís cualquier carpeta o creás una nueva.');return;}}
+ else if(d.ok){const a=PEND.find(x=>x.id===+d.ok);if(a.est==='duda'&&!eleg){toast('Elegí primero dónde va.');return;}PEND=PEND.filter(x=>x!==a);sel=null;toast(`Guardado en ${a.carp||eleg}`);}
+ else if(d.desc){PEND=PEND.filter(x=>x.id!==+d.desc);sel=null;toast('Descartado.');}
+ else if(d.sug){if(d.sug==='si')MENS.push({n:'Seguro del auto',c:'Auto › Seguro',d:15,ok:null});sugMens=false;}
+ pintar();});
+pintar();
+</script></body></html>
