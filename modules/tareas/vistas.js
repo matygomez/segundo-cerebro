@@ -1047,8 +1047,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       h('button', {
         type: 'button', class: 'tr-programadas-boton', 'aria-expanded': String(abierto),
         onclick: () => { abierto ? verProgramadas.delete(clave) : verProgramadas.add(clave); dibujar(); },
-      }, ic(abierto ? 'abajo' : 'flecha'), h('b', {}, `${ts.length} programada${ts.length > 1 ? 's' : ''}`),
-        h('span', { class: 'nota' }, ' · ocultas, aparecen solas el día de su fecha')),
+      }, ic(abierto ? 'abajo' : 'flecha'), h('b', {}, `${ts.length} programada${ts.length > 1 ? 's' : ''}`)),
       abierto ? h('ul', { class: 'tr-lista' }, ts.map(t => filaTarea(ctx, m, d, t, { ubicacion: false }))) : null);
   }
 

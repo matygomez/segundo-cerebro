@@ -24,7 +24,7 @@ with sync_playwright() as p:
     si=[x for x in fechas if x[0]=='Solo inicio'][0]; chk(si[1]==si[2] and si[1], f'migró fecha {si}')
     chk(page.locator('.tr-proximos .tr-programadas').count()==1, 'programadas en Próximos')
     page.click('.tr-proximos .tr-programadas-boton'); page.wait_for_timeout(300)
-    txt=page.locator('.tr-proximos .tr-programadas').inner_text(); chk('15/03/2099' in txt, f'año en aparece: {txt[:200]}')
+    txt=page.locator('.tr-proximos .tr-programadas').inner_text(); chk('aparecen solas' not in txt, 'sin aclaración'); chk('15/03/2099' in txt, f'año en aparece: {txt[:200]}')
     page.screenshot(path=S+f'0211_proximos_{w}.png', full_page=True)
     page.locator('.tr-tarea:has(.tr-titulo:text-is("Normal")) .tr-titulo').first.click(); page.wait_for_timeout(700)
     chk(page.locator('.tr-editor').count()==1, 'editor abierto')
@@ -36,6 +36,17 @@ with sync_playwright() as p:
       chk(fb and bb and bb['y']+bb['height']<=fb['y']+1, 'botones arriba de la barra de formato')
       page.screenshot(path=S+f'0211_editor_{w}.png')
       page.locator('.tr-editor input[type=date]').first.focus()
+    page.locator('.tr-mas summary:has-text("Más opciones")').click(); page.wait_for_timeout(200)
+    yr=page.locator('.tr-editor select').filter(has=page.locator('option[value=""]')).first
+    rb=page.locator('.fila-campo:has-text("Repetición")').first.bounding_box(); db=page.locator('.fila-campo:has-text("Duración estimada")').first.bounding_box()
+    chk(abs(rb['y']-db['y'])<2, f'repetición y duración en la misma fila {rb} {db}')
+    if cel:
+      page.set_viewport_size({'width':390,'height':450})  # como con el teclado abierto
+      page.locator('.tr-nuevo-comentario textarea').focus(); page.wait_for_timeout(500)
+      cb=page.locator('.tr-nuevo-comentario').bounding_box(); bb=page.locator('.tr-editor .tr-botones').bounding_box(); print(cb, bb)
+      chk(cb['y']+cb['height']<=bb['y']+1, 'comentario arriba de los botones')
+      page.screenshot(path=S+f'0211_comentario_{w}.png')
+      page.set_viewport_size({'width':390,'height':844})
     page.locator('.tr-ocultar input').check()
     page.click('.tr-editor button[type=submit]'); page.wait_for_timeout(900)
     t=page.evaluate("async()=>{const D=await import('/js/core/datos.js');return (await D.coleccion('tareas','tareas').listar()).find(t=>t.titulo==='Normal')}")

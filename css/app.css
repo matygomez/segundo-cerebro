@@ -78,7 +78,10 @@ a { color: inherit; }
   grid-template-columns: minmax(0, 1fr);
   grid-template-rows: auto 1fr;
   padding-bottom: calc(var(--alto-menu) + env(safe-area-inset-bottom));
+  /* Nada más ancho que la pantalla: si no, en el celular la página se corre de costado y arrastra la barra de abajo */
+  overflow-x: clip;
 }
+html, body { overscroll-behavior-x: none; }
 
 .barra {
   position: sticky; top: 0; z-index: 5;

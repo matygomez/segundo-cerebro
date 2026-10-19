@@ -673,3 +673,5 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 /* Con el teclado abierto (celular), la barra de formato no tapa Borrar · Cancelar · Guardar */
 .tr-editor:has(.ed-fija:not([hidden])) .tr-botones { bottom: calc(3rem + 2px); padding-bottom: 0.7rem; }
 .tr-ocultar[hidden] { display: none; }
+/* Al enfocar un campo (comentario, notas), el navegador lo deja arriba de la línea de botones y no debajo */
+dialog.tr-hoja-editor { scroll-padding-bottom: 6rem; }
