@@ -89,26 +89,30 @@ ${listaCarpetas(d)}`;
 // Si un modelo está saturado (500/503) se reintenta un par de veces y después
 // se prueba el siguiente; si ninguno responde, se avisa.
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
+// Un error que se arregla solo con el tiempo (límite, saturación, sin conexión):
+// el archivo queda "En espera" y la app lo vuelve a intentar sola.
+const reintentable = (texto) => Object.assign(new Error(texto), { reintentable: true });
 async function pedirGemini(clave, cuerpo) {
   let saturado = false, ultimo = 0;
   for (const modelo of MODELOS) {
     for (let intento = 0; intento < 2; intento++) {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave }, body: JSON.stringify(cuerpo),
-      }).catch(() => { throw new Error('No hay conexión con Gemini. Probá de nuevo con internet.'); });
+      }).catch(() => { throw reintentable('Sin conexión con Gemini.'); });
       ultimo = r.status;
       if (r.ok) return r.json();
       if (r.status === 400 || r.status === 403) {
         const t = await r.text();
-        throw new Error(/API key|API_KEY|permission/i.test(t) ? 'La clave de Gemini no es válida. Revisala en Configurar Bitácora.' : 'Gemini no pudo leer este archivo.');
+        if (/API key|API_KEY|permission/i.test(t)) throw reintentable('La clave de Gemini no es válida. Revisala en Configurar Bitácora.');
+        throw new Error('Gemini no pudo leer este archivo.');
       }
-      if (r.status === 429) throw new Error('Gemini llegó al límite gratis por ahora. Probá de nuevo en un rato.');
+      if (r.status === 429) throw reintentable('Gemini llegó al límite gratis por ahora.');
       if (r.status === 404) break;   // ese modelo ya no existe: el siguiente
       if (r.status >= 500) { saturado = true; await esperar(1500 * (intento + 1)); continue; }
-      throw new Error(`Gemini no respondió (${r.status}). Probá de nuevo en un rato.`);
+      throw reintentable(`Gemini no respondió (${r.status}).`);
     }
   }
-  throw new Error(saturado ? 'Gemini está saturado en este momento. Probá de nuevo en un rato.' : `Gemini no respondió (${ultimo || '?'}).`);
+  throw reintentable(saturado ? 'Gemini está saturado en este momento.' : `Gemini no respondió (${ultimo || '?'}).`);
 }
 
 // Devuelve la propuesta { nombre, carpetaId, seguro, alternativas, carpetaNueva, que, de, fecha, vence, monto, contenido }.
@@ -125,7 +129,7 @@ export async function leerConGemini(clave, blob, nombre, d) {
   });
   const texto = r?.candidates?.[0]?.content?.parts?.map(p => p.text || '').join('') || '';
   let x;
-  try { x = JSON.parse(texto); } catch { throw new Error('Gemini no devolvió los datos. Probá de nuevo.'); }
+  try { x = JSON.parse(texto); } catch { throw reintentable('Gemini no devolvió los datos.'); }
   const fechaOk = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : '');
   const existe = (id) => !!d.carpeta(id) && !d.carpeta(id).sistema;
   return {
@@ -146,20 +150,49 @@ export async function leerConGemini(clave, blob, nombre, d) {
 let cola = Promise.resolve();
 const enCola = (fn) => { const p = cola.then(fn, fn); cola = p.catch(() => {}); return p; };
 
+// Cuánto esperar antes de cada nuevo intento (minutos); después, cada una hora.
+const ESPERAS = [1, 2, 5, 15, 30, 60];
+const enCurso = new Set();
+
 async function leerPendiente(ctx, m, id, blob) {
   const col = m.col.pendientes;
   const p = await col.obtener(id);
-  if (!p) return;
+  if (!p || p.estado === 'listo') return;
   const d = await m.cargar();
   const clave = d.ajuste('gemini')?.api;
-  if (!clave) { await col.actualizar(id, { estado: 'error', error: 'Falta la clave de Gemini (en Configurar Bitácora). Podés completarlo a mano.' }); return; }
+  const enEspera = async (texto) => {
+    const intentos = (p.intentos || 0) + 1;
+    if (await col.obtener(id)) await col.actualizar(id, { estado: 'espera', error: texto, intentos, proximo: Date.now() + ESPERAS[Math.min(intentos, ESPERAS.length) - 1] * 60000 });
+  };
+  if (!clave) { await enEspera('Falta la clave de Gemini (en Configurar Bitácora).'); return; }
   await col.actualizar(id, { estado: 'leyendo', error: '' });
   try {
     const propuesta = await leerConGemini(clave, blob || await ctx.archivos.descargar(p.adjunto), p.original, d);
-    await col.actualizar(id, { estado: 'listo', propuesta, error: '' });
+    if (await col.obtener(id)) await col.actualizar(id, { estado: 'listo', propuesta, error: '', intentos: 0 });   // si no lo ordenaste a mano mientras tanto
   } catch (e) {
-    await col.actualizar(id, { estado: 'error', error: e.message || String(e) });
+    if (e.reintentable || !navigator.onLine) await enEspera(e.message || String(e));
+    else if (await col.obtener(id)) await col.actualizar(id, { estado: 'error', error: e.message || String(e) });
   }
+}
+
+function aLaCola(ctx, m, id, blob = null) {
+  if (enCurso.has(id)) return;
+  enCurso.add(id);
+  enCola(() => leerPendiente(ctx, m, id, blob)).finally(() => enCurso.delete(id));
+}
+
+// Mientras la app está abierta, revisa cada medio minuto si hay archivos
+// en espera a los que ya les toca otro intento (o que quedaron a medio leer).
+export function reintentarSolo(ctx, m) {
+  const revisar = async () => {
+    const ahora = Date.now();
+    for (const p of await m.col.pendientes.listar()) {
+      const colgado = p.estado === 'leyendo' && ahora - (p.modificado || p.creado) > 180000;
+      if ((p.estado === 'espera' && (p.proximo || 0) <= ahora) || colgado) aLaCola(ctx, m, p.id);
+    }
+  };
+  setTimeout(revisar, 5000);
+  setInterval(revisar, 30000);
 }
 
 // Recibe archivos: [{ blob, nombre }]. Devuelve cuántos quedaron para revisar.
@@ -176,7 +209,7 @@ export async function recibirArchivos(ctx, m, lista, via) {
       const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
       const id = await col.crear({ estado: 'leyendo', original: nombre, tipo, via, adjunto: { ...adjunto, nombre }, huella, repetidoDe: repetida?.id || '', propuesta: null, error: '' });
       nuevos++;
-      enCola(() => leerPendiente(ctx, m, id, x.blob));
+      aLaCola(ctx, m, id, x.blob);
     } catch (e) {
       ctx.aviso(`No se pudo recibir ${x.nombre || 'un archivo'}: ${e.message}`);
     }
@@ -184,7 +217,7 @@ export async function recibirArchivos(ctx, m, lista, via) {
   return nuevos;
 }
 
-export const reintentar = (ctx, m, p) => enCola(() => leerPendiente(ctx, m, p.id, null));
+export const reintentar = (ctx, m, p) => aLaCola(ctx, m, p.id);
 
 // Elegir archivos del dispositivo.
 function elegirDelDispositivo(ctx, m) {
@@ -199,9 +232,11 @@ function elegirDelDispositivo(ctx, m) {
 }
 
 // ── Pantalla "Para revisar" ──
-const ESTADOS = { leyendo: ['Leyendo…', 'leyendo'], error: ['Revisar a mano', 'error'] };
+const ESTADOS = { leyendo: ['Leyendo…', 'leyendo'], espera: ['En espera', 'leyendo'], error: ['Revisar a mano', 'error'] };
+const hora = (ms) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 function estadoDe(p) {
   if (p.estado === 'leyendo') return ESTADOS.leyendo;
+  if (p.estado === 'espera') return ESTADOS.espera;
   if (p.estado === 'error') return ESTADOS.error;
   if (p.repetidoDe) return ['Repetido', 'repetido'];
   if (!p.propuesta?.carpetaId || !p.propuesta?.seguro) return ['No sé dónde va', 'duda'];
@@ -225,7 +260,6 @@ export async function pantallaPendientes(ctx, m, d, main) {
     const archivos = [...(e.dataTransfer?.files || [])].map(f => ({ blob: f, nombre: f.name }));
     if (archivos.length) recibirArchivos(ctx, m, archivos, 'Arrastrado a la app');
   });
-  const viejo = (p) => p.estado === 'leyendo' && Date.now() - (p.modificado || p.creado) > 120000;
   poner(main,
     cabecera(ctx, { titulo: 'Para revisar', marca: ic('clip'), volver: { href: '#/bitacora', texto: 'Bitácora' } }),
     zona,
@@ -234,12 +268,12 @@ export async function pantallaPendientes(ctx, m, d, main) {
       ? h('div', { class: 'bt-or-lista' }, lista.map(p => {
         const [texto, clase] = estadoDe(p);
         const pr = p.propuesta;
-        const sub = p.estado === 'error' ? p.error : p.estado === 'leyendo' ? 'Leyendo el archivo…' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
-        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => { if (p.estado !== 'leyendo' || viejo(p)) revisar(ctx, m, p); } },
+        const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
+        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => revisar(ctx, m, p) },
           h('span', { class: 'bt-or-ext' }, (extension(p.original).slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, pr?.nombre || p.original), h('small', {}, sub), h('small', {}, `${p.via} · ${haceCuanto(p.creado)}`)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
-          p.estado === 'error' || viejo(p) ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); reintentar(ctx, m, p); } }, 'Reintentar') : null);
+          p.estado === 'error' || p.estado === 'espera' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); reintentar(ctx, m, p); } }, 'Reintentar ahora') : null);
       }))
       : vacio(ctx, 'No hay nada para revisar', 'Todo ordenado.'));
 }
@@ -344,7 +378,8 @@ export async function revisar(ctx, m, p) {
   dlg = ventana(ctx, 'Revisar archivo', h('div', { class: 'formulario-campos bt-or-rev' },
     h('p', { class: 'nota' }, p.original, ' · ', p.via, p.adjunto?.url ? [' · ', h('a', { href: p.adjunto.url, target: '_blank', rel: 'noopener' }, 'Ver archivo')] : null),
     repetida ? h('p', { class: 'bt-or-rep' }, 'Parece que ya lo tenés: ', h('a', { href: `#/bitacora/n/${repetida.id}`, onclick: () => dlg.close() }, repetida.titulo), ` (${d.nombreRuta(repetida.carpetaId)}). ¿Lo guardo igual?`) : null,
-    p.estado === 'error' ? h('p', { class: 'bt-or-duda' }, p.error) : null,
+    p.estado === 'error' || p.estado === 'espera' ? h('p', { class: 'bt-or-duda' }, p.error, p.estado === 'espera' ? ' Completalo a mano, o cerrá esto y la app lo reintenta sola.' : '') : null,
+    p.estado === 'leyendo' ? h('p', { class: 'bt-or-duda' }, 'Gemini todavía lo está leyendo. Podés completarlo a mano igual.') : null,
     campo('Nombre', nombre),
     h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Dónde va'), zonaLugar),
     campo('Qué es', que), campo('De', de),

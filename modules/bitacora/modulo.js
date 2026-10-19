@@ -24,7 +24,7 @@ import {
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
-import { pantallaPendientes, recibirArchivos, sincronizarMensuales } from './ordenar.js';
+import { pantallaPendientes, recibirArchivos, sincronizarMensuales, reintentarSolo } from './ordenar.js';
 import { pantallaFilmoteca, pantallaLista, pantallaAgregar, pantallaStats, pantallaPrevia, actualizarEnFondo, sincronizarAvisos, listaViendo, subtituloViendo, progreso, vivo, poster, items as itemsCine } from './filmoteca.js';
 
 // En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
@@ -220,6 +220,8 @@ export default {
     setTimeout(() => sincronizarRecordatorios(ctx), 2500);
     // Cargas mensuales: tareas "Falta subir…" (se revisa al abrir y cuando cambian notas o ajustes).
     setTimeout(() => sincronizarMensuales(ctx, m), 3500);
+    // Archivos en espera (Gemini ocupado o sin conexión): se reintentan solos.
+    reintentarSolo(ctx, m);
     let esperaMes = null;
     ctx.alCambiarDatos((e) => { if (e.coleccion === 'notas' || e.coleccion === 'ajustes') { clearTimeout(esperaMes); esperaMes = setTimeout(() => sincronizarMensuales(ctx, m), 3000); } });
     let espera = null;

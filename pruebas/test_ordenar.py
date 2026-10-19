@@ -33,6 +33,7 @@ with sync_playwright() as p:
     ids=page.evaluate(SEED)
     def gem(route):
         estado['pedidos']+=1
+        if estado.get('falla'): route.fulfill(status=429, body='{}'); return
         cuerpo=json.loads(route.request.post_data)
         estado['tieneArchivo']=any('inline_data' in pt for pt in cuerpo['contents'][0]['parts'])
         route.fulfill(status=200, content_type='application/json', body=json.dumps(respuesta(ids, estado['seguro'])))
@@ -106,6 +107,29 @@ with sync_playwright() as p:
       await c.put(u('datos'), new Response(JSON.stringify({ titulo: '', texto: '', url: '', archivos: [{ clave: 'a1', nombre: 'luz.pdf', tipo: 'application/pdf' }] }))); }""")
     page.goto(U+'#/bitacora/compartir'); page.wait_for_timeout(2500)
     chk('pendientes' in page.url and page.locator('.bt-or-item:has-text("Compartido")').count()==1,'compartido a revisar')
+    # Gemini con límite (429): queda en espera, se reintenta y se puede ordenar a mano
+    estado['seguro']=True; estado['falla']=True
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    with page.expect_file_chooser() as fc: page.locator('.bt-or-zona').click()
+    fc.value.set_files(files=[{'name':'agua.pdf','mimeType':'application/pdf','buffer':b'%PDF-1.4 agua'}])
+    page.wait_for_timeout(2000)
+    chk(page.locator('.bt-or-item:has-text("agua.pdf"):has-text("En espera")').count()==1,'en espera por limite')
+    chk(page.locator('.bt-or-item:has-text("agua.pdf") button:has-text("Reintentar ahora")').count()==1,'boton reintentar ahora')
+    estado['falla']=False
+    page.locator('.bt-or-item:has-text("agua.pdf") button:has-text("Reintentar ahora")').click(); page.wait_for_timeout(2000)
+    chk(page.locator('.bt-or-item:has-text("2026-10 Gas Metrogas"):has-text("Para confirmar")').count()>=1,'reintento lo leyó')
+    estado['falla']=True
+    with page.expect_file_chooser() as fc: page.locator('.bt-or-zona').click()
+    fc.value.set_files(files=[{'name':'internet.pdf','mimeType':'application/pdf','buffer':b'%PDF-1.4 internet'}])
+    page.wait_for_timeout(2000)
+    page.locator('.bt-or-item:has-text("internet.pdf")').click(); page.wait_for_timeout(500)
+    chk(page.locator('dialog[open] .bt-or-duda:has-text("límite")').count()==1,'revisar a mano en espera')
+    page.locator('dialog[open] input[type=text]').first.fill('Internet octubre')
+    page.locator('dialog[open] button:has-text("Otra carpeta")').click(); page.wait_for_timeout(300)
+    page.locator('dialog[open] .bt-elegir:has-text("Luz")').click(); page.wait_for_timeout(300)
+    page.locator('dialog[open] button:has-text("Confirmar")').click(); page.wait_for_timeout(1200)
+    chk(page.evaluate("async () => { const R = await import('/js/core/registro.js'); return (await R.contexto('bitacora').datos('notas').listar()).some(n => n.titulo === 'Internet octubre'); }"),'guardado a mano')
+    estado['falla']=False
     print(w, 'errores', [e for e in err if 'favicon' not in e][:5])
     cx.close()
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)
