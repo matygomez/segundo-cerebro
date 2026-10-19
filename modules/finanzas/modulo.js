@@ -100,6 +100,12 @@ export default {
     'recordatorio-estado': (datos, ctx) => estadoRecordatorio(ctx, datos),
     // Abre el formulario de pago con todo completo.
     'recordatorio-pagar': (datos, ctx) => pagarRecordatorio(ctx, datos),
+    // Abre el formulario de gasto con el importe ya puesto (lo usa la Bitácora al ordenar una factura).
+    async 'nuevo-gasto'({ importe = '', descripcion = '', fecha = '' } = {}, ctx) {
+      cargarEstilos();
+      const m = crearModelo(ctx);
+      return !!(await abrirMovimiento(ctx, m, await m.cargar(), 'gasto', null, { importe, descripcion, ...(fecha ? { fecha } : {}) }));
+    },
 
     // Para las metas de Hábitos: cuentas y categorías que se pueden elegir.
     async 'metas-cuentas'(_, ctx) {

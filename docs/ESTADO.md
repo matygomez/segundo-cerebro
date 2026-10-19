@@ -18,10 +18,11 @@ resumen-tareas, resumen-vencidas, sistema-pendientes, sistema-sincronizar`.
 ## Finanzas (`modules/finanzas`)
 Cuentas, créditos en cuotas, categorías con presupuesto, movimientos, préstamos, disponible, análisis.
 Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`, guarda `movimientos.controlado` y `creditos.totalBanco`).
-Acciones: `recordatorio-estado, recordatorio-pagar, metas-cuentas, metas-valor, resumen-finanzas`.
+Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 
 ## Bitácora (`modules/bitacora`)
 Carpetas y bases (campos tipo Notion), notas Markdown, plantillas, recordatorios, espejo .md en Drive, Filmoteca (TMDB).
+Archivos para revisar (`ordenar.js`, `#/bitacora/pendientes`): subir/arrastrar/Compartir → Gemini (clave en Configurar) propone nombre, carpeta y datos → confirmás; nota con `archivo` + PDF al lado en Drive; tarea por vencimiento, gasto en Finanzas (`nuevo-gasto`), repetidos por huella. Cargas mensuales en Configurar → tareas `bitacora-mes:` en Sistemas › Bitácora.
 Acciones: `abrir-nota, metas-carpetas, metas-contar, resumen-bitacora`.
 
 ## Calendario (`modules/calendario`, fuera de la barra del celular)

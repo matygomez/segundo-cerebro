@@ -13,6 +13,7 @@ import { BANDEJA, sumarDias, hoyISO, escaparRegex, comparar, sincronizarRecordat
 import { ic, ventana, menu, elegirCarpeta, haceCuanto, vacio, marcaCarpeta, poner } from './vistas.js';
 import { controlCampo } from './base.js';
 import { encabezadoCine } from './filmoteca.js';
+import { fichaArchivo } from './ordenar.js';
 
 const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 const esImagen = (a) => /^image\//.test(a?.tipo || '') || /\.(png|jpe?g|gif|webp|bmp|avif|heic)$/i.test(a?.nombre || '');
@@ -292,6 +293,10 @@ export function vistaNota(ctx, m, d, id, main) {
         } }, ctx.icono('cerrar')))))] : []));
   }
 
+  // ── Ficha de un documento ordenado ──
+  const zonaFicha = h('div');
+  const pintarFicha = () => poner(zonaFicha, n.archivo ? fichaArchivo(ctx, m, n) : null);
+
   // ── Menciones ──
   const zonaMenciones = h('div', { class: 'bt-menciones' });
   const abiertas = { con: true, sin: false };
@@ -376,11 +381,11 @@ export function vistaNota(ctx, m, d, id, main) {
   }
 
   // ── Armar ──
-  pintarProps(); pintarArchivos(); pintarMenciones(); pintarPie();
+  pintarProps(); pintarFicha(); pintarArchivos(); pintarMenciones(); pintarPie();
   const cine = n.cine ? encabezadoCine(ctx, m, d, n) : null;
   poner(main, cine
     ? h('article', { class: 'bt-nota fm-nota' }, barra, cine.el, h('h3', { class: 'bt-sec-h fm-notas-h' }, 'Notas'), zonaProps, zonaCuerpo, zonaArchivos, zonaMenciones, pie)
-    : h('article', { class: 'bt-nota' }, barra, titulo, zonaProps, zonaCuerpo, zonaArchivos, zonaMenciones, pie));
+    : h('article', { class: 'bt-nota' }, barra, titulo, zonaFicha, zonaProps, zonaCuerpo, zonaArchivos, zonaMenciones, pie));
   requestAnimationFrame(() => ajustarAlto(titulo));
   if (pedidoEditar) setTimeout(() => { if (n.titulo === 'Sin título') { titulo.focus(); titulo.select(); } else editor.enfocar(); }, 60);
 
@@ -398,7 +403,7 @@ export function vistaNota(ctx, m, d, id, main) {
       if (!escribiendo && (n.texto || '') !== texto) { texto = n.texto || ''; editor.poner(texto); }
       else if (!escribiendo && (antes.adjuntos || []).length !== (n.adjuntos || []).length) editor.poner(texto);
       if (!zonaProps.contains(document.activeElement)) pintarProps();
-      pintarArchivos(); pintarMenciones(); pintarPie();
+      pintarFicha(); pintarArchivos(); pintarMenciones(); pintarPie();
       const r = n.carpetaId ? d.ruta(n.carpetaId) : [];
       volver.href = destinoVolver();
       poner(volver, '‹ ', textoVolver(r));

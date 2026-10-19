@@ -116,6 +116,8 @@ export function contexto(moduloId) {
       urlImagen: archivos.urlImagen,
       esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
+      descargar: archivos.descargar,
+      borrar: archivos.borrar,
     },
     // Editor de texto con formato (se guarda como Markdown).
     editorTexto: (opciones) => crearEditor(opciones),

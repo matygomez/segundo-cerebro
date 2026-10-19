@@ -10,6 +10,7 @@ import { filaSeguirViendo, items as itemsCine, config as configCine } from './fi
 import {
   BANDEJA, DIAS_PAPELERA, TIPOS, COLORES_CARPETA, resumen, etiquetasDe, plantillaTitulo, comparar, hoyISO,
 } from './modelo.js';
+import { seccionArchivos, seccionMensuales } from './ordenar.js';
 
 // Como replaceChildren, pero ignora los vacíos (null, false).
 export const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
@@ -186,6 +187,7 @@ export function arbol(ctx, m, d, actual = '') {
   const filas = [
     fila('#/bitacora', [h('span', { class: 'bt-ar-flecha vacia' }), ic('inicio'), h('span', { class: 'bt-ar-nom' }, 'Inicio')], { sel: actual === 'inicio' }),
     fila('#/bitacora/buscar', [h('span', { class: 'bt-ar-flecha vacia' }), ic('buscar'), h('span', { class: 'bt-ar-nom' }, 'Buscar')], { sel: actual === 'buscar' }),
+    fila('#/bitacora/pendientes', [h('span', { class: 'bt-ar-flecha vacia' }), ic('clip'), h('span', { class: 'bt-ar-nom' }, 'Para revisar')], { sel: actual === 'pendientes', n: d.pendientes.length || null }),
     fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), ic('film'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
     seccion('sec:carpetas', 'Carpetas', h('button', { type: 'button', class: 'bt-ar-mas', title: 'Nueva carpeta', 'aria-label': 'Nueva carpeta', onclick: () => nuevaCarpeta(ctx, m, '') }, ic('mas'))),
   ];
@@ -260,10 +262,12 @@ export function pantallaInicio(ctx, m, d, main) {
     titulo: 'Bitácora', marca: icono('bitacora'),
     botones: [
       h('a', { href: '#/bitacora/ajustes', class: 'boton-icono', title: 'Configurar Bitácora', 'aria-label': 'Configurar Bitácora' }, ic('ajustes')),
+      h('a', { href: '#/bitacora/pendientes', class: 'boton', title: 'Subir y ordenar archivos' }, ic('clip'), 'Archivos', d.pendientes.length ? h('span', { class: 'bt-or-num' }, String(d.pendientes.length)) : null),
       botonNueva(ctx, m, d, BANDEJA),
     ],
   }));
   cont.push(h('a', { href: '#/bitacora/buscar', class: 'bt-busca' }, ic('buscar'), h('span', {}, 'Buscar en títulos, texto y #etiquetas…')));
+  if (d.pendientes.length) cont.push(h('a', { href: '#/bitacora/pendientes', class: 'tarjeta bt-or-banner' }, ic('clip'), h('span', {}, h('b', {}, `${d.pendientes.length} archivo${d.pendientes.length === 1 ? '' : 's'} para revisar`), h('small', {}, 'Confirmá dónde va cada uno.')), h('span', { class: 'bt-link-chico' }, 'Revisar ›')));
 
   {
     for (const b of cfg.bloques.filter(x => x.on)) {
@@ -465,6 +469,8 @@ export function pantallaAjustes(ctx, m, d, main) {
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Editar plantilla', onclick: () => editarPlantilla(ctx, m, d, p) }, ic('editar')),
             h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Borrar plantilla', onclick: async () => { if (await ctx.confirmar(`¿Borrar la plantilla "${p.nombre}"? Las notas ya creadas no cambian.`, { si: 'Borrar', peligro: true })) await m.borrarPlantilla(p.id); } }, ic('papelera'))))))
         : h('p', { class: 'nota' }, 'Todavía no hay plantillas.')),
+    seccionArchivos(ctx, m, d),
+    seccionMensuales(ctx, m, d),
     seccionFilmoteca(ctx, m, d),
     h('section', { class: 'tarjeta' }, h('h2', {}, 'Tipos de campo para las bases de datos'),
       h('p', { class: 'nota' }, 'Tocá los que no uses para ocultarlos al agregar un campo. Vale para todas las bases.'), tipos),

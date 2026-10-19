@@ -511,3 +511,57 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
   .bt-ini-sv-s { font-size: 0.72rem; }
 }
 .bloque-cuerpo:has(> .bt-ini-sv) { display: grid; gap: 0.6rem; }
+
+/* ── Archivos para revisar (ordenar.js) ── */
+.bt-or-num { background: var(--laton); color: #17130a; border-radius: 999px; font-size: 0.7rem; font-weight: 700; padding: 0 0.4rem; margin-left: 0.3rem; }
+.bt-or-banner { display: flex; align-items: center; gap: 0.8rem; text-decoration: none; color: var(--tinta); border-color: var(--laton); }
+.bt-or-banner > span:nth-child(2) { flex: 1; display: grid; }
+.bt-or-banner small { color: var(--tinta-2); }
+.bt-or-zona { display: flex; align-items: center; gap: 0.9rem; border: 1.5px dashed var(--linea); border-radius: var(--radio-tarjeta); padding: 1rem 1.1rem; color: var(--tinta-2); cursor: pointer; margin-bottom: 1rem; }
+.bt-or-zona:hover, .bt-or-zona.encima { border-color: var(--laton); color: var(--tinta); }
+.bt-or-zona > svg { width: 1.6rem; height: 1.6rem; color: var(--laton); flex: none; }
+.bt-or-zona > span { display: grid; gap: 0.15rem; }
+.bt-or-zona b { color: var(--tinta); }
+.bt-or-aviso { margin: 0 0 1rem; }
+.bt-or-lista { display: grid; gap: 0.6rem; }
+.bt-or-item { display: flex; align-items: center; gap: 0.8rem; background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta); padding: 0.75rem 0.9rem; cursor: pointer; }
+.bt-or-item:hover { border-color: var(--tinta-2); }
+.bt-or-ext { width: 2.4rem; height: 2.9rem; border-radius: 6px; background: var(--superficie-2); display: grid; place-items: center; font-size: 0.6rem; font-weight: 700; color: var(--rojo); flex: none; }
+.bt-or-t { flex: 1; min-width: 0; display: grid; gap: 0.1rem; }
+.bt-or-t b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-or-t small { color: var(--tinta-2); font-size: 0.8rem; overflow: hidden; text-overflow: ellipsis; }
+.bt-or-est { font-size: 0.72rem; font-weight: 600; border-radius: 999px; padding: 0.2rem 0.6rem; white-space: nowrap; background: var(--superficie-2); color: var(--tinta-2); }
+.bt-or-est.confirmar { background: var(--laton-fondo); color: var(--laton); }
+.bt-or-est.duda { background: #1A2633; color: #8DB4DC; }
+.bt-or-est.repetido, .bt-or-est.error { background: var(--rojo-fondo); color: var(--rojo); }
+@media (max-width: 600px) { .bt-or-item { flex-wrap: wrap; } .bt-or-t { flex-basis: calc(100% - 3.5rem); } }
+.bt-or-rev .nota { margin: 0; }
+.bt-or-lugar { display: grid; gap: 0.5rem; }
+.bt-or-elegida { display: flex; align-items: center; gap: 0.6rem; background: var(--superficie-2); border-radius: var(--radio-control); padding: 0.55rem 0.7rem; }
+.bt-or-elegida b { flex: 1; }
+.bt-or-elegida svg { color: var(--laton); }
+.bt-or-ops { display: grid; gap: 0.4rem; }
+.bt-or-op { display: flex; align-items: center; gap: 0.5rem; text-align: left; border: 1px solid var(--linea); background: var(--superficie-2); border-radius: var(--radio-control); padding: 0.5rem 0.7rem; cursor: pointer; color: var(--tinta); font: inherit; }
+.bt-or-op.sel { border-color: var(--laton); background: var(--laton-fondo); }
+.bt-or-duda { background: #1A2633; color: #8DB4DC; border-radius: var(--radio-control); padding: 0.55rem 0.7rem; margin: 0; font-size: 0.9rem; }
+.bt-or-rep { background: var(--rojo-fondo); color: var(--rojo); border-radius: var(--radio-control); padding: 0.55rem 0.7rem; margin: 0; font-size: 0.9rem; }
+.bt-or-rep a { color: inherit; }
+.bt-or-dos { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+.bt-or-sugs { display: grid; gap: 0.6rem; border-top: 1px solid var(--linea); padding-top: 0.8rem; }
+.bt-or-sug { display: flex; align-items: center; gap: 0.6rem; }
+.bt-or-sug > span { flex: 1; display: grid; font-size: 0.92rem; }
+.bt-or-sug small { color: var(--tinta-2); font-size: 0.78rem; }
+.bt-or-sug select { width: auto; }
+.bt-or-sug .aj-switch { margin-left: 0; flex: none; }
+.bt-or-sugm { display: flex; flex-wrap: wrap; align-items: center; gap: 0.6rem; border: 1px solid var(--linea); border-radius: var(--radio-control); padding: 0.7rem; margin-bottom: 0.7rem; font-size: 0.92rem; }
+.bt-or-sugm > span:first-child { flex: 1 1 16rem; }
+.bt-or-sugm-b { display: flex; gap: 0.5rem; }
+.bt-or-ok { color: var(--verde); font-size: 0.85rem; font-weight: 600; text-decoration: none; }
+.bt-or-falta { color: var(--rojo); font-size: 0.85rem; font-weight: 600; }
+.bt-ficha { background: var(--superficie); border: 1px solid var(--linea); border-radius: var(--radio-tarjeta); padding: 0.8rem 0.9rem; display: grid; gap: 0.7rem; margin: 0.4rem 0 0.8rem; }
+.bt-ficha-datos { display: grid; grid-template-columns: repeat(auto-fill, minmax(8.5rem, 1fr)); gap: 0.5rem; }
+.bt-ficha-datos > div { background: var(--superficie-2); border-radius: var(--radio-control); padding: 0.45rem 0.6rem; }
+.bt-ficha-datos small { display: block; color: var(--tinta-2); font-size: 0.72rem; }
+.bt-ficha-bot { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.bt-ficha-txt summary { cursor: pointer; color: var(--tinta-2); font-size: 0.88rem; }
+.bt-ficha-txt p { color: var(--tinta-2); font-size: 0.88rem; line-height: 1.5; white-space: pre-wrap; margin: 0.4rem 0 0; }

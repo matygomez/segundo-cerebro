@@ -11,18 +11,20 @@
 //   #/bitacora/e/<etiqueta>    notas con una #etiqueta
 //   #/bitacora/buscar · /papelera · /ajustes
 //   #/bitacora/compartir       lo que llega desde "Compartir" de Android
+//   #/bitacora/pendientes      archivos para revisar (ver ordenar.js)
 //
 // En Drive: los datos en Segundo Cerebro/bitacora/*.json y, además,
 // una copia legible de cada nota (.md) en Segundo Cerebro/Bitácora.
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, espejoDe, sincronizarRecordatorios, BANDEJA, hoyISO } from './modelo.js';
+import { crearModelo, espejoDe, sincronizarRecordatorios, BANDEJA, hoyISO, textoArchivo } from './modelo.js';
 import {
   cargarEstilos, esPC, arbol, pantallaInicio, pantallaCarpeta, pantallaEtiqueta, pantallaBuscar,
   pantallaPapelera, pantallaAjustes, recibirCompartido, ic, crearYAbrir,
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
+import { pantallaPendientes, recibirArchivos, sincronizarMensuales } from './ordenar.js';
 import { pantallaFilmoteca, pantallaLista, pantallaAgregar, pantallaStats, pantallaPrevia, actualizarEnFondo, sincronizarAvisos, listaViendo, subtituloViendo, progreso, vivo, poster, items as itemsCine } from './filmoteca.js';
 
 // En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
@@ -47,6 +49,7 @@ function cuadroNotas(ctx, contenedor, op) {
     const fila = (icono, titulo, der, href) => h('a', { href, class: 'bt-ini-fila' }, ic(icono), h('span', { class: 'bt-ini-t' }, titulo), der ? h('span', { class: 'bt-ini-der' }, der) : null);
     if (op.fijadas !== false) for (const n of d.notas.filter(x => x.fijada).sort((a, b) => b.modificado - a.modificado)) filas.push(fila('pin', n.titulo, 'fijada', `#/bitacora/n/${n.id}`));
     if (op.bandeja !== false) { const nB = d.notasDe(BANDEJA).length; if (nB) filas.push(fila('bandeja', 'Bandeja', `${nB} para ordenar`, '#/bitacora/bandeja')); }
+    if (d.pendientes.length) filas.push(fila('clip', 'Archivos', `${d.pendientes.length} para revisar`, '#/bitacora/pendientes'));
     if (op.recordatorios !== false) {
       for (const r of d.recordatorios.filter(x => x.fecha && x.fecha <= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))) {
         const n = d.nota(r.notaId);
@@ -136,7 +139,7 @@ export default {
     const raiz = h('div', { class: 'bt' }, lado, main);
     contenedor.replaceChildren(raiz);
 
-    const [que, ...resto] = sub;
+    let [que, ...resto] = sub;
     let actual = 'inicio';
     let vista = null;
 
@@ -160,6 +163,7 @@ export default {
       else if (que === 'buscar') { actual = 'buscar'; vista = pantallaBuscar(ctx, m, d, main); }
       else if (que === 'papelera') { actual = 'papelera'; pantallaPapelera(ctx, m, d, main); }
       else if (que === 'ajustes') { actual = 'ajustes'; pantallaAjustes(ctx, m, d, main); }
+      else if (que === 'pendientes') { actual = 'pendientes'; pantallaPendientes(ctx, m, d, main); }
       else { actual = 'inicio'; pantallaInicio(ctx, m, d, main); }
       if (actual.startsWith('n:')) { const n = d.nota(actual.slice(2)); actual = n?.cine ? 'f' : n ? `c:${n.carpetaId || ''}` : actual; }
     }
@@ -169,8 +173,17 @@ export default {
     }
 
     if (que === 'compartir') {
-      history.replaceState(null, '', '#/bitacora');
-      recibirCompartido(ctx, m);
+      // Archivos compartidos (sin link): a "Para revisar". Links y textos: una nota, como siempre.
+      const c = await ctx.compartido?.leer?.();
+      if (c?.archivos?.length && !c.url && !/https?:\/\//.test(c.texto)) {
+        await ctx.compartido.limpiar();
+        history.replaceState(null, '', '#/bitacora/pendientes');
+        que = 'pendientes';
+        recibirArchivos(ctx, m, c.archivos.map(f => ({ blob: f, nombre: f.name })), 'Compartido desde el celular');
+      } else {
+        history.replaceState(null, '', '#/bitacora');
+        recibirCompartido(ctx, m);
+      }
     }
     abrir();
     pintarLado();
@@ -205,6 +218,10 @@ export default {
     setTimeout(() => m.limpiarPapelera().catch(() => {}), 4000);
     // Recordatorios en Tareas.
     setTimeout(() => sincronizarRecordatorios(ctx), 2500);
+    // Cargas mensuales: tareas "Falta subir…" (se revisa al abrir y cuando cambian notas o ajustes).
+    setTimeout(() => sincronizarMensuales(ctx, m), 3500);
+    let esperaMes = null;
+    ctx.alCambiarDatos((e) => { if (e.coleccion === 'notas' || e.coleccion === 'ajustes') { clearTimeout(esperaMes); esperaMes = setTimeout(() => sincronizarMensuales(ctx, m), 3000); } });
     let espera = null;
     ctx.alCambiarDatosDe?.('tareas', () => { clearTimeout(espera); espera = setTimeout(() => sincronizarRecordatorios(ctx), 3000); });
     ctx.alCambiarDatos((e) => { if (e.coleccion === 'recordatorios') { clearTimeout(espera); espera = setTimeout(() => sincronizarRecordatorios(ctx), 800); } });
@@ -224,8 +241,13 @@ export default {
         salida.push({ grupo: 'Películas', icono: 'pelicula', titulo: `${n.titulo}${c.anio ? ` (${c.anio})` : ''}`, sub: `${c.tipo === 'tv' ? 'Serie' : 'Película'} · ${EST[c.estado] || ''}`, der: c.calificacion ? `${c.calificacion}/10` : '', fecha: n.modificado, abrir: () => ctx.navegar(`bitacora/n/${n.id}`) });
         continue;
       }
-      if (!coincide(n.titulo, n.texto, (n.etiquetas || []).join(' '), Object.values(n.props || {}).map(v => (typeof v === 'object' ? '' : v)).join(' '))) continue;
-      const frag = !coincide(n.titulo) ? fragmento(n.texto) : '';
+      const adentro = textoArchivo(n);
+      if (!coincide(n.titulo, n.texto, adentro, (n.etiquetas || []).join(' '), Object.values(n.props || {}).map(v => (typeof v === 'object' ? '' : v)).join(' '))) continue;
+      const frag = coincide(n.titulo) ? '' : coincide(n.texto) ? fragmento(n.texto) : adentro ? fragmento(adentro) : '';
+      if (n.archivo) {
+        salida.push({ grupo: 'Archivos', icono: 'bitacora', titulo: n.titulo, sub: [d.nombreRuta(n.carpetaId), frag ? `"${frag}"` : ''].filter(Boolean).join(' · '), der: n.archivo.vence ? `vence ${diaCorto(n.archivo.vence)}` : cuando(n.creado), fecha: n.creado, abrir: () => ctx.navegar(`bitacora/n/${n.id}`) });
+        continue;
+      }
       salida.push({ grupo: 'Notas', icono: 'bitacora', titulo: n.titulo || 'Sin título', sub: [d.nombreRuta(n.carpetaId), frag ? `"${frag}"` : ''].filter(Boolean).join(' · '), der: cuando(n.modificado), fecha: n.modificado, abrir: () => ctx.navegar(`bitacora/n/${n.id}`) });
     }
     for (const c of d.carpetas.filter(x => !x.sistema && coincide(x.nombre))) {

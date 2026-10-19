@@ -4,9 +4,13 @@
 // Colecciones (Segundo Cerebro/bitacora/*.json):
 //   carpetas     { nombre, padreId, color, icono, orden, base, campos[], vistas[] }
 //   notas        { titulo, carpetaId ('' = Bandeja), texto (Markdown), props{},
-//                  etiquetas[], fijada, papelera (ms o 0), adjuntos[] }
+//                  etiquetas[], fijada, papelera (ms o 0), adjuntos[],
+//                  archivo? { que, de, fecha, vence, monto, contenido, huella } }
+//                  (archivo: la nota es un documento ordenado; su adjunto
+//                  "principal" va en Drive junto a la nota, con el mismo nombre)
 //   plantillas   { nombre, icono, carpetaId, titulo, texto, rapida, orden }
 //   recordatorios{ notaId, titulo, fecha, creada }
+//   pendientes   archivos esperando que confirmes dónde van (ver ordenar.js)
 //   ajustes      { clave, ... }  (inicio y plegados por dispositivo, tipos ocultos)
 //   espejo       lo usa el núcleo para la copia .md en Drive
 //
@@ -82,6 +86,9 @@ export function renombrarEnlaces(texto, viejo, nuevo) {
   return String(texto || '').replace(re, (_, emb, anc = '', ali = '') => `${emb}[[${nuevo}${anc || ''}${ali || ''}]]`);
 }
 
+// Lo que se puede buscar de un documento ordenado (datos y lo que dice adentro).
+export const textoArchivo = (n) => (n.archivo ? [n.archivo.que, n.archivo.de, n.archivo.contenido].filter(Boolean).join(' ') : '');
+
 // Primer pedacito del texto, para listas.
 export function resumen(texto, largo = 120) {
   const limpio = String(texto || '')
@@ -134,6 +141,13 @@ export function aMarkdown(n, d) {
     if (ci.vistas?.length) lineas.push(`vista: [${ci.vistas.join(', ')}]`);
     if (ci.tipo === 'tv') lineas.push(`episodios_vistos: ${Object.keys(ci.vistos || {}).length}`);
     if (ci.tmdb) lineas.push(`tmdb: https://www.themoviedb.org/${ci.tipo}/${ci.tmdb}`);
+  }
+  if (n.archivo) {
+    const a = n.archivo;
+    for (const [k, v] of [['qué_es', a.que], ['de', a.de], ['fecha', a.fecha], ['vence', a.vence]]) if (v) lineas.push(`${k}: ${JSON.stringify(String(v))}`);
+    if (a.monto) lineas.push(`monto: ${Number(a.monto)}`);
+    const p = (n.adjuntos || []).find(x => x.principal);
+    if (p) lineas.push(`archivo: ${JSON.stringify(`[[${p.nombre}]]`)}`);
   }
   const tags = (n.etiquetas || []).map(e => String(e).replace(/^#/, '')).filter(Boolean);
   if (tags.length) lineas.push(`tags: [${tags.map(t => JSON.stringify(t)).join(', ')}]`);
@@ -282,11 +296,12 @@ export function crearModelo(ctx) {
     recordatorios: ctx.datos('recordatorios'),
     ajustes: ctx.datos('ajustes'),
     cine: ctx.datos('cine'),   // Filmoteca: datos de TMDB que cambian (plataformas, episodios, estrenos)
+    pendientes: ctx.datos('pendientes'),   // archivos para ordenar
   };
 
   async function cargar() {
-    const [carpetas, notasTodas, plantillas, recordatorios, ajustes, cine] = await Promise.all([
-      col.carpetas.listar(), col.notas.listar(), col.plantillas.listar(), col.recordatorios.listar(), col.ajustes.listar(), col.cine.listar(),
+    const [carpetas, notasTodas, plantillas, recordatorios, ajustes, cine, pendientes] = await Promise.all([
+      col.carpetas.listar(), col.notas.listar(), col.plantillas.listar(), col.recordatorios.listar(), col.ajustes.listar(), col.cine.listar(), col.pendientes.listar(),
     ]);
     const cinePorClave = new Map(cine.sort((a, b) => (a.actualizado || 0) - (b.actualizado || 0)).map(x => [x.clave, x]));
     const porId = new Map(carpetas.map(c => [c.id, c]));
@@ -303,6 +318,7 @@ export function crearModelo(ctx) {
       papelera: notasTodas.filter(n => n.papelera).sort((a, b) => b.papelera - a.papelera),
       plantillas: ordenar(plantillas),
       recordatorios,
+      pendientes: pendientes.sort((a, b) => a.creado - b.creado),   // archivos para revisar
       ajustesLista: ajustes,
       carpeta: (id) => (id ? porId.get(id) || null : null),
       nota: (id) => notaPorId.get(id) || null,
@@ -366,7 +382,7 @@ export function crearModelo(ctx) {
           const tags = etiquetasDe(n);
           if (!etiq.every(e => tags.some(t => t === e || t.startsWith(e + '/') || t.startsWith(e)))) continue;
           const tit = sinTildes(n.titulo), txt = sinTildes(n.texto);
-          const props = Object.values(n.props || {}).map(v => sinTildes(typeof v === 'object' ? JSON.stringify(v) : v)).join(' ');
+          const props = Object.values(n.props || {}).map(v => sinTildes(typeof v === 'object' ? JSON.stringify(v) : v)).join(' ') + ' ' + sinTildes(textoArchivo(n));
           if (!palabras.every(p => tit.includes(p) || txt.includes(p) || props.includes(p))) continue;
           const puntos = palabras.reduce((s, p) => s + (tit.startsWith(p) ? 5 : tit.includes(p) ? 3 : 1), 0);
           salida.push({ nota: n, puntos });
@@ -415,8 +431,8 @@ export function crearModelo(ctx) {
     },
 
     // ── Notas ──
-    async crearNota({ titulo = '', carpetaId = BANDEJA, texto = '', props = {}, etiquetas = [], adjuntos = [], cine = null } = {}) {
-      return col.notas.crear({ titulo: String(titulo).trim() || 'Sin título', carpetaId, texto, props, etiquetas, fijada: false, papelera: 0, adjuntos, ...(cine ? { cine } : {}) });
+    async crearNota({ titulo = '', carpetaId = BANDEJA, texto = '', props = {}, etiquetas = [], adjuntos = [], cine = null, archivo = null } = {}) {
+      return col.notas.crear({ titulo: String(titulo).trim() || 'Sin título', carpetaId, texto, props, etiquetas, fijada: false, papelera: 0, adjuntos, ...(cine ? { cine } : {}), ...(archivo ? { archivo } : {}) });
     },
     guardarNota: (id, cambios) => col.notas.actualizar(id, cambios),
     // Renombrar: también se actualizan los [[enlaces]] en las otras notas.
@@ -475,6 +491,7 @@ export function crearModelo(ctx) {
         for (const [k, v] of Object.entries(props)) if (v && typeof v === 'object' && v.pendiente === pendiente) { props[k] = { ...archivo, nombre: v.nombre }; cambio = true; }
         if (cambio) await col.notas.actualizar(n.id, { adjuntos, props });
       }
+      for (const p of await col.pendientes.listar()) if (p.adjunto?.pendiente === pendiente) await col.pendientes.actualizar(p.id, { adjunto: { ...archivo, nombre: p.adjunto.nombre } });
     },
   };
 }
@@ -498,10 +515,13 @@ export function espejoDe(d) {
       if (a.origen !== 'subido' || !a.driveId) continue;
       const clave = `adj:${a.driveId}`;
       if (archivos.some(x => x.clave === clave)) continue;
-      archivos.push({ clave, ruta: ['adjuntos'], nombre: unico(['adjuntos'], a.nombre.replace(/\.[^.]+$/, ''), (a.nombre.match(/\.[^.]+$/) || [''])[0]), copiaDe: a.driveId });
+      // El documento de una nota "archivo" va al lado de la nota, con su mismo nombre.
+      const r = a.principal ? ruta : ['adjuntos'];
+      const base = a.principal ? nombreArchivo(n.titulo) : a.nombre.replace(/\.[^.]+$/, '');
+      archivos.push({ clave, ruta: r, nombre: unico(r, base, (a.nombre.match(/\.[^.]+$/) || [''])[0]), copiaDe: a.driveId });
     }
   }
-  if (archivos.some(x => x.copiaDe)) carpetas.push(['adjuntos']);
+  if (archivos.some(x => x.copiaDe && x.ruta.join('/') === 'adjuntos')) carpetas.push(['adjuntos']);
   return { carpetas, archivos };
 }
 

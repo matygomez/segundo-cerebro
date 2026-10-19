@@ -85,6 +85,24 @@ export async function resolver(idPendiente) {
   return subidos[idPendiente] || null;
 }
 
+// Baja el contenido de un archivo (en espera en el dispositivo o ya en Drive).
+export async function descargar(adj) {
+  if (adj?.pendiente) {
+    const local = (await db.listarArchivos()).find(f => f.id === adj.pendiente);
+    if (local) return local.blob;
+    adj = await resolver(adj.pendiente);
+  }
+  if (!adj?.driveId) throw new Error('El archivo todavía no está disponible.');
+  return drive.descargar(adj.driveId);
+}
+
+// Manda un archivo a la papelera (de Drive, o lo borra del dispositivo si estaba en espera).
+export async function borrar(adj) {
+  if (adj?.pendiente && !(await resolver(adj.pendiente))) { await db.borrarArchivo(adj.pendiente); return; }
+  const id = adj?.driveId || (await resolver(adj?.pendiente))?.driveId;
+  if (id) await drive.aPapelera(id);
+}
+
 export async function cantidadPendientes() {
   return (await db.listarArchivos()).length;
 }
