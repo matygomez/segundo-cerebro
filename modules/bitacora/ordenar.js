@@ -20,7 +20,7 @@
 import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
 
-const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-2.0-flash'];
+const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
 const MAX_LEER = 15 * 1024 * 1024;   // Gemini acepta hasta ~20 MB por pedido
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -86,22 +86,29 @@ Carpetas (id | ruta | ejemplos):
 ${listaCarpetas(d)}`;
 }
 
+// Si un modelo está saturado (500/503) se reintenta un par de veces y después
+// se prueba el siguiente; si ninguno responde, se avisa.
+const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 async function pedirGemini(clave, cuerpo) {
-  let ultimo = null;
+  let saturado = false, ultimo = 0;
   for (const modelo of MODELOS) {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave }, body: JSON.stringify(cuerpo),
-    }).catch(() => { throw new Error('No hay conexión con Gemini. Probá de nuevo con internet.'); });
-    if (r.status === 404) { ultimo = r; continue; }   // ese modelo ya no existe: el siguiente
-    if (r.status === 400 || r.status === 403) {
-      const t = await r.text();
-      throw new Error(/API key|API_KEY|permission/i.test(t) ? 'La clave de Gemini no es válida. Revisala en Configurar Bitácora.' : 'Gemini no pudo leer este archivo.');
+    for (let intento = 0; intento < 2; intento++) {
+      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave }, body: JSON.stringify(cuerpo),
+      }).catch(() => { throw new Error('No hay conexión con Gemini. Probá de nuevo con internet.'); });
+      ultimo = r.status;
+      if (r.ok) return r.json();
+      if (r.status === 400 || r.status === 403) {
+        const t = await r.text();
+        throw new Error(/API key|API_KEY|permission/i.test(t) ? 'La clave de Gemini no es válida. Revisala en Configurar Bitácora.' : 'Gemini no pudo leer este archivo.');
+      }
+      if (r.status === 429) throw new Error('Gemini llegó al límite gratis por ahora. Probá de nuevo en un rato.');
+      if (r.status === 404) break;   // ese modelo ya no existe: el siguiente
+      if (r.status >= 500) { saturado = true; await esperar(1500 * (intento + 1)); continue; }
+      throw new Error(`Gemini no respondió (${r.status}). Probá de nuevo en un rato.`);
     }
-    if (r.status === 429) throw new Error('Gemini llegó al límite gratis por ahora. Probá de nuevo en un rato.');
-    if (!r.ok) throw new Error(`Gemini no respondió (${r.status}). Probá de nuevo en un rato.`);
-    return r.json();
   }
-  throw new Error(`Gemini no respondió (${ultimo?.status || '?'}).`);
+  throw new Error(saturado ? 'Gemini está saturado en este momento. Probá de nuevo en un rato.' : `Gemini no respondió (${ultimo || '?'}).`);
 }
 
 // Devuelve la propuesta { nombre, carpetaId, seguro, alternativas, carpetaNueva, que, de, fecha, vence, monto, contenido }.
