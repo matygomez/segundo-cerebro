@@ -1,0 +1,435 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Vista previa · Compras</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<style>
+:root{--papel:#0B0B0C;--superficie:#1B1C1E;--superficie-2:#242528;--superficie-3:#2c2d31;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--tinta-3:#6B6E72;--linea:#2E3033;--laton:#D3AB5C;--laton-f:#2B2416;--verde:#6FB4A0;--verde-f:#17302A;--rojo:#E2786C;--rojo-f:#3A201D;--azul:#8DB4DC;--violeta:#B9A2E0;--titulo:'Barlow Condensed','Barlow',sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#050506;color:var(--tinta);font-family:'Barlow',system-ui,sans-serif}
+button,input,textarea{font:inherit;color:inherit}
+.ic{width:18px;height:18px;flex:none}
+.control{position:sticky;top:0;z-index:30;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.05rem;letter-spacing:.02em;color:var(--laton)}
+.g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.g>span{font-size:.8rem;color:var(--tinta-2)}
+.seg{display:inline-flex;border:1px solid var(--linea);border-radius:9px;overflow:hidden;flex-wrap:wrap}
+.seg button{border:0;background:var(--superficie);padding:6px 11px;font-size:.85rem;cursor:pointer;color:var(--tinta-2)}
+.seg button.sel{background:var(--laton);color:#17130a;font-weight:600}
+.nota-prev{max-width:1240px;margin:12px auto 0;padding:0 16px;color:var(--tinta-2);font-size:.88rem;line-height:1.5}
+.escena{padding:16px 16px 50px;display:flex;justify-content:center}
+.app{width:1240px;max-width:100%;background:var(--papel);border:1px solid var(--linea);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:210px 1fr;grid-template-rows:auto 1fr;min-height:820px;position:relative}
+.app.cel{width:390px;grid-template-columns:1fr;border-radius:28px}
+.barra{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 22px;border-bottom:1px solid var(--linea)}
+.app.cel .barra{padding:12px 14px}
+.marca{display:flex;align-items:center;gap:8px;font-weight:600;white-space:nowrap}.marca i{width:15px;height:15px;border-radius:50%;border:2px solid var(--laton);background:radial-gradient(circle,var(--laton) 0 3px,transparent 3.5px)}
+.barra-der{display:flex;align-items:center;gap:8px}
+.chip{border:1px solid var(--linea);background:var(--superficie);border-radius:999px;padding:4px 11px;font-size:.78rem;color:var(--tinta-2)}
+.buscar-b{display:flex;align-items:center;gap:8px;border:1px solid var(--linea);background:var(--superficie);border-radius:10px;padding:6px 10px;color:var(--tinta-2);font-size:.86rem;cursor:pointer;min-width:260px}
+.buscar-b kbd{margin-left:auto;font-family:inherit;font-size:.7rem;border:1px solid var(--linea);border-radius:5px;padding:0 5px;color:var(--tinta-3)}
+.app.cel .buscar-b{min-width:0;padding:7px;border-radius:50%}.app.cel .buscar-b span,.app.cel .buscar-b kbd{display:none}
+.menu{background:var(--superficie);border-right:1px solid var(--linea);padding:18px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:9px;color:var(--tinta-2);font-size:.95rem;cursor:pointer}
+.menu a.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}.menu a.sel svg{color:var(--laton)}
+.menu a.nuevo::after{content:'NUEVO';font-size:.6rem;font-weight:700;color:#17130a;background:var(--laton);border-radius:5px;padding:1px 5px;margin-left:auto}
+.app.cel .menu{position:absolute;bottom:0;left:0;right:0;flex-direction:row;justify-content:space-around;padding:8px 4px 14px;border-right:0;border-top:1px solid var(--linea);z-index:3}
+.app.cel .menu a{flex-direction:column;gap:3px;font-size:.68rem;padding:4px;background:none}
+.app.cel .menu a.nuevo::after,.app.cel .menu a.solo-pc{display:none}
+.contenido{padding:24px 28px 40px;min-width:0}
+.app.cel .contenido{padding:16px 14px 100px}
+.cab{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cab h1{font-family:var(--titulo);font-weight:600;font-size:2.2rem;margin:0;line-height:1}
+.cab p{margin:4px 0 0;color:var(--tinta-2);font-size:.92rem}
+.cab .der{margin-left:auto;display:flex;gap:8px;align-items:center}
+.app.cel .cab h1{font-size:1.8rem}.app.cel .cab .der{margin-left:0;width:100%}
+.pest{display:inline-flex;background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:3px}
+.pest button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:.88rem;color:var(--tinta-2);cursor:pointer}
+.pest button.sel{background:var(--superficie-3);color:var(--tinta);font-weight:600}
+.app.cel .pest{width:100%}.app.cel .pest button{flex:1;padding:6px 2px}
+.card{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;padding:14px 16px;display:grid;gap:10px;min-width:0;align-content:start}
+.card h3{margin:0;font-size:1rem;display:flex;align-items:center;gap:8px}.card h3 small{margin-left:auto;color:var(--tinta-2);font-weight:400;font-size:.78rem}
+.sub{color:var(--tinta-2);font-size:.84rem;line-height:1.4}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.app.cel .grid2,.app.cel .grid3{grid-template-columns:1fr}
+.flecha{width:30px;height:30px;border-radius:50%;border:1px solid var(--linea);background:var(--superficie-2);display:grid;place-items:center;cursor:pointer;color:var(--tinta-2)}
+/* ── Compras ── */
+.bt{border:1px solid var(--linea);background:var(--superficie-2);border-radius:9px;padding:8px 14px;cursor:pointer;font-size:.9rem;display:inline-flex;align-items:center;gap:6px;justify-content:center}
+.bt.p{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.bt.ch{padding:4px 9px;font-size:.78rem;border-radius:7px}
+.bt.grande{padding:14px;font-size:1.05rem;width:100%;border-radius:12px}
+.cols{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:14px;align-items:start}
+.app.cel .cols{grid-template-columns:1fr}
+.col{display:grid;gap:14px;min-width:0}
+.sub{color:var(--tinta-2);font-size:.84rem;line-height:1.4}
+.et{font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-3);font-weight:600}
+.et.lat{color:var(--laton)}
+.it{display:flex;align-items:center;gap:10px;padding:9px 0;border-top:1px solid var(--linea);font-size:.92rem}
+.it:first-of-type{border-top:0}
+.it .tx{flex:1;min-width:0}.it .tx b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.it .tx small{display:block;color:var(--tinta-2);font-size:.76rem}
+.it .der{text-align:right;font-size:.82rem;color:var(--tinta-2);white-space:nowrap}.it .der b{color:var(--tinta);display:block;font-size:.92rem}
+.chk{width:22px;height:22px;border-radius:6px;border:1.6px solid var(--tinta-2);flex:none;display:grid;place-items:center;cursor:pointer}
+.chk.on{background:var(--laton);border-color:var(--laton)}.chk.on::after{content:'✓';color:#17130a;font-size:.8rem;font-weight:700}
+.it.tachado .tx b{text-decoration:line-through;color:var(--tinta-3)}
+.foto{width:38px;height:38px;border-radius:9px;background:var(--superficie-2);display:grid;place-items:center;font-size:1.25rem;flex:none}
+.tag{display:inline-flex;align-items:center;gap:3px;border:1px solid var(--linea);border-radius:999px;padding:1px 8px;font-size:.72rem;color:var(--tinta-2);white-space:nowrap}
+.tag.rojo{border-color:#5a2f2a;color:var(--rojo);background:var(--rojo-f)}.tag.lat{border-color:#5a4a26;color:var(--laton);background:var(--laton-f)}.tag.verde{border-color:#2f5a4e;color:var(--verde);background:var(--verde-f)}.tag.azul{border-color:#2e4255;color:var(--azul)}
+.razon{font-size:.74rem;color:var(--laton)}
+.stp{display:inline-flex;align-items:center;border:1px solid var(--linea);border-radius:9px;overflow:hidden}
+.stp button{border:0;background:var(--superficie-2);width:32px;height:32px;cursor:pointer;font-size:1rem}
+.stp b{min-width:34px;text-align:center;font-variant-numeric:tabular-nums}
+/* lista compacta */
+.lc-grupo{display:flex;align-items:center;gap:8px;font-size:.68rem;letter-spacing:.08em;text-transform:uppercase;color:var(--tinta-3);font-weight:600;padding:8px 0 2px}
+.lc-grupo span{margin-left:auto;letter-spacing:0;text-transform:none;font-weight:400}
+.lc{display:flex;align-items:center;gap:8px;min-height:36px;min-width:0;padding:3px 0;border-top:1px solid #26282b;font-size:.9rem;cursor:pointer}
+.lc-grupo + .lc{border-top:0}
+.lc .chk{width:19px;height:19px;border-radius:5px}
+.lc .em{font-size:1rem;width:20px;text-align:center;flex:none}
+.lc .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lc .n i{font-style:normal;color:var(--laton);font-size:.7rem;margin-left:4px}
+.lc .q{font-size:.8rem;color:var(--tinta-2);white-space:nowrap;font-variant-numeric:tabular-nums}
+.lc.on .n{text-decoration:line-through;color:var(--tinta-3)}.lc.on .em{opacity:.4}
+.lc-razon{font-size:.74rem;color:var(--laton);padding:0 0 6px 55px;margin-top:-2px}
+.barra-lista{position:sticky;bottom:0;display:flex;align-items:center;gap:10px;background:var(--superficie);border:1px solid var(--linea);border-radius:14px;padding:10px 12px;margin-top:12px;z-index:2}
+.app.cel .barra-lista{bottom:64px}
+.barra-lista small{display:block;color:var(--tinta-2);font-size:.74rem}.barra-lista b{font-size:1.05rem}
+.barra-lista .bt{margin-left:auto}
+.leyenda{display:flex;gap:12px;font-size:.74rem;color:var(--tinta-2);flex-wrap:wrap}
+.app.cel .contenido{position:relative}
+.app.cel .solo-pc-col{display:none}
+.pest5{overflow-x:auto;max-width:100%;scrollbar-width:none}.pest5 button{white-space:nowrap}
+.menos{width:34px;height:30px;border-radius:8px;border:1px solid var(--linea);background:var(--superficie-2);font-size:1.05rem;cursor:pointer;flex:none;display:grid;place-items:center}
+.menos:active{background:var(--laton);color:#17130a}
+.qd{min-width:44px;text-align:center;font-variant-numeric:tabular-nums;font-size:.86rem}.qd small{display:block;font-size:.66rem;color:var(--tinta-3)}
+.lc .tagc{font-size:.66rem;padding:0 6px;border-radius:999px;white-space:nowrap}
+.tagc.rojo{background:var(--rojo-f);color:var(--rojo)}.tagc.lat{background:var(--laton-f);color:var(--laton)}.tagc.gris{background:var(--superficie-2);color:var(--tinta-2)}
+.alerta{display:flex;gap:10px;align-items:center;background:var(--laton-f);border:1px solid #4a3f24;border-radius:12px;padding:10px 12px;font-size:.86rem;margin-bottom:12px}
+.alerta b{color:var(--laton)}.alerta .bt{margin-left:auto}
+.rc{display:flex;align-items:center;gap:8px;min-height:40px;border-top:1px solid #26282b;font-size:.9rem;min-width:0}
+.rc .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rc .sis{font-size:.74rem;color:var(--tinta-3);width:40px;text-align:right;flex:none}
+.igual{width:30px;height:28px;border-radius:8px;border:1px solid #2f5a4e;background:var(--verde-f);color:var(--verde);cursor:pointer;flex:none;display:grid;place-items:center}
+.stp.chico button{width:26px;height:28px}.stp.chico b{min-width:30px;font-size:.86rem}
+.rc .dif{width:30px;flex:none;text-align:right;font-weight:600;font-size:.84rem}.dif.mas{color:var(--verde)}.dif.menos2{color:var(--rojo)}
+.rc.ok .n::after{content:' ✓';color:var(--verde)}
+.plato{display:flex;gap:10px;align-items:center;padding:8px 0;border-top:1px solid #26282b;min-width:0}
+.plato .dia{width:44px;text-align:center;font-size:.7rem;color:var(--tinta-2);flex:none}.plato .dia b{display:block;font-family:var(--titulo);font-size:1.15rem;color:var(--tinta)}
+.plato .tx{flex:1;min-width:0}.plato .tx b{font-weight:500;display:block}.plato .tx small{color:var(--tinta-2);font-size:.76rem}
+.plato.hecho .tx b{text-decoration:line-through;color:var(--tinta-3)}
+.ing{display:flex;align-items:center;gap:8px;padding:5px 0;font-size:.88rem;border-top:1px solid #26282b}
+.ing .n{flex:1}.ing input{width:64px;background:var(--superficie-2);border:1px solid var(--linea);border-radius:7px;padding:4px 6px;text-align:right}
+.ing .est{font-size:.72rem;width:84px;text-align:right}
+.rev{display:flex;align-items:center;gap:8px;min-height:40px;border-top:1px solid #26282b;font-size:.9rem;min-width:0}
+.rev .n{flex:1;min-width:0}.rev .n small{display:block;font-size:.74rem;color:var(--laton)}
+.rev .base{color:var(--tinta-3);font-size:.8rem;text-decoration:line-through}
+.rev .nuevo{font-weight:600;min-width:34px;text-align:right}
+.buscar-d{width:100%;background:var(--superficie-2);border:1px solid var(--linea);border-radius:9px;padding:9px 10px;margin-bottom:8px}
+.ficha{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ficha label{display:grid;gap:3px;font-size:.76rem;color:var(--tinta-2)}
+.ficha input,.ficha select{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 8px;color:var(--tinta);min-width:0}
+.dsc{display:flex;align-items:center;gap:8px;min-height:44px;border-top:1px solid #26282b;min-width:0;padding:4px 0}
+.dsc .n{flex:1;min-width:0;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.dsc .n small{display:block;font-size:.74rem;color:var(--tinta-2)}
+.dsc-in{display:inline-flex;align-items:center;gap:3px;color:var(--verde);font-size:.86rem;flex:none}
+.dsc-in input{width:78px;background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:6px 8px;text-align:right;color:var(--tinta)}
+.dsc-in.grande input{width:120px;font-size:1rem}
+.dsc-res{font-size:.8rem;color:var(--tinta-2);text-align:right;padding:0 0 6px}.dsc-res b{color:var(--verde)}
+.lug{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.app:not(.cel) .lug{grid-template-columns:repeat(6,minmax(0,1fr))}
+.lug button{border:1px solid var(--linea);background:var(--superficie);border-radius:12px;padding:10px 6px;cursor:pointer;display:grid;gap:2px;justify-items:center;font-size:.86rem}
+.lug button span{font-size:1.3rem}.lug button small{font-size:.7rem;color:var(--tinta-2)}
+.lug button.sel{border-color:var(--laton);background:var(--laton-f)}.lug button.listo small{color:var(--verde)}
+.rec-item{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid #26282b;min-width:0}
+.rec-item .tx{flex:1;min-width:0;cursor:pointer}.rec-item .tx b{font-weight:500;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.rec-item .tx small{color:var(--tinta-2);font-size:.74rem}
+.rec-item .em2{font-size:1.4rem;width:34px;height:34px;border-radius:9px;background:var(--superficie-2);display:grid;place-items:center;flex:none}
+.prog{display:none;gap:6px;flex-wrap:wrap;padding:0 0 8px 44px}.prog.ver{display:flex}
+.prog input{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:5px 8px;color:var(--tinta)}
+.app:not(.cel) #ficha{position:sticky;top:10px}
+/* comprando */
+.total{display:flex;align-items:flex-end;justify-content:space-between;gap:10px;background:linear-gradient(120deg,var(--laton-f),var(--superficie) 70%);border:1px solid #4a3f24;border-radius:14px;padding:14px 16px}
+.total small{color:var(--tinta-2);font-size:.8rem;display:block}.total b{font-family:var(--titulo);font-size:2.3rem;font-weight:600;line-height:1}
+.total .der{text-align:right}
+.camara{position:relative;height:210px;border-radius:14px;overflow:hidden;background:repeating-linear-gradient(45deg,#151517 0 12px,#18181b 12px 24px);display:grid;place-items:center;border:1px solid var(--linea)}
+.camara .marco{width:72%;height:90px;border:2px solid var(--laton);border-radius:10px;position:relative;box-shadow:0 0 0 999px #0008}
+.camara .laser{position:absolute;left:6px;right:6px;top:50%;height:2px;background:var(--rojo);box-shadow:0 0 8px var(--rojo);animation:laser 1.6s ease-in-out infinite}
+@keyframes laser{0%,100%{top:15%}50%{top:85%}}
+.camara small{position:absolute;bottom:10px;left:0;right:0;text-align:center;color:var(--tinta-2);font-size:.8rem}
+.camara .cerrarc{position:absolute;top:8px;right:8px}
+.encontrado{border:1px solid var(--laton);border-radius:14px;padding:14px;display:grid;gap:12px;background:var(--superficie)}
+.enc-top{display:flex;gap:12px;align-items:center}.enc-top .foto{width:56px;height:56px;font-size:1.8rem}
+.enc-top b{font-size:1.05rem;display:block}.enc-top small{color:var(--tinta-2);font-size:.8rem}
+.precios{display:grid;gap:6px}
+.pr{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--linea);border-radius:10px;cursor:pointer;font-size:.88rem}
+.pr.sel{border-color:var(--laton);background:var(--laton-f)}
+.pr .r{width:16px;height:16px;border-radius:50%;border:1.6px solid var(--tinta-2);flex:none}.pr.sel .r{border:5px solid var(--laton)}
+.pr span.t{flex:1}.pr small{display:block;color:var(--tinta-2);font-size:.74rem}
+.pr input{width:110px;background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:5px 8px;text-align:right}
+.fila2{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.fila2 label{display:grid;gap:3px;font-size:.78rem;color:var(--tinta-2)}
+.fila2 input,.fila2 select{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:6px 8px;color:var(--tinta)}
+/* descuentos */
+.promos{display:flex;gap:4px;flex-wrap:wrap}
+.promos button{border:1px solid var(--linea);background:var(--superficie-2);border-radius:999px;padding:3px 9px;font-size:.76rem;cursor:pointer;color:var(--tinta-2)}
+.promos button.sel{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.cuenta{display:grid;gap:6px;font-size:.92rem}.cuenta div{display:flex;justify-content:space-between}.cuenta .ahorro{color:var(--verde)}.cuenta .tot{font-size:1.2rem;font-weight:700;border-top:1px solid var(--linea);padding-top:8px}
+/* despensa */
+.filtros{display:flex;gap:6px;overflow-x:auto;padding-bottom:2px}
+.filtros button{border:1px solid var(--linea);background:var(--superficie);border-radius:999px;padding:5px 12px;font-size:.82rem;cursor:pointer;color:var(--tinta-2);white-space:nowrap}
+.filtros button.sel{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.acc{display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end}
+.menu-it{display:none;gap:6px;flex-wrap:wrap;padding:0 0 10px 48px}
+.menu-it.ver{display:flex}
+.nivel{width:46px;height:6px;border-radius:3px;background:var(--superficie-2);overflow:hidden;display:inline-block;vertical-align:middle;margin-left:4px}.nivel i{display:block;height:100%;background:var(--laton)}.nivel i.bajo{background:var(--rojo)}
+/* sugerencias */
+.kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.app.cel .kpis{grid-template-columns:repeat(2,minmax(0,1fr))}
+.kpi{background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:10px 12px;display:grid;gap:2px;min-width:0}
+.kpi small{color:var(--tinta-2);font-size:.74rem}.kpi b{font-family:var(--titulo);font-size:1.5rem;font-weight:600;white-space:nowrap}.kpi em{font-style:normal;font-size:.74rem}
+.up{color:var(--rojo)}.down{color:var(--verde)}
+.graf svg{width:100%;height:auto;display:block}
+.aviso-p{font-size:.8rem;color:var(--tinta-2);background:var(--superficie-2);border-radius:9px;padding:8px 10px;line-height:1.4}
+.ideas{max-width:1240px;margin:0 auto;padding:0 16px 40px;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+.ideas div{background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:14px 16px;font-size:.9rem;color:var(--tinta-2);line-height:1.45}
+.ideas div b{color:var(--tinta);display:block;margin-bottom:4px}
+</style></head><body>
+<div class="control">
+  <b>VISTA PREVIA</b>
+  <div class="g"><span>Pantalla</span><div class="seg" id="pant"><button class="sel" data-v="lista">Lista</button><button data-v="super">En el súper</button><button data-v="desc">Descuentos y cierre</button><button data-v="desp">Despensa</button><button data-v="rec">Recuento</button><button data-v="com">Comidas</button><button data-v="sug">Lista del mes</button><button data-v="dat">Datos</button></div></div>
+  <div class="g"><span>Ver en</span><div class="seg" id="disp"><button data-v="pc">PC</button><button class="sel" data-v="cel">Celular</button></div></div>
+</div>
+<p class="nota-prev"><b style="color:var(--laton)">Último cambio:</b> Recuento por lugar · Comidas con Recetario (programar y ver la ficha) · Descuentos: un monto por producto y un total para la tarjeta.<br>Maqueta interactiva con datos de ejemplo; no toca la app. Probá: en <b style="color:var(--tinta)">En el súper</b> tocá "Escanear"; en <b style="color:var(--tinta)">Descuentos</b> escribí un monto; en <b style="color:var(--tinta)">Despensa</b> usá el "−"; en <b style="color:var(--tinta)">Recuento</b> elegí un lugar; en <b style="color:var(--tinta)">Comidas</b> tocá una receta o "Programar".</p>
+<div class="escena"><div class="app cel" id="app">
+  <div class="barra"><div class="marca"><i></i>Segundo Cerebro</div><span class="chip">Al día</span></div>
+  <nav class="menu" id="menu"></nav>
+  <main class="contenido" id="cont"></main>
+</div></div>
+<div class="ideas">
+  <div><b>Escanear</b>Usa la cámara del celular. El nombre, la marca y la foto salen de Open Food Facts (base libre de productos, tiene muchos argentinos). Si no lo encuentra, lo escribís una vez y la próxima ya lo reconoce.</div>
+  <div><b>Precio sugerido</b>Sale de Precios Claros (la base del Gobierno con los precios que informan los supermercados, cerca tuyo). Siempre te muestra también lo que pagaste la última vez, y podés poner el que ves en la góndola. Precios Claros lo confirmo al construirlo: si no deja leerlo desde la app, queda tu historial de precios.</div>
+  <div><b>Cómo sugiere el mes que viene</b>Con lo que comprás y lo que marcás como terminado, calcula cuánto te dura cada cosa. Si algo se termina antes de tu próxima compra, lo sugiere; si todavía te queda, o pusiste "no nos gustó", no.</div>
+  <div><b>Conectado con el resto</b>Al terminar la compra carga el gasto en Finanzas (cuenta y categoría que elijas). Lo que vence pronto aparece en el Inicio, y "Comprar" puede ir como tarea. Queda listo para compartir la lista más adelante.</div>
+</div>
+<script>
+const S=(t,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${t}</svg>`;
+const I={home:'<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z"/>',tareas:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>',fin:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>',bit:'<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6Z"/><path d="M6 3v18M10 8h5M10 12h5"/>',hab:'<circle cx="12" cy="12" r="8"/><path d="m8.5 12 2.5 2.5 4.5-5"/>',res:'<path d="M5 19V11M10 19V5M15 19v-6M20 19V8"/>',carro:'<path d="M3 4h2l2.4 11h10.2L20 8H6.2"/><circle cx="9" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/>',aj:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',scan:'<path d="M4 8V5h3M20 8V5h-3M4 16v3h3M20 16v3h-3M7 9v6M10 9v6M13 9v6M16 9v6"/>'};
+const $=n=>'$ '+Math.round(n).toLocaleString('es-AR');
+let pant='lista',cel=true;
+function menu(){const it=[['home','Inicio'],['tareas','Tareas'],['fin','Finanzas'],['hab','Hábitos'],['carro','Compras',1],['res','Resumen'],['aj','Ajustes']];
+document.getElementById('menu').innerHTML=it.map(([i,n,nu])=>`<a class="${nu?'sel nuevo':''}${['fin','res','aj'].includes(i)?' solo-pc':''}">${S(I[i])}<span>${n}</span></a>`).join('');}
+function cab(t,p,der=''){return `<div class="cab"><div><h1>${t}</h1><p>${p}</p></div>${der?`<div class="der">${der}</div>`:''}</div>`;}
+const tabs=(sel)=>`<div class="pest pest5">${[['lista','Lista'],['desp','Despensa'],['com','Comidas'],['sug','Mes'],['dat','Datos']].map(([v,t])=>`<button class="${sel===v?'sel':''}" data-ir="${v}">${t}</button>`).join('')}</div>`;
+
+// ── datos ──
+let LISTA=[
+ ['Lácteos','🥛','Leche entera 1 L',6,1150,'Se termina el 22/10 · tomás ~12 por mes',1],['Lácteos','🧀','Queso cremoso',1,6900,'Te queda poco',1],['Lácteos','🥣','Yogur natural',4,950,'',0],['Lácteos','🧈','Manteca 200 g',1,2600,'Se terminó',1],
+ ['Almacén','☕','Café molido 500 g',1,7900,'Te queda 1/4 · dura ~3 semanas',1],['Almacén','🧉','Yerba 1 kg',2,6200,'Compraste 2 y ya se terminó una',1],['Almacén','🍝','Fideos tirabuzón',3,1400,'',0],['Almacén','🫒','Aceite girasol 1,5 L',1,3900,'Se termina en ~2 semanas',1],['Almacén','🍅','Puré de tomate',4,890,'',0],['Almacén','🧂','Sal fina',1,800,'',0],['Almacén','🍪','Galletitas de agua',3,1100,'👍 Comprar más',1],
+ ['Verdulería','🍅','Tomates',1,0,'',0],['Verdulería','🥔','Papas 2 kg',1,2400,'',0],['Verdulería','🍌','Bananas',1,1800,'',0],['Verdulería','🥬','Lechuga',1,1200,'Ojo: se tiró 3 veces',1],
+ ['Carnes y freezer','🍗','Pechuga de pollo',2,5600,'',0],['Carnes y freezer','🥩','Carne picada 1 kg',1,7800,'',0],['Carnes y freezer','🍟','Papas congeladas',1,3200,'',0],
+ ['Limpieza','🧴','Detergente 750 ml',1,2400,'Lo marcaste como terminado',1],['Limpieza','🫗','Lavandina 2 L',2,1900,'👍 Comprar más',1],['Limpieza','🧽','Esponjas x3',1,1500,'',0],['Limpieza','🧺','Jabón líquido ropa 3 L',1,9800,'Dura ~6 semanas',1],
+ ['Baño','🧻','Papel higiénico x4',2,3900,'Se termina en ~10 días',1],['Baño','🪥','Pasta dental',1,2900,'',0],['Baño','🧴','Shampoo',1,5200,'',0],
+ ['Panadería','🍞','Pan lactal',1,2800,'',0]].map(([c,e,n,q,ult,r,s],i)=>({c,e,n,q,ult,r,s:!!s,on:i===18}));
+let verRazon=null;
+let CARRO=[{n:'Detergente Magistral 750 ml',e:'🧴',p:2550,q:1,v:''},{n:'Arroz Gallo Oro 1 kg',e:'🍚',p:2000,q:2,desc:1000,v:'2027-08'},{n:'Galletitas de agua',e:'🍪',p:1100,q:3,desc:0,v:''}];
+const PROD={n:'Leche La Serenísima Entera 1 L',e:'🥛',marca:'La Serenísima · 1 L · EAN 7790742362109',ref:1290,refTxt:'Coto Caballito · Precios Claros · hoy',ult:1150,ultTxt:'Pagaste el 28 sep en Coto'};
+let escaneando=false,encontrado=false,precioSel='ref',precioOtro='',cantidad=6,venc='2026-10-29';
+let DESP=[
+ {n:'Leche entera 1 L',e:'🥛',lugar:'Heladera',q:2,de:12,v:3,cat:'Lácteos'},
+ {n:'Yogur bebible frutilla',e:'🥤',lugar:'Heladera',q:1,de:4,v:-1,cat:'Lácteos',feo:true},
+ {n:'Queso cremoso',e:'🧀',lugar:'Heladera',q:1,de:1,v:null,perecedero:true,cat:'Lácteos'},
+ {n:'Jamón cocido',e:'🥓',lugar:'Heladera',q:200,u:'g',de:300,v:null,perecedero:true,cat:'Fiambres'},
+ {n:'Huevos',e:'🥚',lugar:'Heladera',q:8,de:12,v:null,perecedero:true,cat:'Lácteos'},
+ {n:'Arroz Gallo Oro 1 kg',e:'🍚',lugar:'Alacena',q:3,de:3,v:300,cat:'Almacén'},
+ {n:'Fideos tirabuzón',e:'🍝',lugar:'Alacena',q:4,de:5,v:420,cat:'Almacén'},
+ {n:'Café molido 500 g',e:'☕',lugar:'Alacena',q:1,de:1,v:120,cat:'Almacén',nivel:.25},
+ {n:'Milanesas de pollo',e:'🍗',lugar:'Freezer',q:6,de:8,v:40,cat:'Carnes'},
+ {n:'Lavandina 2 L',e:'🫗',lugar:'Limpieza',q:1,de:2,v:200,cat:'Limpieza',mas:true},
+ {n:'Papel higiénico x4',e:'🧻',lugar:'Baño',q:1,de:3,v:999,cat:'Limpieza'}];
+let filtroD='Todo',abiertoD=null;
+
+function lista(){
+ const est=LISTA.filter(x=>!x.on).reduce((a,x)=>a+x.ult*x.q,0),pend=LISTA.filter(x=>!x.on).length;
+ const cats=[...new Set(LISTA.map(x=>x.c))];
+ const fila=x=>{const i=LISTA.indexOf(x);return `<div class="lc${x.on?' on':''}" data-razon="${i}"><span class="chk${x.on?' on':''}" data-chk="${i}"></span><span class="em">${x.e}</span><span class="n">${x.n}${x.s?'<i>✦</i>':''}</span><span class="q">${x.q} u.${x.ult?` · ${$(x.ult*x.q)}`:''}</span></div>${verRazon===i?`<div class="lc-razon">${x.r||'Agregado por vos'}${x.ult?` · ${$(x.ult)} c/u la última vez`:''}</div>`:''}`;};
+ return cab('Compras','Lista, carrito y despensa.',tabs('lista'))+`<div class="cols"><div class="col">
+ <div class="card" style="gap:2px">
+  <div class="fila2" style="flex-wrap:nowrap;margin-bottom:4px"><input placeholder="Agregar a la lista…" style="flex:1;min-width:0;background:var(--superficie-2);border:1px solid var(--linea);border-radius:9px;padding:8px 10px"><button class="bt" style="padding:7px 10px">${S(I.scan)}</button></div>
+  <div class="leyenda"><span><b style="color:var(--laton)">✦</b> sugerida por la app (tocá para ver por qué)</span><span>${pend} de ${LISTA.length} por comprar</span></div>
+  ${cats.map(c=>{const l=LISTA.filter(x=>x.c===c);return `<div class="lc-grupo">${c}<span>${l.filter(x=>!x.on).length}</span></div>${l.map(fila).join('')}`;}).join('')}
+ </div>
+ <div class="barra-lista"><span><small>${pend} productos · estimado</small><b>${$(est)}</b></span><button class="bt p" data-ir="super">${S(I.carro)} Empezar la compra</button></div>
+ </div><div class="col solo-pc-col">
+ <div class="card"><h3>Por vencer</h3><div class="lc"><span class="em">🥛</span><span class="n">Leche entera · 2 u.</span><span class="tag rojo">en 3 días</span></div><div class="lc"><span class="em">🥤</span><span class="n">Yogur bebible · 1 u.</span><span class="tag rojo">venció ayer</span></div></div>
+ <div class="card"><h3>Cómo se ordena</h3><span class="sub">Por sector del súper (lácteos, almacén, verdulería…), así la recorrés en orden. Lo tildado baja tachado y queda en su lugar. El orden de los sectores lo podés cambiar.</span></div>
+ </div></div>`;}
+function superm(){
+ const tot=CARRO.reduce((a,x)=>a+x.p*x.q,0);
+ const faltan=LISTA.filter(x=>!x.on&&!CARRO.some(c=>c.n.toLowerCase().includes(x.n.split(' ')[0].toLowerCase())));
+ const cats=[...new Set(faltan.map(x=>x.c))];
+ const precio=precioSel==='ref'?PROD.ref:precioSel==='ult'?PROD.ult:(Number(precioOtro)||0);
+ const esc=escaneando&&!encontrado?`<div class="camara"><div class="marco"><div class="laser"></div></div><small>Apuntá al código de barras</small><button class="bt ch cerrarc" data-x="cam">✕</button></div><button class="bt" data-sim="1">(Simular: encontrar un producto)</button>`
+ :encontrado?`<div class="encontrado"><div class="enc-top"><span class="foto">${PROD.e}</span><span><b>${PROD.n}</b><small>${PROD.marca}</small></span></div>
+  <span class="et lat">¿Qué precio tiene?</span><div class="precios">
+  <div class="pr${precioSel==='ref'?' sel':''}" data-pr="ref"><span class="r"></span><span class="t">${$(PROD.ref)}<small>${PROD.refTxt}</small></span></div>
+  <div class="pr${precioSel==='ult'?' sel':''}" data-pr="ult"><span class="r"></span><span class="t">${$(PROD.ult)}<small>${PROD.ultTxt}</small></span><span class="tag rojo">+12% desde entonces</span></div>
+  <div class="pr${precioSel==='otro'?' sel':''}" data-pr="otro"><span class="r"></span><span class="t">Otro precio<small>El que ves en la góndola</small></span><input id="otro" inputmode="numeric" placeholder="$" value="${precioOtro}"></div></div>
+  <div class="fila2"><label>Cantidad<span class="stp"><button data-cant="-1">−</button><b>${cantidad}</b><button data-cant="1">+</button></span></label><label>Vence (opcional)<input type="date" value="${venc}"></label><label>Va a<select><option>Heladera</option><option>Alacena</option><option>Freezer</option></select></label></div>
+  <div class="cuenta"><div><span>${cantidad} × ${$(precio)}</span><b>${$(precio*cantidad)}</b></div></div>
+  <div class="fila2"><button class="bt" data-x="enc">Cancelar</button><button class="bt p" style="flex:1" data-add="1">Agregar al carrito</button></div>
+  <span class="sub">Estaba en tu lista (6 u.) → se tilda sola.</span></div>`
+ :`<button class="bt p grande" data-scan="1">${S(I.scan)} Escanear un producto</button><button class="bt">Agregar sin código (fruta, verdura, fiambre…)</button>`;
+ return `<div class="total"><div><small>Coto · Caballito · ${CARRO.reduce((a,x)=>a+x.q,0)} productos</small><b>${$(tot)}</b></div><div class="der"><small>Antes de descuentos</small><button class="bt ch" data-ir="desc">Terminar ›</button></div></div>
+ <div class="cols" style="margin-top:14px"><div class="col">${esc}
+ <div class="card" style="gap:2px"><h3>En el carrito<small>${CARRO.length}</small></h3>${CARRO.map((x,i)=>`<div class="lc"><span class="em">${x.e}</span><span class="n">${x.n}</span><span class="q">${x.q} × ${$(x.p)}</span><b style="font-size:.86rem;min-width:70px;text-align:right">${$(x.p*x.q)}</b></div>`).join('')}</div></div>
+ <div class="col"><div class="card" style="gap:2px"><h3>Te falta de la lista<small>${faltan.length}</small></h3>${cats.map(c=>`<div class="lc-grupo">${c}</div>${faltan.filter(x=>x.c===c).map(x=>`<div class="lc"><span class="chk"></span><span class="em">${x.e}</span><span class="n">${x.n}</span><span class="q">${x.q} u.</span></div>`).join('')}`).join('')||'<span class="sub">¡Ya tenés todo!</span>'}<span class="sub" style="margin-top:6px">Tildá lo que agarrás sin escanear (fruta, verdura…) y te pide el precio.</span></div></div></div>`;}
+
+let descTarjeta=1500;
+const precioCon=(x)=>Math.max(0,x.p*x.q-(x.desc||0));
+function desc(){
+ const bruto=CARRO.reduce((a,x)=>a+x.p*x.q,0),conDesc=CARRO.reduce((a,x)=>a+precioCon(x),0);
+ const fin=Math.max(0,conDesc-descTarjeta);
+ return cab('Terminar la compra','Descuento de cada producto y de la tarjeta.')+`<div class="cols"><div class="col">
+ <div class="card" style="gap:2px"><h3>Descuentos por producto<small>poné cuánto te descontaron</small></h3>${CARRO.map((x,i)=>`<div class="dsc"><span class="em">${x.e}</span><span class="n">${x.n}<small>${x.q} × ${$(x.p)} = ${$(x.p*x.q)}</small></span><label class="dsc-in">− $<input inputmode="numeric" data-dsc="${i}" value="${x.desc||''}" placeholder="0"></label></div>${x.desc?`<div class="dsc-res">${$(x.p*x.q)} − ${$(x.desc)} = <b>${$(precioCon(x))}</b></div>`:''}`).join('')}
+ <span class="sub" style="margin-top:6px">Mirá el ticket: si dice 2x1, 2da al 50% o lo que sea, poné el monto que te descontaron.</span></div></div>
+ <div class="col"><div class="card"><h3>Descuento de la tarjeta</h3><span class="sub">Del banco, billetera o tarjeta de la cadena: el total que te descontaron.</span>
+ <div class="fila2"><label>Descuento total<span class="dsc-in grande">− $<input inputmode="numeric" id="dtar" value="${descTarjeta||''}" placeholder="0"></span></label><label>Pagado con<select><option>Mercado Pago</option><option>Banco · Visa</option><option>Efectivo</option></select></label></div>
+ <div class="cuenta"><div><span>Subtotal</span><span>${$(bruto)}</span></div><div class="ahorro"><span>Descuentos de productos</span><span>− ${$(bruto-conDesc)}</span></div><div class="ahorro"><span>Descuento de la tarjeta</span><span>− ${$(descTarjeta)}</span></div><div class="tot"><span>Total pagado</span><span>${$(fin)}</span></div></div>
+ <span class="tag verde" style="justify-self:start">Ahorraste ${$(bruto-fin)}</span>
+ <label class="fila2" style="font-size:.86rem;flex-wrap:nowrap"><span class="chk on"></span><span style="flex:1">Cargar ${$(fin)} en Finanzas · Súper · Mercado Pago</span></label>
+ <label class="fila2" style="font-size:.86rem;flex-wrap:nowrap"><span class="chk on"></span><span style="flex:1">Sumar los productos a la Despensa (con sus vencimientos)</span></label>
+ <button class="bt p grande">Guardar la compra</button></div></div></div>`;}
+
+function desp(){
+ const lugares=['Todo','Por vencer','Sin vencimiento','Heladera','Alacena','Freezer','Limpieza','Baño'];
+ let l=DESP;if(filtroD==='Por vencer')l=DESP.filter(x=>x.v!==null&&x.v<=7);else if(filtroD==='Sin vencimiento')l=DESP.filter(x=>x.v===null);else if(filtroD!=='Todo')l=DESP.filter(x=>x.lugar===filtroD);
+ const sinV=DESP.filter(x=>x.v===null&&x.perecedero).length;
+ const venceTag=x=>x.v===null?(x.perecedero?'<span class="tagc lat">sin fecha</span>':''):x.v<0?'<span class="tagc rojo">venció</span>':x.v<=3?`<span class="tagc rojo">${x.v}d</span>`:x.v<=10?`<span class="tagc lat">${x.v}d</span>`:'';
+ const lugaresVis=filtroD==='Todo'?[...new Set(l.map(x=>x.lugar))]:[null];
+ const fila=x=>{const i=DESP.indexOf(x);return `<div class="lc" style="cursor:default"><span class="em">${x.e}</span><span class="n" data-abrir="${i}" style="cursor:pointer">${x.n}${x.feo?' <i style="color:var(--rojo)">👎</i>':x.mas?' <i>👍</i>':''}</span>${venceTag(x)}<span class="qd"><b>${x.q}</b><small>${x.u||'u.'}</small></span><button class="menos" data-usar="${i}" aria-label="Usé uno">−</button></div>${abiertoD===i?`<div class="menu-it ver" style="padding-left:28px"><button class="bt ch">+1</button><button class="bt ch">Se terminó</button><button class="bt ch">🗑 Se tiró…</button><button class="bt ch">Vencimiento…</button><button class="bt ch">👍 Comprar más</button><button class="bt ch">👎 No nos gustó</button><button class="bt ch">Nota…</button></div>`:''}`;};
+ return cab('Compras','Lista, carrito y despensa.',tabs('desp'))+
+ (sinV?`<div class="alerta"><span>⚠️</span><span>A <b>${sinV} productos</b> les falta la fecha de vencimiento.</span><button class="bt ch" data-fd="Sin vencimiento">Cargar</button></div>`:'')+
+ `<div class="fila2" style="margin-bottom:10px;flex-wrap:nowrap"><div class="filtros" style="flex:1;min-width:0">${lugares.map(x=>`<button class="${filtroD===x?'sel':''}" data-fd="${x}">${x}</button>`).join('')}</div><button class="bt ch" data-ir="rec" style="flex:none">↻ Recontar</button></div>
+ <div class="card" style="gap:2px">${lugaresVis.map(g=>(g?`<div class="lc-grupo">${g}<span>${l.filter(x=>x.lugar===g).length}</span></div>`:'')+l.filter(x=>!g||x.lugar===g).map(fila).join('')).join('')}</div>
+ <span class="sub" style="display:block;margin-top:10px">El <b>−</b> descuenta uno al toque. Tocá el nombre para más: +1, se terminó, se tiró, vencimiento, comentarios.</span>`;}
+
+let REC={},lugarRec='Heladera';
+function recuento(){
+ const LUG=[['Heladera','🧊'],['Alacena','🗄️'],['Freezer','❄️'],['Limpieza','🧽'],['Baño','🛁'],['Otros','📦']];
+ const de=(l)=>DESP.map((x,i)=>({x,i})).filter(o=>o.x.lugar===l);
+ const contados=(l)=>de(l).filter(o=>REC[o.i]!==undefined).length;
+ const fila=({x,i})=>{const c=REC[i],d=c===undefined?null:c-x.q;return `<div class="rc${c!==undefined&&d===0?' ok':''}"><span class="em">${x.e}</span><span class="n">${x.n}</span><span class="sis">${x.q} ${x.u||'u.'}</span>${c===undefined?`<button class="igual" data-rc="${i}|=" title="Está igual">✓</button>`:'<span class="igual" style="visibility:hidden">✓</span>'}<span class="stp chico"><button data-rc="${i}|-">−</button><b>${c===undefined?x.q:c}</b><button data-rc="${i}|+">+</button></span><span class="dif ${d>0?'mas':d<0?'menos2':''}">${d===null?'':d>0?'+'+d:d<0?d:'='}</span></div>`;};
+ const l=de(lugarRec),aj=l.filter(o=>REC[o.i]!==undefined&&REC[o.i]!==o.x.q);
+ return cab('Recuento','Elegí un lugar, contá lo que hay y se ajusta.')+`
+ <div class="lug" style="margin-bottom:14px">${LUG.map(([n,e])=>{const t=de(n).length,c=contados(n);return `<button class="${lugarRec===n?'sel':''}${t&&c===t?' listo':''}" data-lug="${n}"><span>${e}</span>${n}<small>${t?(c===t?'✓ contado':`${c} de ${t}`):'vacío'}</small></button>`;}).join('')}</div>
+ <div class="cols"><div class="col">
+ <button class="bt p grande">${S(I.scan)} Escanear en ${lugarRec.toLowerCase()}</button>
+ <div class="card" style="gap:2px"><div class="lc-grupo">${lugarRec}<span>App · Contado</span></div>${l.length?l.map(fila).join(''):'<span class="sub">No hay nada cargado en este lugar. Escaneá lo que encuentres.</span>'}</div>
+ <span class="sub">Cada escaneo suma 1. ✓ = está igual que en la app. Si escaneás algo que la app tenía en otro lugar, te pregunta si lo cambia de lugar.</span></div>
+ <div class="col"><div class="card"><h3>${lugarRec}<small>${contados(lugarRec)} de ${l.length} contados</small></h3>
+ <div class="cuenta"><div><span>Sobran (se suman)</span><b class="ahorro">${aj.filter(o=>REC[o.i]>o.x.q).length}</b></div><div><span>Faltan (se descuentan)</span><b style="color:var(--rojo)">${aj.filter(o=>REC[o.i]<o.x.q).length}</b></div><div><span>Sin contar</span><b>${l.length-contados(lugarRec)}</b></div></div>
+ <label class="fila2" style="font-size:.86rem;flex-wrap:nowrap"><span class="chk"></span><span style="flex:1">Lo que no conté de ${lugarRec.toLowerCase()}, ponerlo en 0</span></label>
+ <button class="bt p grande">Aplicar y seguir con otro lugar</button>
+ <span class="sub">Podés hacer un lugar hoy y otro mañana. Los ajustes quedan anotados, así el cálculo de consumo se corrige solo.</span></div></div></div>`;}
+
+let COMIDAS=[
+ {d:'Lun 20',r:0,por:3,hecho:true},{d:'Mié 22',r:1,por:3},{d:'Vie 24',r:2,por:4},{d:'Dom 26',r:3,por:6},{d:'Mar 28',r:4,por:3},{d:'Jue 30',r:5,por:4}];
+const RECETAS=[
+ {n:'Milanesas con puré',e:'🍗',por:3,veces:9,ing:[['🍗','Milanesas de pollo',6,'u.','tenés 6 ✓'],['🥔','Papas',1,'kg','tenés 2 kg ✓'],['🥛','Leche',200,'ml','✓'],['🧈','Manteca',30,'g','✓']]},
+ {n:'Fideos con salsa',e:'🍝',por:3,veces:14,ing:[['🍝','Fideos',500,'g','✓'],['🍅','Puré de tomate',1,'u.','✓'],['🧅','Cebolla',1,'u.','falta 1']]},
+ {n:'Pollo al horno con papas',e:'🍗',por:4,veces:6,ing:[['🍗','Pechuga de pollo',1,'kg','tenés 0,8 kg'],['🥔','Papas',1.5,'kg','tenés 2 kg ✓'],['🧅','Cebolla',2,'u.','faltan 2'],['🫒','Aceite',50,'ml','✓'],['🍋','Limón',1,'u.','falta 1']]},
+ {n:'Asado',e:'🥩',por:6,veces:4,ing:[['🥩','Asado',2.5,'kg','falta'],['🌭','Chorizos',6,'u.','falta'],['🧂','Sal gruesa',1,'u.','✓']]},
+ {n:'Tarta de verdura',e:'🥧',por:3,veces:3,ing:[['🥬','Acelga',1,'atado','falta'],['🥚','Huevos',3,'u.','tenés 8 ✓'],['🧀','Queso cremoso',200,'g','✓'],['🫓','Tapa de tarta',1,'u.','falta 1']]},
+ {n:'Guiso de lentejas',e:'🍲',por:4,veces:2,ing:[['🫘','Lentejas',500,'g','falta'],['🥓','Panceta',150,'g','falta'],['🥕','Zanahoria',2,'u.','✓']]},
+ {n:'Empanadas de carne',e:'🥟',por:4,veces:5,ing:[['🥩','Carne picada',0.5,'kg','✓'],['🫓','Tapas de empanada',2,'u.','falta'],['🧅','Cebolla',2,'u.','faltan 2']]},
+ {n:'Ensalada completa',e:'🥗',por:2,veces:11,ing:[['🥬','Lechuga',1,'u.','✓'],['🍅','Tomate',2,'u.','✓'],['🥚','Huevos',2,'u.','✓']]}];
+let recetaAbierta=2,programando=null;
+function comidas(){
+ const R=RECETAS[recetaAbierta];
+ return cab('Compras','Lista, carrito y despensa.',tabs('com'))+`<div class="cols"><div class="col">
+ <div class="card" style="gap:2px"><h3>Programadas · octubre<small>${COMIDAS.length} comidas</small></h3>
+ ${COMIDAS.map((c,i)=>{const r=RECETAS[c.r];return `<div class="plato${c.hecho?' hecho':''}"><span class="dia">${c.d.split(' ')[0]}<b>${c.d.split(' ')[1]}</b></span><span class="tx" data-ver="${c.r}" style="cursor:pointer"><b>${r.n}</b><small>${c.por} porciones${c.hecho?' · hecha, se descontó de la despensa':''}</small></span>${c.hecho?'<span class="tagc gris">✓</span>':`<button class="bt ch" data-hice="${i}">La hice</button>`}</div>`;}).join('')}
+ <div class="fila2" style="margin-top:8px"><button class="bt ch">Repetir las de septiembre</button></div></div>
+ <div class="card" style="gap:2px"><h3>Recetario<small>${RECETAS.length} recetas</small></h3>
+ <input class="buscar-d" placeholder="Buscar receta o ingrediente…" style="margin:4px 0">
+ ${RECETAS.map((r,i)=>`<div class="rec-item"><span class="em2">${r.e}</span><span class="tx" data-ver="${i}"><b>${r.n}</b><small>${r.por} porciones · ${r.ing.length} ingredientes · la hiciste ${r.veces} veces</small></span><button class="bt ch" data-prog="${i}">📅 Programar</button></div><div class="prog${programando===i?' ver':''}"><input type="date" value="2026-10-31"><span class="stp chico"><button>−</button><b>${r.por}</b><button>+</button></span><button class="bt ch p">Agregar</button></div>`).join('')}
+ <button class="bt ch" style="justify-self:start;margin-top:8px">+ Receta nueva</button></div>
+ <div class="card"><h3>Para las programadas te falta</h3>${[['🧅','Cebolla','4 u.'],['🍋','Limón','2 u.'],['🍗','Pechuga de pollo','0,2 kg'],['🥩','Asado','2,5 kg'],['🫘','Lentejas','500 g'],['🥬','Acelga','1 atado']].map(([e,n,q])=>`<div class="lc"><span class="chk on"></span><span class="em">${e}</span><span class="n">${n}</span><span class="q">${q}</span></div>`).join('')}<button class="bt p">Sumar a la lista de compras</button></div></div>
+ <div class="col"><div class="card" id="ficha"><h3>${R.e} ${R.n}<small>ficha de la receta</small></h3>
+ <div class="fila2"><label style="font-size:.8rem;color:var(--tinta-2)">Porciones <span class="stp"><button>−</button><b>${R.por}</b><button>+</button></span></label><button class="bt ch p" data-prog="${recetaAbierta}" style="margin-left:auto">📅 Programar</button></div>
+ <span class="et">Ingredientes</span>
+ ${R.ing.map(([e,n,q,u,est])=>`<div class="ing"><span class="em">${e}</span><span class="n">${n}</span><input value="${q}"><span style="width:34px;font-size:.8rem;color:var(--tinta-2)">${u}</span><span class="est" style="color:${est.includes('✓')?'var(--verde)':'var(--laton)'}">${est}</span></div>`).join('')}
+ <button class="bt ch" style="justify-self:start">+ Ingrediente</button>
+ <span class="et">Preparación</span><textarea style="background:var(--superficie-2);border:1px solid var(--linea);border-radius:9px;padding:8px 10px;min-height:70px;color:var(--tinta)">1. Precalentar el horno. 2. Condimentar el pollo con limón…</textarea>
+ <span class="sub">Al tocar "La hice" descuenta estos ingredientes de la despensa (y podés corregir si usaste otra cantidad).</span></div></div></div>`;}
+
+let BASE=[
+ ['🥛','Leche entera 1 L',10,12,'+2','Tomaste 12 en sept y 13 en agosto'],['🧉','Yerba 1 kg',2,2,'=',''],['☕','Café 500 g',1,2,'+1','Se terminó a mitad de mes'],['🍚','Arroz 1 kg',2,0,'sacar','Te quedan 3: alcanzan'],['🍝','Fideos',4,2,'−2','Te quedan 4'],['🥤','Yogur bebible',4,0,'sacar','👎 No les gustó · tiraste 2'],['🧻','Papel higiénico x4',2,2,'=',''],['🫗','Lavandina 2 L',1,2,'+1','Marcaste "comprar más"'],['🥬','Lechuga',4,2,'−2','Tiraste 3 en 2 meses'],['🧅','Cebolla',0,4,'nuevo','Para las comidas del mes']];
+let acepto=BASE.map(()=>true);
+function sug(){
+ const cambios=BASE.filter(b=>b[4]!=='=').length;
+ return cab('Compras','Lista, carrito y despensa.',tabs('sug'))+`<div class="cols"><div class="col">
+ <div class="card" style="gap:2px"><h3>Lista base · revisión de noviembre<small>${cambios} cambios sugeridos</small></h3>
+ <span class="sub" style="margin-bottom:6px">Tu lista de todos los meses. La app propone ajustes según lo que consumiste, lo que te queda, lo que tiraste y tus comidas. Aceptás o cambiás cada uno.</span>
+ <div class="lc-grupo">Producto<span>Base → Este mes</span></div>
+ ${BASE.map(([e,n,b,nu,acc,r],i)=>`<div class="rev"><span class="chk${acepto[i]?' on':''}" data-acepto="${i}"></span><span class="em">${e}</span><span class="n">${n}${r?`<small>${r}</small>`:''}</span>${acc==='='?`<span class="nuevo">${b}</span>`:`<span class="base">${b||''}</span><span class="nuevo" style="color:${acc==='sacar'?'var(--rojo)':acc==='nuevo'||acc.startsWith('+')?'var(--verde)':'var(--laton)'}">${acc==='sacar'?'sacar':nu}</span>`}</div>`).join('')}
+ <div class="fila2" style="margin-top:10px"><button class="bt p" style="flex:1">Armar la lista de noviembre</button><button class="bt">Editar la base</button></div>
+ <label class="fila2" style="font-size:.84rem;flex-wrap:nowrap;margin-top:6px"><span class="chk on"></span><span style="flex:1">Guardar los cambios aceptados también en la lista base</span></label></div>
+ <div class="card"><h3>Lo que tiraste<small>octubre</small></h3>${[['🥤','Yogur bebible x2','Venció · no gustó',2400],['🥬','Lechuga','Se echó a perder',1800],['🍞','Pan lactal (½)','Venció',2000]].map(([e,n,r,v])=>`<div class="lc"><span class="em">${e}</span><span class="n">${n} <small style="color:var(--tinta-2)">· ${r}</small></span><b style="font-size:.86rem">${$(v)}</b></div>`).join('')}</div>
+ </div><div class="col">
+ <div class="kpis" style="grid-template-columns:repeat(2,minmax(0,1fr))"><div class="kpi"><small>Gastado en el súper</small><b>${$(186400)}</b><em class="up">▲ 9% vs sept</em></div><div class="kpi"><small>Ahorrado en promos</small><b>${$(23800)}</b><em class="down">12% de lo comprado</em></div><div class="kpi"><small>Tirado</small><b>${$(6200)}</b><em class="up">4 productos</em></div><div class="kpi"><small>Compras</small><b>5</b><em style="color:var(--tinta-2)">prom. ${$(37280)}</em></div></div>
+ <div class="card"><h3>Precio de la leche<small>lo que pagaste</small></h3>${linea([890,940,980,1050,1150,1290],['may','jun','jul','ago','sep','oct'])}<span class="sub">Subió 45% en 6 meses. Más barata: Día (${$(1190)}).</span></div>
+ <div class="card"><h3>Dónde conviene<small>tu lista, últimos precios</small></h3>${[['Día',61200],['Coto',64800],['Carrefour',66900]].map(([n,v],i)=>`<div class="lc"><span class="n">${n}</span><b style="font-size:.88rem">${$(v)}</b>${i?`<span style="color:var(--rojo);font-size:.74rem;width:62px;text-align:right">+${$(v-61200)}</span>`:'<span class="tagc" style="background:var(--verde-f);color:var(--verde);width:62px;text-align:center">más barato</span>'}</div>`).join('')}</div>
+ </div></div>`;}
+
+let filtroDat='Todos',fichaAbierta=0;
+const PRODS=[
+ ['🥛','Leche La Serenísima Entera 1 L','La Serenísima','7790742362109','Lácteos','Heladera','sistema',1290,'10 días'],['🧉','Yerba Playadito 1 kg','Playadito','7790387000017','Almacén','Alacena','sistema',6200,'—'],['☕','Café La Morenita 500 g','La Morenita','7790150000123','Almacén','Alacena','sistema',7900,'—'],['🥬','Lechuga','','','Verdulería','Heladera','mío',1200,'5 días'],['🍗','Pechuga de pollo (por kg)','','','Carnes','Freezer','mío',5600,'90 días (freezer)'],['🧴','Detergente Magistral 750 ml','Magistral','7791290012345','Limpieza','Limpieza','sistema',2550,'—'],['🍞','Pan lactal Fargo','Fargo','7790270001234','Panadería','Alacena','sistema',2800,'7 días']];
+function datos(){
+ let l=PRODS;if(filtroDat==='Míos')l=PRODS.filter(x=>x[6]==='mío');if(filtroDat==='Del sistema')l=PRODS.filter(x=>x[6]==='sistema');
+ const f=PRODS[fichaAbierta];
+ return cab('Compras','Lista, carrito y despensa.',tabs('dat'))+`<div class="cols"><div class="col">
+ <input class="buscar-d" placeholder="Buscar producto, marca o código…">
+ <div class="filtros" style="margin-bottom:8px">${['Todos','Míos','Del sistema','Sin precio','Sin duración'].map(x=>`<button class="${filtroDat===x?'sel':''}" data-fdat="${x}">${x}</button>`).join('')}</div>
+ <div class="card" style="gap:2px"><div class="lc-grupo">${l.length} productos<span>último precio</span></div>${l.map(x=>{const i=PRODS.indexOf(x);return `<div class="lc" data-ficha="${i}" style="${i===fichaAbierta?'background:var(--superficie-2);border-radius:8px;padding:3px 6px':''}"><span class="em">${x[0]}</span><span class="n">${x[1]}</span><span class="tagc ${x[6]==='mío'?'lat':'gris'}">${x[6]==='mío'?'mío':'sistema'}</span><span class="q">${$(x[7])}</span></div>`;}).join('')}
+ <button class="bt ch" style="justify-self:start;margin-top:8px">+ Producto nuevo</button></div></div>
+ <div class="col"><div class="card"><h3>${f[0]} ${f[1]}</h3>
+ <div class="ficha"><label>Nombre<input value="${f[1]}"></label><label>Marca<input value="${f[2]}"></label><label>Código de barras<input value="${f[3]||'— (sin código)'}"></label><label>Sector del súper<select><option>${f[4]}</option></select></label><label>Se guarda en<select><option>${f[5]}</option></select></label><label>Dura abierto / fresco<input value="${f[8]}"></label><label>Unidad<select><option>unidad</option><option>kg</option><option>litro</option></select></label><label>Origen<input value="${f[6]==='mío'?'Cargado por vos':'Open Food Facts'}" disabled></label></div>
+ <span class="et" style="margin-top:4px">Precios que pagaste</span>
+ ${[['28 sep','Coto',1150],['12 sep','Día',1090],['20 ago','Coto',1050]].map(([d,c,v])=>`<div class="lc"><span class="n">${d} · ${c}</span><b style="font-size:.86rem">${$(v)}</b></div>`).join('')}
+ <span class="et" style="margin-top:4px">Consumo</span><span class="sub">Unas 12 por mes · comprado 38 veces · tiraste 0</span>
+ <div class="fila2"><button class="bt ch">Unir con otro producto</button><button class="bt ch" style="color:var(--rojo)">Borrar</button></div></div></div></div>`;}
+
+function linea(v,et){const W=cel?360:600,H=140,p=44,n=v.length,mx=Math.max(...v)*1.1,mn=Math.min(...v)*.9;const x=i=>p+i*(W-p-10)/(n-1),y=t=>H-24-((t-mn)/(mx-mn))*(H-40);
+ let g='';for(let k=0;k<=2;k++){const t=mn+(mx-mn)*k/2;g+=`<line x1="${p}" x2="${W-10}" y1="${y(t)}" y2="${y(t)}" stroke="#2E3033"/><text x="${p-6}" y="${y(t)+4}" fill="#9A9C9F" font-size="12" text-anchor="end">${Math.round(t/100)*100}</text>`;}
+ et.forEach((e,i)=>g+=`<text x="${x(i)}" y="${H-5}" fill="#9A9C9F" font-size="12" text-anchor="middle">${e}</text>`);
+ g+=`<path d="${v.map((t,i)=>(i?'L':'M')+x(i)+' '+y(t)).join('')}" fill="none" stroke="#D3AB5C" stroke-width="2.4"/>`;return `<div class="graf"><svg viewBox="0 0 ${W} ${H}">${g}</svg></div>`;}
+function pintar(){document.getElementById('app').classList.toggle('cel',cel);menu();
+ const c=document.getElementById('cont');
+ c.innerHTML=pant==='lista'?lista():pant==='super'?superm():pant==='desc'?desc():pant==='desp'?desp():pant==='rec'?recuento():pant==='com'?comidas():pant==='dat'?datos():sug();
+ const o=document.getElementById('otro');if(o){o.oninput=()=>{precioOtro=o.value;precioSel='otro';const pos=o.selectionStart;pintar();const n=document.getElementById('otro');n.focus();n.setSelectionRange(pos,pos);};}
+ document.querySelectorAll('[data-dsc]').forEach(inp=>inp.onchange=()=>{CARRO[+inp.dataset.dsc].desc=Number(inp.value)||0;pintar();});
+ const dt=document.getElementById('dtar');if(dt)dt.onchange=()=>{descTarjeta=Number(dt.value)||0;pintar();};}
+function sel(id,v){document.querySelectorAll(`#${id} button`).forEach(b=>b.classList.toggle('sel',b.dataset.v===v));}
+document.getElementById('pant').onclick=e=>{const v=e.target.dataset.v;if(!v)return;pant=v;sel('pant',v);pintar();};
+document.getElementById('disp').onclick=e=>{const v=e.target.dataset.v;if(!v)return;cel=v==='cel';sel('disp',v);pintar();};
+document.getElementById('cont').addEventListener('click',e=>{const t=e.target.closest('[data-ver],[data-lug],[data-prog],[data-rc],[data-hice],[data-receta],[data-acepto],[data-fdat],[data-ficha],[data-ir],[data-chk],[data-razon],[data-scan],[data-sim],[data-x],[data-pr],[data-cant],[data-add],[data-promo],[data-fd],[data-abrir],[data-usar]');if(!t)return;const d=t.dataset;
+ if(d.rc){const[i,op]=d.rc.split('|');const base=REC[+i]===undefined?DESP[+i].q:REC[+i];REC[+i]=op==='='?DESP[+i].q:Math.max(0,base+(op==='+'?1:-1));}
+ else if(d.lug){lugarRec=d.lug;}
+ else if(d.hice!==undefined){COMIDAS[+d.hice].hecho=true;}
+ else if(d.ver!==undefined){recetaAbierta=+d.ver;setTimeout(()=>document.getElementById('ficha')?.scrollIntoView({behavior:'smooth'}),50);}
+ else if(d.prog!==undefined){programando=programando===+d.prog?null:+d.prog;}
+ else if(d.acepto!==undefined){acepto[+d.acepto]=!acepto[+d.acepto];}
+ else if(d.fdat){filtroDat=d.fdat;}
+ else if(d.ficha!==undefined){fichaAbierta=+d.ficha;}
+ else if(d.ir){pant=d.ir;sel('pant',d.ir);}
+ else if(d.chk!==undefined){LISTA[+d.chk].on=!LISTA[+d.chk].on;}
+ else if(d.razon!==undefined){verRazon=verRazon===+d.razon?null:+d.razon;}
+ else if(d.scan){escaneando=true;encontrado=false;}
+ else if(d.sim){encontrado=true;}
+ else if(d.x){escaneando=false;encontrado=false;}
+ else if(d.pr){if(e.target.tagName==='INPUT')return;precioSel=d.pr;}
+ else if(d.cant){cantidad=Math.max(1,cantidad+ +d.cant);}
+ else if(d.add){const p=precioSel==='ref'?PROD.ref:precioSel==='ult'?PROD.ult:(Number(precioOtro)||0);CARRO.unshift({n:PROD.n,e:PROD.e,p,q:cantidad,promo:'',v:venc});LISTA[0].on=true;escaneando=false;encontrado=false;}
+ else if(d.promo){const[i,p]=d.promo.split('|');CARRO[+i].promo=p;}
+ else if(d.fd){filtroD=d.fd;abiertoD=null;}
+ else if(d.usar){const x=DESP[+d.usar];x.q=Math.max(0,x.q-1);}
+ else if(d.abrir!==undefined){abiertoD=abiertoD===+d.abrir?null:+d.abrir;}
+ pintar();});
+pintar();
+</script>
+</body></html>
