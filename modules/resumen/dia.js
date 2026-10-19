@@ -7,13 +7,13 @@
 //     está en Bitácora (acción 'gemini-preguntar'), y quedan guardadas en
 //     la revisión del día para no gastar el cupo gratis.
 //   - Aprende: abrir una noticia sube su tema; "No me interesa" lo baja.
-// Ajustes (colección "ajustes", uno solo): { hora, lugar, intereses, sugeridos, descartados }
+// Ajustes (colección "ajustes", uno solo): { nombre, hora, lugar, intereses, sugeridos, descartados }
 // ─────────────────────────────────────────────────────────────
 
 import { pedirSeguro, hoyISO, deISO, DIAS, MESES } from './datos.js';
 
 const INTERESES = ['Economía mundial', 'Economía argentina', 'Tecnología', 'Guerras y política internacional', 'Política argentina'];
-const base = () => ({ hora: '05:00', lugar: { tipo: 'gps' }, intereses: INTERESES.map(nombre => ({ nombre, peso: 0 })), sugeridos: [], descartados: [] });
+const base = () => ({ nombre: 'Matías', hora: '05:00', lugar: { tipo: 'gps' }, intereses: INTERESES.map(nombre => ({ nombre, peso: 0 })), sugeridos: [], descartados: [] });
 const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
 const igual = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
@@ -139,14 +139,20 @@ export async function noticias(ctx, m, { forzar = false } = {}) {
   buscando ||= (async () => {
     await m.guardar('dia', hoy, { noticiasIntento: Date.now() });
     const aj = await leerAjustes(ctx);
-    const r = await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy), buscar: true });
-    const x = leerJSON(r?.texto || '');
-    if (!x?.noticias?.length) throw new Error('Gemini no devolvió noticias. Probá más tarde.');
+    let r, x;
+    try {
+      r = await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy), buscar: true });
+      x = leerJSON(r?.texto || '');
+      if (!x?.noticias?.length) throw new Error('Gemini no devolvió noticias.');
+    } catch (e) {
+      await m.guardar('dia', hoy, { noticiasError: e.message || String(e) });
+      throw e;
+    }
     const lista = x.noticias.slice(0, 6).map(n => ({
       tema: String(n.tema || ''), titulo: String(n.titulo || '').slice(0, 200), resumen: String(n.resumen || '').slice(0, 400),
       detalle: String(n.detalle || '').slice(0, 4000), fuente: String(n.fuente || ''), url: enlace(n, r.fuentes || []),
     })).filter(n => n.titulo);
-    await m.guardar('dia', hoy, { noticias: lista, noticiasHora: Date.now() });
+    await m.guardar('dia', hoy, { noticias: lista, noticiasHora: Date.now(), noticiasError: '' });
     const ya = [...aj.intereses.map(i => i.nombre), ...aj.descartados, ...aj.sugeridos];
     const nuevos = (x.sugeridos || []).map(String).filter(s => s && !ya.some(y => igual(y, s)));
     if (nuevos.length) await guardarAjustes(ctx, { sugeridos: [...aj.sugeridos, ...nuevos].slice(-6) });
@@ -177,29 +183,49 @@ const saludo = () => { const hh = new Date().getHours(); return hh < 13 ? 'Buen 
 const mini = (h, v, t) => h('span', {}, h('b', {}, v), t);
 
 // ── Cartel del día para el Inicio (sin ✕: se va con "Ver mi día" o "Ahora no") ──
+// Igual a la vista previa: saludo con tu nombre, números del día y un adelanto
+// (próximas tareas, vencimientos, cumpleaños y la primera noticia).
 export async function tarjetaDia(ctx, m, alCerrar) {
   const { h } = ctx;
   const hoy = hoyISO(), f = deISO(hoy);
   const aj = await leerAjustes(ctx);
-  const [d, tiempo, rev] = await Promise.all([loDeHoy(ctx), clima(aj).catch(() => null), m.leer('dia', hoy)]);
+  const [d, rev] = await Promise.all([loDeHoy(ctx), m.leer('dia', hoy)]);
+  let tiempo = await clima(aj).catch(() => null);
+  const pendientes = d.tareas.filter(x => !x.hecha), vence = d.vence.filter(x => !x.hecha);
+  const nums = h('span', { class: 'rs-aviso-mini' });
+  const pintarNums = () => poner(nums,
+    tiempo ? mini(h, `${tiempo.temp}°`, textoClima(tiempo.codigo)[2].toLowerCase()) : null,
+    mini(h, String(pendientes.length), pendientes.length === 1 ? 'tarea' : 'tareas'),
+    vence.length ? mini(h, String(vence.length), 'vence') : null,
+    d.habitos.total ? mini(h, String(d.habitos.total - d.habitos.hechos), 'hábitos') : null);
   const lineas = h('div', { class: 'rs-lineas' });
-  const pintarLineas = (lista) => poner(lineas,
-    d.feriados.map(x => h('span', {}, h('em', {}, '🇦🇷'), x.titulo)),
-    (d.cumples || []).map(c => h('span', {}, h('em', {}, '🎂'), h('a', { href: '#/tareas', onclick: (e) => { e.preventDefault(); abrirCumpleanos(ctx); } }, `Cumpleaños de ${c.nombre} ›`))),
-    lista?.[0] ? h('span', {}, h('em', {}, '📰'), h('a', { href: '#/resumen/hoy', onclick: (e) => { e.preventDefault(); abrirNoticia(ctx, lista[0]); } }, lista[0].titulo)) : null);
-  pintarLineas(rev?.noticias);
-  // Si las noticias de hoy todavía no están, se buscan de fondo y aparecen cuando llegan.
-  if (!rev?.noticias?.length) noticias(ctx, m).then(l => { if (l?.length) pintarLineas(l); }).catch(() => { /* reintenta más tarde */ });
-  const pendientes = d.tareas.filter(x => !x.hecha).length, vence = d.vence.filter(x => !x.hecha).length;
+  const enlace = (texto, alTocar) => h('a', { href: '#', onclick: (e) => { e.preventDefault(); alTocar(); } }, texto);
+  const linea = (icono, ...cont) => h('span', {}, h('em', {}, icono), ...cont);
+  const pintarLineas = (lista, estado = '') => poner(lineas,
+    !tiempo && aj.lugar?.tipo !== 'ciudad' ? linea('🌤️', enlace('Tocá para ver el tiempo', async () => {
+      try { tiempo = await clima(aj, { pedirPermiso: true }); pintarNums(); pintarLineas(lista, estado); } catch (e) { ctx.aviso(e.message); }
+    })) : null,
+    d.feriados.map(x => linea('🇦🇷', x.titulo)),
+    pendientes.slice(0, 3).map(x => linea('○', enlace(`${x.hora ? `${x.hora} · ` : ''}${x.titulo}`, () => ctx.pedir('abrir-tarea', { id: x.id })))),
+    pendientes.length > 3 ? linea('', enlace(`y ${pendientes.length - 3} más ›`, () => ctx.navegar('resumen/hoy'))) : null,
+    vence.map(x => linea('💳', enlace(`Vence: ${x.titulo}`, () => ctx.pedir('abrir-tarea', { id: x.id })))),
+    (d.cumples || []).map(c => linea('🎂', enlace(`Cumpleaños de ${c.nombre} ›`, () => abrirCumpleanos(ctx)))),
+    lista?.[0] ? linea('📰', enlace(lista[0].titulo, () => abrirNoticia(ctx, lista[0])))
+      : lista === null ? linea('📰', 'Para ver noticias, poné tu clave de Gemini en ', h('a', { href: '#/bitacora/ajustes' }, 'Configurar Bitácora'))
+        : linea('📰', h('span', { class: 'rs-tenue' }, estado || 'Buscando las noticias de hoy…')));
+  pintarNums();
+  if (rev?.noticias?.length) pintarLineas(rev.noticias);
+  else {
+    pintarLineas([], rev?.noticiasError ? `Las noticias no llegaron (${rev.noticiasError}). Se reintenta sola.` : '');
+    // Se buscan de fondo y aparecen cuando llegan.
+    noticias(ctx, m).then(l => pintarLineas(l, l?.length ? '' : 'Las noticias todavía no llegaron. Se reintenta sola.'))
+      .catch(e => pintarLineas([], `Las noticias no llegaron (${e.message}). Se reintenta sola.`));
+  }
   const verlo = async (ir) => { await m.guardar('dia', hoy, { vista: true }); if (ir) ctx.navegar('resumen/hoy'); else alCerrar(); };
   return h('section', { class: 'rs-aviso dia' },
-    h('span', { class: 'rs-aviso-et' }, saludo()),
+    h('span', { class: 'rs-aviso-et' }, `${saludo()}${aj.nombre ? `, ${aj.nombre}` : ''}`),
     h('b', { class: 'rs-aviso-t' }, `Tu ${DIAS[f.getDay()]} ${f.getDate()}`),
-    h('span', { class: 'rs-aviso-mini' },
-      tiempo ? mini(h, `${tiempo.temp}°`, textoClima(tiempo.codigo)[2].toLowerCase()) : null,
-      mini(h, String(pendientes), pendientes === 1 ? 'tarea' : 'tareas'),
-      vence ? mini(h, String(vence), vence === 1 ? 'vence' : 'vencen') : null,
-      d.habitos.total ? mini(h, String(d.habitos.total - d.habitos.hechos), 'hábitos') : null),
+    nums,
     lineas,
     h('span', { class: 'rs-aviso-bot' },
       h('button', { type: 'button', class: 'rs-bt p', onclick: () => verlo(true) }, 'Ver mi día'),
@@ -256,6 +282,18 @@ export async function pantallaHoy(cuerpo, ctx, m) {
 }
 
 // ── Configurar Resumen (#/resumen/config) ──
+// Vuelve a mostrar el panel del Inicio (mes, semana y día que estaban cerrados) y reintenta las noticias.
+async function relanzar(ctx) {
+  const col = ctx.datos('revisiones');
+  for (const r of await col.listar()) {
+    if (!r.vista || r.hecha) continue;
+    if ((r.tipo === 'dia' && r.clave === hoyISO()) || r.tipo === 'semana' || r.tipo === 'mes') await col.actualizar(r.id, { vista: false });
+  }
+  const hoyRev = (await col.listar()).find(r => r.tipo === 'dia' && r.clave === hoyISO());
+  if (hoyRev && !hoyRev.noticias?.length) await col.actualizar(hoyRev.id, { noticiasIntento: 0, noticiasError: '' });
+  ctx.navegar('home');
+}
+
 export async function pantallaConfig(cuerpo, ctx) {
   const { h } = ctx;
   let aj = await leerAjustes(ctx);
@@ -283,10 +321,13 @@ export async function pantallaConfig(cuerpo, ctx) {
     nuevo.addEventListener('keydown', (e) => { if (e.key === 'Enter') agregar(); });
     const gps = aj.lugar?.tipo !== 'ciudad';
 
+    const nombre = h('input', { type: 'text', value: aj.nombre || '', placeholder: 'Tu nombre', onchange: () => guardar({ nombre: nombre.value.trim() }) });
     poner(cuerpo,
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Resumen del día'),
+        h('label', { class: 'rs-campo' }, h('span', {}, 'Te saluda como'), nombre),
         h('label', { class: 'rs-campo' }, h('span', {}, 'Aparece en el Inicio desde las'), hora),
-        h('span', { class: 'nota' }, 'Se muestra la primera vez que abrís la app desde esa hora, hasta que tocás "Ver mi día" o "Ahora no". Siempre lo podés volver a ver en Resumen › Hoy.')),
+        h('span', { class: 'nota' }, 'Se muestra la primera vez que abrís la app desde esa hora, hasta que tocás "Ver mi día" o "Ahora no". Siempre lo podés volver a ver en Resumen › Hoy.'),
+        h('button', { type: 'button', class: 'rs-bt', onclick: () => relanzar(ctx) }, '↻ Relanzar el panel')),
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Tiempo', h('small', {}, gps ? '📍 Ubicación actual' : `📍 ${aj.lugar.nombre}`)),
         h('div', { class: 'rs-chips' },
           h('button', { type: 'button', class: `rs-chip${gps ? ' on' : ''}`, onclick: () => guardar({ lugar: { tipo: 'gps' } }) }, '📍 Ubicación actual (GPS)'),

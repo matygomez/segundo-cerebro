@@ -24,10 +24,13 @@ export default {
       async dibujar(contenedor) {
         cargarEstilos();
         await dibujarAviso(ctx, contenedor);
-        const quitar = ctx.alCambiarDatos(() => dibujarAviso(ctx, contenedor).then(() => {
+        // Se redibuja si cambian tus revisiones o lo de hoy (tareas, hábitos).
+        let espera = null;
+        const redibujar = () => { clearTimeout(espera); espera = setTimeout(() => dibujarAviso(ctx, contenedor).then(() => {
           contenedor.closest('.ini-pieza')?.toggleAttribute('hidden', !contenedor.childElementCount);
-        }));
-        return () => { quitar?.(); contenedor._limpiar?.(); };
+        }), 300); };
+        const quitar = [ctx.alCambiarDatos(redibujar), ctx.alCambiarDatosDe('tareas', redibujar), ctx.alCambiarDatosDe('habitos', redibujar)];
+        return () => { quitar.forEach(q => q?.()); clearTimeout(espera); contenedor._limpiar?.(); };
       },
     }];
   },
