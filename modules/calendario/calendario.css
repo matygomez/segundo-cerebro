@@ -99,7 +99,7 @@ button.cl-sem-dia { font: inherit; cursor: pointer; }
 .cl-sem-dia b { font-family: var(--fuente-titulo); font-size: 1.15rem; line-height: 1; }
 .cl-sem-dia.feriado b { color: var(--cl-violeta); }
 .cl-sem-dia .cl-puntos { display: flex; min-height: 6px; max-width: none; }
-.bloque-cuerpo:has(> .cl-sem-dias) { display: grid; gap: 0.6rem; }
+.bloque-cuerpo:has(> .cl-sem-dias) { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0.6rem; }
 .cl-sem-dia .cl-p { width: 5px; height: 5px; }
 .cl-sem-leyenda { display: flex; flex-wrap: wrap; gap: 0.2rem 0.75rem; font-size: 0.72rem; color: var(--tinta-2); }
 .cl-sem-leyenda span { display: inline-flex; align-items: center; gap: 0.3rem; }
@@ -209,8 +209,11 @@ button.cl-sem-dia { font: inherit; cursor: pointer; }
   .pl-sem-tit b { font-size: 0.98rem; }
   .pl-anillo small { display: none; }
 }
-/* "Para planificar" siempre a la vista en la PC (las columnas de los días se deslizan) */
-.pl-tablero .pl-sinfecha { position: sticky; left: 0; z-index: 2; background: var(--papel); box-shadow: 10px 0 12px -8px rgb(0 0 0 / 0.7); }
+/* PC: "Para planificar" en su propia columna fija; solo los días se deslizan (así no se tapan) */
+.pl-pc { display: flex; gap: 0.75rem; align-items: flex-start; min-width: 0; }
+.pl-pc > .pl-sinfecha { flex: 0 0 14rem; }
+.pl-pc > .pl-tablero { flex: 1; min-width: 0; scroll-snap-type: x proximity; }
+.pl-tablero > .pl-col { scroll-snap-align: start; }
 @media (max-width: 899px) {
   .cl-titulos { flex-basis: 100%; }
   .cl-cab .cl-titulo { font-size: 1.7rem; }

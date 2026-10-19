@@ -203,7 +203,7 @@ export async function pantallaSemana(contenedor, ctx, { leerConfig, cabecera }) 
       return;
     }
     const cuerpo = esPC()
-      ? h('div', { class: 'pl-tablero' }, paraPlanificar(), dias.map((_, i) => columna(i)))
+      ? h('div', { class: 'pl-pc' }, paraPlanificar(), h('div', { class: 'pl-tablero' }, dias.map((_, i) => columna(i))))
       : h('div', { class: 'pl-cel' }, columna(diaCel), paraPlanificar());
     const scroll = zona.querySelector('.pl-tablero')?.scrollLeft || 0;
     zona.replaceChildren(semana, cuerpo);
@@ -214,11 +214,12 @@ export async function pantallaSemana(contenedor, ctx, { leerConfig, cabecera }) 
     }
   }
 
-  // Lleva una columna al lado de "Para planificar" (que queda fija a la izquierda).
+  // Lleva una columna al principio del tablero ("Para planificar" queda aparte, fija a la izquierda).
   function irAColumna(i, suave = false) {
-    const t = zona.querySelector('.pl-tablero'), col = document.getElementById(`pl-col-${i}`), fija = zona.querySelector('.pl-sinfecha');
+    const t = zona.querySelector('.pl-tablero'), col = document.getElementById(`pl-col-${i}`);
     if (!t || !col) return;
-    t.scrollTo({ left: col.offsetLeft - t.offsetLeft - (fija ? fija.offsetWidth + 12 : 0), behavior: suave ? 'smooth' : 'auto' });
+    const left = col.getBoundingClientRect().left - t.getBoundingClientRect().left + t.scrollLeft;
+    t.scrollTo({ left, behavior: suave ? 'smooth' : 'auto' });
   }
 
   let espera = null;
