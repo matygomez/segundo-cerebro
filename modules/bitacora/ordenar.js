@@ -453,16 +453,24 @@ export async function sincronizarMensuales(ctx, m) {
 export function seccionArchivos(ctx, m, d) {
   const { h } = ctx;
   const clave = h('input', { type: 'password', value: d.ajuste('gemini')?.api || '', placeholder: 'Pegá tu clave acá', autocomplete: 'off', 'aria-label': 'Clave de Gemini' });
-  const estado = h('p', { class: 'nota' });
+  // Lo guardado se ve siempre; el resultado de la prueba va como aviso
+  // (al guardar, la pantalla se redibuja y un texto acá se perdería).
+  const guardada = d.ajuste('gemini')?.api;
+  const estado = h('p', { class: 'nota' }, guardada ? `Clave guardada${d.ajuste('gemini')?.ok ? ' y funcionando' : ''}.` : 'Sin clave: los archivos se ordenan a mano.');
   const probar = async () => {
     const v = clave.value.trim();
-    await m.guardarAjuste('gemini', { api: v });
-    if (!v) { estado.textContent = 'Sin clave: los archivos se ordenan a mano.'; return; }
-    estado.textContent = 'Probando…';
+    if (!v) { await m.guardarAjuste('gemini', { api: '', ok: false }); ctx.aviso('Clave borrada.'); return; }
+    const espera = ctx.aviso('Probando la clave…', { duracion: 0 });
     try {
       await pedirGemini(v, { contents: [{ role: 'user', parts: [{ text: 'Respondé solo: ok' }] }] });
-      estado.textContent = 'Clave guardada y funcionando.';
-    } catch (e) { estado.textContent = e.message; }
+      espera.remove();
+      await m.guardarAjuste('gemini', { api: v, ok: true });
+      ctx.aviso('Clave guardada y funcionando.');
+    } catch (e) {
+      espera.remove();
+      await m.guardarAjuste('gemini', { api: v, ok: false });
+      ctx.aviso(`Clave guardada, pero falló la prueba: ${e.message}`, { duracion: 8000 });
+    }
   };
   return h('section', { class: 'tarjeta' }, h('h2', {}, 'Archivos para ordenar'),
     h('p', { class: 'nota' }, 'La app lee cada archivo con Gemini y te propone nombre, carpeta y datos. La clave se saca gratis en ', h('a', { href: 'https://aistudio.google.com/app/apikey', target: '_blank', rel: 'noopener' }, 'Google AI Studio'), ' (botón "Create API key") y se guarda en tu cuenta.'),
