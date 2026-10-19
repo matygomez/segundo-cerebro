@@ -85,6 +85,9 @@ input, select { background: var(--superficie-2); border: 1px solid var(--linea);
 .chip { padding: 5px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--superficie-2); font-size: .84rem; }
 .chip.on { border-color: var(--laton); color: var(--laton); }
 .chip.sug { border-style: dashed; color: var(--tinta-2); }
+.pest2 { display: inline-flex; background: var(--superficie); border: 1px solid var(--linea); border-radius: 10px; padding: 3px; }
+.pest2 span { padding: 6px 12px; border-radius: 7px; font-size: .88rem; color: var(--tinta-2); }
+.pest2 .sel { background: #2c2d31; color: var(--tinta); font-weight: 600; }
 .pantalla[hidden] { display: none; }
 .pantalla { display: grid; gap: 14px; }
 </style>
@@ -113,7 +116,6 @@ input, select { background: var(--superficie-2); border: 1px solid var(--linea);
           <span class="bot"><button class="bt p">Hacer la revisión · 5 min</button><button class="bt cerrar">Ahora no</button></span>
         </section>
         <section class="aviso dia">
-          <button class="aviso-x" aria-label="Cerrar">✕</button>
           <span class="et">Buen día, Matías</span>
           <b class="titulo">Tu domingo 1</b>
           <span class="mini"><span><b>19°</b>parcial nublado</span><span><b>4</b>tareas</span><span><b>1</b>vence</span><span><b>5</b>hábitos</span></span>
@@ -128,6 +130,15 @@ input, select { background: var(--superficie-2); border: 1px solid var(--linea);
       <div class="puntos" id="puntos"></div>
     </div>
     <div class="tarjeta"><div class="relleno">… el resto de tus cuadros, como hoy …</div></div>
+    <p class="nota-previa" style="margin:0">El cartel del día no tiene ✕: queda hasta que toques "Ver mi día" o "Ahora no".</p>
+
+    <div class="fecha" style="margin-top:14px">En el módulo Resumen<b>Resumen</b></div>
+    <div class="pest2"><span class="sel">Hoy</span><span>Semana</span><span>Mes</span><span>Estadísticas</span></div>
+    <p class="nota-previa" style="margin:0">Pestaña nueva "Hoy": volvés a ver tu día completo (tiempo, tareas, cumpleaños, noticias) aunque lo hayas cerrado a la mañana.</p>
+
+    <div class="fecha" style="margin-top:14px">En Configurar Resumen<b>Cumpleaños</b></div>
+    <div class="tarjeta"><h3>Cumpleaños</h3>
+      <span style="font-size:.9rem;color:var(--tinta-2)">Los cumpleaños se cargan en Tareas. <a href="#" style="color:var(--laton)" onclick="alert('Te lleva a Tareas');return false">Configurarlos en Tareas ›</a></span></div>
   </section>
 
 </div>
