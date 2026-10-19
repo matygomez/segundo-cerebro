@@ -11,6 +11,7 @@ Todo configurable en Ajustes › Inicio (`js/core/inicio.js`, `js/core/ajustes-i
 
 ## Tareas (`modules/tareas`)
 Áreas, proyectos, secciones, subtareas, repetición, papelera 30 días, sistemas (tareas creadas por otros módulos). Repetidas guardan `completadas[]`.
+Una sola fecha: la casilla "Ocultar hasta ese día" (guarda `inicio` = fecha) la esconde hasta ese día; se ven en "N programadas" de cada lista y de Próximos.
 Acciones: `abrir-tarea, crear-tarea, tarea-completar, tarea-fecha, tarea-borrar, tareas-sin-fecha, calendario-items, metas-proyectos, metas-proyecto,
 resumen-tareas, resumen-vencidas, sistema-pendientes, sistema-sincronizar`.
 

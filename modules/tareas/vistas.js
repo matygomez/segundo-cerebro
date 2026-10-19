@@ -95,6 +95,9 @@ const abrirTarea = (ctx, m, d, t) => (abridor ? abridor(t) : abrirEditor(ctx, m,
 
 // Color de la fecha: vencida (rojo), hoy (verde), mañana (dorado),
 // esta semana (azul), más adelante (gris). El texto dice lo mismo.
+// "15/03", o "15/03/2027" si no es de este año.
+const diaMes = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}${iso.slice(0, 4) === hoy().slice(0, 4) ? '' : `/${iso.slice(0, 4)}`}`;
+
 function claseFecha(t) {
   if (hecha(t) || !t.fecha) return 'lejos';
   const n = diasEntre(hoy(), t.fecha);
@@ -175,7 +178,7 @@ export function filaTarea(ctx, m, d, t, { ubicacion = true, ordenable = false, n
   if (t.fecha) meta.push(h('span', { class: `tr-meta tr-fecha ${claseFecha(t)}` }, textoFecha(t.fecha), t.hora ? ` ${t.hora}` : ''));
   if (t.repeticion?.tipo) meta.push(h('span', { class: 'tr-meta tr-rep' }, ic('repetir'), textoRepeticion(t.repeticion)));
   if (t.duracion) meta.push(h('span', { class: 'tr-meta' }, ic('reloj'), textoDuracion(t.duracion)));
-  if (programada(t)) meta.push(h('span', { class: 'tr-meta tr-aparece', title: 'Fecha de inicio' }, `aparece el ${t.inicio.slice(8, 10)}/${t.inicio.slice(5, 7)}`));
+  if (programada(t)) meta.push(h('span', { class: 'tr-meta tr-aparece', title: 'Oculta hasta ese día' }, `aparece el ${diaMes(t.inicio)}`));
   if (t.origen?.modulo === 'finanzas') meta.push(h('span', { class: 'tr-meta tr-origen', title: 'Recordatorio de Finanzas' }, ic('plata'), 'Finanzas'));
   if (t.origen?.modulo === 'bitacora') meta.push(h('span', { class: 'tr-meta tr-origen', title: 'Viene de una nota de la Bitácora' }, ic('libro'), 'Nota'));
   if (t.aviso) meta.push(h('span', { class: 'tr-meta' }, 'aviso'));
@@ -948,7 +951,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         prox.length ? porDia(prox) : nada('Nada en los próximos 7 días.'),
         despues.length ? h('button', { type: 'button', class: 'tr-link', onclick: () => { verMasAdelante = !verMasAdelante; dibujar(); } },
           verMasAdelante ? 'Ocultar lo que viene después' : `Más adelante (${despues.length})`) : null,
-        verMasAdelante && despues.length ? porDia(despues) : null),
+        verMasAdelante && despues.length ? porDia(despues) : null,
+        bloqueProgramadas('proximos', () => true)),
     ];
   }
 
@@ -1044,7 +1048,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         type: 'button', class: 'tr-programadas-boton', 'aria-expanded': String(abierto),
         onclick: () => { abierto ? verProgramadas.delete(clave) : verProgramadas.add(clave); dibujar(); },
       }, ic(abierto ? 'abajo' : 'flecha'), h('b', {}, `${ts.length} programada${ts.length > 1 ? 's' : ''}`),
-        h('span', { class: 'nota' }, ' · aparecen solas cuando llega su fecha de inicio')),
+        h('span', { class: 'nota' }, ' · ocultas, aparecen solas el día de su fecha')),
       abierto ? h('ul', { class: 'tr-lista' }, ts.map(t => filaTarea(ctx, m, d, t, { ubicacion: false }))) : null);
   }
 

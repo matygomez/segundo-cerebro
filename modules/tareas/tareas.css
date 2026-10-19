@@ -669,3 +669,7 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 /* ── Notas con formato y comentarios en espera ── */
 .tr-notas .ed-area { min-height: 4.5rem; }
 .tr-com-pendiente { opacity: 0.9; border-left: 3px solid var(--laton); padding-left: 0.6rem; }
+
+/* Con el teclado abierto (celular), la barra de formato no tapa Borrar · Cancelar · Guardar */
+.tr-editor:has(.ed-fija:not([hidden])) .tr-botones { bottom: calc(3rem + 2px); padding-bottom: 0.7rem; }
+.tr-ocultar[hidden] { display: none; }

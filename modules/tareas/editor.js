@@ -177,6 +177,14 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   // ── Fecha ──
   const fecha = h('input', { type: 'date', value: t.fecha || '' });
   const hora = h('input', { type: 'time', value: t.hora || '' });
+  // Una sola fecha; con la casilla, la tarea queda oculta de las listas hasta ese día.
+  const ocultar = h('input', { type: 'checkbox', checked: !!t.inicio });
+  const filaOcultar = h('label', { class: 'fila-campo casilla tr-ocultar' }, ocultar, h('span', { class: 'etiqueta-campo' }, 'Ocultar hasta ese día'));
+  const ajustarOcultar = () => { filaOcultar.hidden = !fecha.value; };
+  fecha.addEventListener('input', ajustarOcultar); fecha.addEventListener('change', ajustarOcultar); ajustarOcultar();
+  // Si vino de otro módulo con aviso anticipado (inicio antes de la fecha), se respeta mientras no cambie la fecha.
+  const valorInicio = () => !ocultar.checked || !fecha.value ? ''
+    : t.inicio && fecha.value === t.fecha && t.inicio <= fecha.value ? t.inicio : fecha.value;
 
   // ── Ubicación: proyecto y sección aparecen solo si hay (las subtareas siguen a su madre) ──
   const area = h('select', {});
@@ -260,7 +268,6 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   dibujarAdj();
 
   // ── Más opciones ──
-  const inicio = h('input', { type: 'date', value: t.inicio || '' });
   const repTipo = h('select', {}, REPETICIONES.map(r => opcion(r.valor, r.nombre, t.repeticion?.tipo || '')));
   const repCada = h('input', { type: 'number', min: 1, step: 1, inputmode: 'numeric', value: t.repeticion?.cada || 1 });
   const filaCada = fila('Cada cuántos', repCada);
@@ -269,7 +276,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   const etiquetas = h('input', { type: 'text', value: (t.etiquetas || []).join(', '), placeholder: 'Separadas por coma', autocomplete: 'off' });
   const duracion = h('input', { type: 'number', min: 0, step: 5, inputmode: 'numeric', value: t.duracion || '', placeholder: 'Minutos' });
   const recordatorio = h('input', { type: 'datetime-local', value: t.recordatorio || '' });
-  const tieneExtras = t.inicio || t.repeticion?.tipo || t.etiquetas?.length || t.duracion || t.recordatorio;
+  const tieneExtras = t.repeticion?.tipo || t.etiquetas?.length || t.duracion || t.recordatorio;
 
   // ── Comentarios (se guardan al instante, cada uno por separado; pueden llevar imágenes) ──
   // En una tarea nueva quedan en espera y se guardan al tocar "Crear tarea".
@@ -402,7 +409,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
   // ── Lo que se guarda, y para saber si cambió algo ──
   function datosFormulario() {
     return {
-      titulo: titulo.value, notas: valorNotas(), fecha: fecha.value, hora: hora.value, inicio: inicio.value,
+      titulo: titulo.value, notas: valorNotas(), fecha: fecha.value, hora: hora.value, inicio: valorInicio(),
       repeticion: repTipo.value ? { tipo: repTipo.value, cada: Math.max(1, Number(repCada.value) || 1) } : null,
       etiquetas: etiquetas.value.split(',').map(x => x.trim().replace(/^#/, '')).filter(Boolean),
       adjuntos,
@@ -441,6 +448,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
       bloque('Subtareas', listaSub,
         h('div', { class: 'tr-nueva-sub' }, nuevaSub, h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Agregar subtarea', onclick: agregarSub }, icono('mas')))),
       h('div', { class: 'tr-dos' }, fila('Fecha', fecha), fila('Hora', hora)),
+      filaOcultar,
       filaArea,
       h('div', { class: 'tr-dos' }, filaProyecto, filaSeccion),
       bloque('Adjuntos', listaAdj,
@@ -453,7 +461,7 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
         h('summary', {}, 'Más opciones'),
         h('div', { class: 'formulario-campos' },
           h('div', { class: 'tr-dos' }, fila('Repetición', repTipo), filaCada),
-          h('div', { class: 'tr-dos' }, fila('Fecha de inicio', inicio), fila('Duración estimada', duracion)),
+          h('div', { class: 'tr-dos' }, fila('Duración estimada', duracion)),
           fila('Etiquetas', etiquetas),
           fila('Recordatorio', recordatorio),
           h('p', { class: 'nota' }, 'El recordatorio queda guardado y visible en la tarea. El aviso en el celular llega con la versión Android.'))),

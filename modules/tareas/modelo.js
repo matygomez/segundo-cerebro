@@ -100,7 +100,7 @@ export function textoDuracion(min) {
 
 export const hecha = (t) => t.estado === 'hecha';
 export const vencida = (t) => !hecha(t) && !t.aviso && t.fecha && t.fecha < hoy();
-// Programada: tiene fecha de inicio y todavía no llegó (queda oculta hasta ese día).
+// Programada: marcada "ocultar hasta ese día" (o con fecha de inicio de otro módulo) y todavía no llegó.
 export const programada = (t) => !hecha(t) && !!t.inicio && t.inicio > hoy();
 // Oculta en las listas: programadas y avisos que ya pasaron.
 export const oculta = (t) => programada(t) || (!!t.aviso && !hecha(t) && !!t.fecha && t.fecha < hoy());
@@ -227,6 +227,11 @@ export function crearModelo(ctx) {
       await col.tareas.actualizar(t.id, { subtareas: [] });
       t.subtareas = [];
     }
+    // Ahora hay una sola fecha: las que solo tenían fecha de inicio pasan a tener esa fecha.
+    for (const t of tareas.filter(t => t.inicio && !t.fecha)) {
+      t.fecha = t.inicio;
+      col.tareas.actualizar(t.id, { fecha: t.fecha }).catch(() => {});
+    }
     areas.sort(porOrden); proyectos.sort(porOrden); secciones.sort(porOrden);
     comentarios.sort((a, b) => a.creado - b.creado);
     filtros.sort((a, b) => a.nombre.localeCompare(b.nombre));
@@ -277,6 +282,7 @@ export function crearModelo(ctx) {
       t.repeticion = { ...t.repeticion, dia: Number(t.fecha.slice(8, 10)) };
     }
     if (!t.repeticion?.tipo) t.repeticion = null;
+    if (t.inicio && !t.fecha) t.fecha = t.inicio;
     if (t.inicio && t.fecha && t.inicio > t.fecha) t.inicio = t.fecha;
     if (!t.areaId) t.proyectoId = '';
     if (!t.proyectoId) t.seccionId = '';
