@@ -15,7 +15,7 @@ Corré solo las del módulo que tocaste (ahorra tiempo y tokens). Las capturas q
 | Bitácora / Filmoteca | test_bit, test_bit2, test_bit3, test_bit4, test_espejo, test_film, test_ordenar |
 | Inicio / Ajustes | test_018, test_019 |
 | Hábitos y metas + Planificador | test_020 |
-| Resumen + búsqueda | test_021 |
+| Resumen + búsqueda | test_021, test_resumen_dia |
 | Foco / teclado | test_foco |
 
 Fallas conocidas por cambios aprobados (no son errores de la app; actualizar la prueba si la tocás):

@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────────────────────
 // Resumen: pantallas.
+//   Hoy: el resumen del día (dia.js).
 //   Semana: revisión guiada en 7 pasos.
 //   Mes: cómo te fue en el mes.
 //   Estadísticas: tendencias, récords y "qué va con qué".
-// Rutas: #/resumen (semana) · /semana/<lunes> · /mes/<AAAA-MM> · /est
+// Rutas: #/resumen (hoy) · /hoy · /semana/<lunes> · /mes/<AAAA-MM> · /est · /config
 // ─────────────────────────────────────────────────────────────
 
+import { pantallaHoy, pantallaConfig, tarjetaDia, leerAjustes } from './dia.js';
 import {
   crearModelo, numeros, pedirSeguro, hoyISO, sumarDias, lunesDe, deISO, sumarMeses, finDeMes,
   semanaARevisar, textoSemana, textoMes, MESES, MES_CORTO, DIAS, DIA_CORTO, plata,
@@ -103,15 +105,18 @@ export async function pantallaResumen(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h } = ctx;
   const m = crearModelo(ctx);
-  const pestana = sub[0] === 'mes' ? 'mes' : sub[0] === 'est' ? 'est' : 'semana';
+  const pestana = ['hoy', 'mes', 'est', 'config'].includes(sub[0]) ? sub[0] : sub[0] === 'semana' ? 'semana' : 'hoy';
   const cuerpo = h('div', { class: 'rs-cuerpo' }, h('p', { class: 'nota' }, 'Juntando los números…'));
   const tab = (id, texto, ruta) => h('a', { href: `#/resumen${ruta}`, class: pestana === id ? 'sel' : '' }, texto);
   contenedor.replaceChildren(h('div', { class: 'rs' },
     h('header', { class: 'rs-cab' },
       h('div', {}, h('h1', {}, 'Resumen'), h('p', { class: 'nota' }, 'Cómo te fue, en qué estás y hacia dónde vas.')),
-      h('nav', { class: 'rs-pest' }, tab('semana', 'Semana', ''), tab('mes', 'Mes', '/mes'), tab('est', 'Estadísticas', '/est'))),
+      h('nav', { class: 'rs-pest' }, tab('hoy', 'Hoy', '/hoy'), tab('semana', 'Semana', '/semana'), tab('mes', 'Mes', '/mes'), tab('est', 'Estadísticas', '/est'),
+        h('a', { href: '#/resumen/config', class: pestana === 'config' ? 'sel' : '', title: 'Configurar Resumen', 'aria-label': 'Configurar Resumen' }, '⚙'))),
     cuerpo));
 
+  if (pestana === 'hoy') return pantallaHoy(cuerpo, ctx, m);
+  if (pestana === 'config') return pantallaConfig(cuerpo, ctx);
   if (pestana === 'semana') return pantallaSemana(cuerpo, ctx, m, /^\d{4}-\d{2}-\d{2}$/.test(sub[1] || '') ? lunesDe(sub[1]) : semanaARevisar());
   if (pestana === 'mes') return pantallaMes(cuerpo, ctx, m, /^\d{4}-\d{2}$/.test(sub[1] || '') ? sub[1] : sumarMeses(hoyISO().slice(0, 7), deISO(hoyISO()).getDate() <= 3 ? -1 : 0));
   return pantallaEst(cuerpo, ctx);
@@ -427,22 +432,50 @@ async function pantallaEst(cuerpo, ctx) {
   await pintar();
 }
 
-// ── Aviso para el Inicio ──
+// ── Aviso para el Inicio: un solo cuadro que se desliza ──
+// Orden: mes → semana → día (del menos frecuente, más importante, al diario).
+// En la PC se pasa con las flechas o arrastrando con el mouse.
 export async function dibujarAviso(ctx, contenedor) {
   cargarEstilos();
   const { h } = ctx;
   const m = crearModelo(ctx);
-  const pend = await m.pendientes();
+  const aj = await leerAjustes(ctx);
+  const pend = await m.pendientes({ horaDia: aj.hora });
+  contenedor._limpiar?.();
+  // Al redibujar (cambió algún dato) se queda en el cartel que estabas mirando.
+  const viejo = contenedor.querySelector('.rs-pistas');
+  const estaba = viejo ? Math.round(viejo.scrollLeft / (viejo.clientWidth + 10)) : 0;
   if (!pend.length) { contenedor.replaceChildren(); return; }
+  const pistas = h('div', { class: 'rs-pistas' });
+  const puntos = h('div', { class: 'rs-puntos' });
+  const ant = h('button', { type: 'button', class: 'rs-carru-f izq', 'aria-label': 'Anterior', onclick: () => pasar(-1) }, '‹');
+  const sig = h('button', { type: 'button', class: 'rs-carru-f der', 'aria-label': 'Siguiente', onclick: () => pasar(1) }, '›');
+  const ancho = () => pistas.clientWidth + 10;
+  const actual = () => Math.round(pistas.scrollLeft / ancho());
+  const pasar = (n) => pistas.scrollTo({ left: (actual() + n) * ancho(), behavior: 'smooth' });
+  function marcar() {
+    const n = pistas.childElementCount, i = actual();
+    puntos.replaceChildren(...(n > 1 ? Array.from({ length: n }, (_, k) => h('i', { class: k === i ? 'sel' : '' })) : []));
+    ant.disabled = i <= 0; sig.disabled = i >= n - 1;
+    ant.hidden = sig.hidden = n < 2;
+  }
+  // Al cerrar uno, el cuadro muestra el siguiente; sin ninguno, desaparece.
+  const quitar = (caja) => {
+    caja.remove();
+    if (!pistas.childElementCount) { contenedor.replaceChildren(); contenedor.closest('.ini-pieza')?.setAttribute('hidden', ''); return; }
+    marcar();
+  };
+
   const cajas = await Promise.all(pend.map(async ({ tipo, clave }) => {
+    if (tipo === 'dia') { const c = await tarjetaDia(ctx, m, () => quitar(c)); return c; }
     const sem = tipo === 'semana';
     const desde = sem ? clave : `${clave}-01`, hasta = sem ? sumarDias(clave, 6) : finDeMes(clave);
     const [n] = await numeros(ctx, [{ desde, hasta }]);
     const vencidas = sem ? ((await pedirSeguro(ctx, 'resumen-vencidas', {}, [])) || []).length : 0;
-    const cerrar = async () => { await m.guardar(tipo, clave, { vista: true }); caja.remove(); if (!contenedor.childElementCount) contenedor.closest('.ini-pieza')?.setAttribute('hidden', ''); };
+    const cerrar = async () => { await m.guardar(tipo, clave, { vista: true }); quitar(caja); };
     const mini = (v, t) => h('span', {}, h('b', {}, v), t);
     const mesTxt = MESES[Number(clave.slice(5, 7)) - 1];
-    const caja = h('section', { class: 'rs-aviso' },
+    const caja = h('section', { class: `rs-aviso ${tipo}` },
       h('button', { type: 'button', class: 'rs-aviso-x', 'aria-label': 'Cerrar hasta la próxima', onclick: cerrar }, '✕'),
       h('span', { class: 'rs-aviso-et' }, sem ? 'Terminó la semana' : 'Terminó el mes'),
       h('b', { class: 'rs-aviso-t' }, sem ? `Revisión del ${textoSemana(clave, { corto: true })}` : `Resumen de ${mesTxt}`),
@@ -457,5 +490,22 @@ export async function dibujarAviso(ctx, contenedor) {
         h('button', { type: 'button', class: 'rs-bt', onclick: cerrar }, 'Ahora no')));
     return caja;
   }));
-  contenedor.replaceChildren(...cajas);
+  pistas.append(...cajas);
+  pistas.addEventListener('scroll', marcar, { passive: true });
+
+  // Arrastrar con el mouse (en el celular ya se desliza con el dedo).
+  let x0 = null, s0 = 0;
+  pistas.addEventListener('mousedown', (e) => { if (e.button || e.target.closest('button, a')) return; x0 = e.clientX; s0 = pistas.scrollLeft; pistas.classList.add('arrastrando'); e.preventDefault(); });
+  const mover = (e) => { if (x0 !== null) pistas.scrollLeft = s0 - (e.clientX - x0); };
+  const soltar = () => {
+    if (x0 === null) return;
+    const d = pistas.scrollLeft - s0, i = Math.round(s0 / ancho()) + (Math.abs(d) > 40 ? Math.sign(d) : 0);
+    x0 = null; pistas.classList.remove('arrastrando');
+    pistas.scrollTo({ left: i * ancho(), behavior: 'smooth' });
+  };
+  addEventListener('mousemove', mover);
+  addEventListener('mouseup', soltar);
+  contenedor.replaceChildren(h('div', { class: 'rs-carru' }, pistas, h('div', { class: 'rs-carru-pie' }, ant, puntos, sig)));
+  requestAnimationFrame(() => { if (estaba) pistas.scrollLeft = estaba * ancho(); marcar(); });
+  contenedor._limpiar = () => { removeEventListener('mousemove', mover); removeEventListener('mouseup', soltar); };
 }

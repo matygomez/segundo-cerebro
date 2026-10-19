@@ -45,6 +45,7 @@ export async function armarInicio({ incluirOcultos = false } = {}) {
     ...bloques.map(b => ({
       clave: `${b.modulo}:${b.id}`, nombre: b.titulo || b.nombreModulo, nombreModulo: b.nombreModulo,
       ancho: b.ancho || 'mitad', opciones: b.opciones || [], bloque: b, oculto: b.oculto, defecto: b.defecto,
+      fijo: !!b.fijo, arriba: !!b.arriba,
     })),
   ].filter(Boolean);
 
@@ -69,6 +70,8 @@ export async function armarInicio({ incluirOcultos = false } = {}) {
   ubicar('busqueda', 'captura', 'botones');
   ubicar('resumen:aviso', null, 'mm');
   if (!guardadas.length) lista.sort((a, b) => (ORDEN_INICIAL.indexOf(a.d.clave) + 1 || 999) - (ORDEN_INICIAL.indexOf(b.d.clave) + 1 || 999));
+  // Un cuadro "arriba" (el Resumen) va siempre primero, justo debajo de la fecha, aunque lo hayas movido.
+  lista.sort((a, b) => (b.d.arriba ? 1 : 0) - (a.d.arriba ? 1 : 0));
 
   const piezas = lista.map(({ g, d }) => ({
     ...d,

@@ -24,7 +24,7 @@ import {
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
-import { pantallaPendientes, recibirArchivos, sincronizarMensuales, reintentarSolo } from './ordenar.js';
+import { pantallaPendientes, recibirArchivos, sincronizarMensuales, reintentarSolo, preguntarGemini } from './ordenar.js';
 import { pantallaFilmoteca, pantallaLista, pantallaAgregar, pantallaStats, pantallaPrevia, actualizarEnFondo, sincronizarAvisos, listaViendo, subtituloViendo, progreso, vivo, poster, items as itemsCine } from './filmoteca.js';
 
 // En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
@@ -270,6 +270,13 @@ export default {
         return { notas, peliculas: vistas.length, mejor: mejor ? { titulo: mejor.titulo, calificacion: mejor.cine.calificacion } : null };
       });
     },
+    // La clave de Gemini vive acá (Configurar Bitácora); otros módulos le preguntan por esta acción.
+    async 'gemini-preguntar'({ texto, buscar = false } = {}, ctx) {
+      const clave = (await crearModelo(ctx).cargar()).ajuste('gemini')?.api;
+      if (!clave) throw new Error('Falta la clave de Gemini (en Configurar Bitácora).');
+      return preguntarGemini(clave, texto, { buscar });
+    },
+    async 'gemini-hay-clave'(_, ctx) { return !!(await crearModelo(ctx).cargar()).ajuste('gemini')?.api; },
     // Otros módulos pueden abrir una nota: ctx.pedir('abrir-nota', { id })
     'abrir-nota': ({ id } = {}, ctx) => ctx.navegar(`bitacora/n/${id}`),
 

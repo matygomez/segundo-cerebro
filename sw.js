@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.23.3';
+const VERSION = 'sc-0.24.0';
 
 const ARCHIVOS = [
   './',
@@ -55,6 +55,7 @@ const ARCHIVOS = [
   './modules/resumen/modulo.js',
   './modules/resumen/datos.js',
   './modules/resumen/vistas.js',
+  './modules/resumen/dia.js',
   './modules/resumen/resumen.css',
   './modules/finanzas/modulo.js',
   './modules/finanzas/modelo.js',

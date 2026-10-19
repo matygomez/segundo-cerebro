@@ -23,7 +23,7 @@ Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, 
 ## Bitácora (`modules/bitacora`)
 Carpetas y bases (campos tipo Notion), notas Markdown, plantillas, recordatorios, espejo .md en Drive, Filmoteca (TMDB).
 Archivos para revisar (`ordenar.js`, `#/bitacora/pendientes`): subir/arrastrar/Compartir → Gemini (clave en Configurar) propone nombre, carpeta y datos → confirmás; nota con `archivo` + PDF al lado en Drive; tarea por vencimiento, gasto en Finanzas (`nuevo-gasto`), repetidos por huella. Cargas mensuales en Configurar → tareas `bitacora-mes:` en Sistemas › Bitácora.
-Acciones: `abrir-nota, metas-carpetas, metas-contar, resumen-bitacora`.
+Acciones: `abrir-nota, metas-carpetas, metas-contar, resumen-bitacora, gemini-preguntar, gemini-hay-clave`.
 
 ## Calendario (`modules/calendario`, fuera de la barra del celular)
 Semana = Planificador semanal (`semana.js`: "Para planificar" fijo aparte en PC (solo los días se deslizan), arrastrar en PC, chips de días en celular, premios, foco de la semana) y Mes.
@@ -35,5 +35,5 @@ Hábitos, Metas (a mano, hitos, hábito, Bitácora, Finanzas, Tareas; ritmo), Es
 Acciones: `resumen-habitos, resumen-rachas, resumen-metas`.
 
 ## Resumen (`modules/resumen`)
-Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas (3/6/12 meses, récords, "qué va con qué").
-Aviso en el Inicio al terminar semana (domingo) y mes (día 1) hasta abrirlo o cerrarlo. Guarda solo `revisiones`. Acción: `resumen-foco`.
+Hoy (`dia.js`: tiempo Open-Meteo por GPS o ciudad, tareas/vencimientos/hábitos de hoy, cumpleaños, noticias de Gemini 1 vez por día con la clave de Bitácora; aprende por tema), Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas, Configurar (hora, lugar, intereses y sugeridos).
+Inicio: un cuadro fijo arriba de todo (`arriba` en `js/core/inicio.js`) que se desliza mes → semana → día; mes/semana hasta abrirlo o cerrarlo, día (desde la hora de Configurar) hasta "Ver mi día"/"Ahora no". Guarda `revisiones` (tipo `dia` con noticias) y `ajustes`. Acción: `resumen-foco`. Pide `cumpleanos`/`abrir-cumpleanos` a Tareas si existen.

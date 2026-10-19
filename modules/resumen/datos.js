@@ -3,8 +3,9 @@
 //
 // No guarda datos de otros módulos: los pide cada vez con ctx.pedir.
 // Solo guarda sus revisiones (lo que escribís y si ya la viste):
-//   revisiones { tipo: 'semana' | 'mes', clave: 'AAAA-MM-DD' (lunes) | 'AAAA-MM',
-//                bien, trabo, foco, llevo, cambio, hecha, vista }
+//   revisiones { tipo: 'semana' | 'mes' | 'dia', clave: 'AAAA-MM-DD' (lunes o el día) | 'AAAA-MM',
+//                bien, trabo, foco, llevo, cambio, hecha, vista, noticias (solo 'dia') }
+//   ajustes    { hora, lugar, intereses, sugeridos, descartados }  (uno solo; ver dia.js)
 // ─────────────────────────────────────────────────────────────
 
 const pad = (n) => String(n).padStart(2, '0');
@@ -63,13 +64,17 @@ export function crearModelo(ctx) {
       else await col.crear({ tipo, clave, ...cambios });
     },
     // ¿Hay que avisar en el Inicio? Devuelve [{ tipo, clave }]
-    async pendientes() {
+    async pendientes({ horaDia } = {}) {
       const todas = await col.listar();
       const visto = (tipo, clave) => todas.some(r => r.tipo === tipo && r.clave === clave && (r.vista || r.hecha));
       const salida = [];
       const s = semanaARevisar(), m = mesARevisar();
-      if (!visto('semana', s)) salida.push({ tipo: 'semana', clave: s });
+      // Del menos frecuente (más importante) al diario.
       if (!visto('mes', m)) salida.push({ tipo: 'mes', clave: m });
+      if (!visto('semana', s)) salida.push({ tipo: 'semana', clave: s });
+      const hoy = hoyISO(), f = new Date();
+      const ahora = `${pad(f.getHours())}:${pad(f.getMinutes())}`;
+      if (ahora >= (horaDia || '05:00') && !todas.some(r => r.tipo === 'dia' && r.clave === hoy && r.vista)) salida.push({ tipo: 'dia', clave: hoy });
       return salida;
     },
   };

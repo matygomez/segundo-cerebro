@@ -26,11 +26,19 @@ with sync_playwright() as p:
     page.on('pageerror',lambda e: err.append(str(e)))
     page.goto(U); page.wait_for_timeout(800); page.evaluate(SEED); page.evaluate(SEEDH); page.evaluate(SEEDR)
     page.goto(U+'#/home'); page.wait_for_timeout(2500)
-    chk(page.locator('.rs-aviso').count()==2, f'avisos semana y mes ({page.locator(".rs-aviso").count()})')
+    chk(page.locator('.rs-aviso').count()==3, f'avisos mes, semana y día ({page.locator(".rs-aviso").count()})')
+    orden=page.evaluate("[...document.querySelectorAll('.rs-pistas > .rs-aviso')].map(e=>e.classList[1])"); print(orden)
+    chk(orden==['mes','semana','dia'], 'orden mes → semana → día')
+    chk(page.locator('.rs-aviso.dia .rs-aviso-x').count()==0, 'el del día no tiene ✕')
+    if not cel:
+      page.locator('.rs-carru-f.der').click(); page.wait_for_timeout(700)
+      chk(page.evaluate("document.querySelector('.rs-pistas').scrollLeft")>100, 'flecha pasa al siguiente')
+      page.screenshot(path=S+f'r21_carru2_{w}.png', clip={'x':0,'y':0,'width':w,'height':520})
+      page.locator('.rs-carru-f.izq').click(); page.wait_for_timeout(700)
     t=page.locator('.rs-aviso-t').first
     chk(t.evaluate('e=>e.scrollWidth<=e.clientWidth'), 'título del aviso en una línea: '+t.inner_text())
     claves=page.evaluate("[...document.querySelectorAll('.ini-pieza')].map(e=>e.dataset.clave)"); print(claves)
-    chk(claves.index('resumen:aviso')==1 and claves.index('busqueda')<claves.index('captura'), 'orden inicio')
+    chk(claves.index('resumen:aviso')==0 and claves.index('busqueda')<claves.index('captura'), 'orden inicio')
     page.screenshot(path=S+f'r21_ini_{w}.png', full_page=True)
     # búsqueda en el Inicio
     page.fill('.bq-campo input','clu'); page.wait_for_timeout(1200)
@@ -51,9 +59,9 @@ with sync_playwright() as p:
     # cerrar aviso de mes
     page.goto(U+'#/home'); page.wait_for_timeout(2000)
     page.locator('.rs-aviso:has-text("Terminó el mes") button:has-text("Ahora no")').click(); page.wait_for_timeout(800)
-    chk(page.locator('.rs-aviso').count()==1, 'cerró el del mes')
+    chk(page.locator('.rs-aviso').count()==2, 'cerró el del mes')
     # revisión semanal
-    page.locator('.rs-aviso button.p').click(); page.wait_for_timeout(2500)
+    page.locator('.rs-aviso.semana button.p').click(); page.wait_for_timeout(2500)
     chk('#/resumen/semana/' in page.url and page.locator('.rs-kpi').count()==4, 'abre revisión')
     page.screenshot(path=S+f'r21_rev0_{w}.png', full_page=True)
     kp=page.locator('.rs-kpi').all_inner_texts(); print(kp)
@@ -64,7 +72,18 @@ with sync_playwright() as p:
     page.locator('.rs-pie .rs-bt.p').click(); page.wait_for_timeout(1000)
     chk('hecha' in page.locator('.rs-banda').inner_text(), 'revisión hecha')
     page.goto(U+'#/home'); page.wait_for_timeout(2000)
+    chk(page.locator('.rs-aviso').count()==1, 'queda el del día')
+    page.locator('.rs-aviso.dia button:has-text("Ahora no")').click(); page.wait_for_timeout(1200)
     chk(page.locator('.rs-aviso').count()==0 and page.locator('.ini-pieza[data-clave="resumen:aviso"]').is_hidden(), 'sin avisos')
+    # hoy y configurar
+    page.goto(U+'#/resumen'); page.wait_for_timeout(2500)
+    chk(page.locator('.rs-pest a.sel').inner_text()=='Hoy' and page.locator('.rs-card').count()==4, 'pantalla hoy')
+    page.screenshot(path=S+f'r21_hoy_{w}.png', full_page=True)
+    page.goto(U+'#/resumen/config'); page.wait_for_timeout(1500)
+    chk(page.locator('.rs-chip.on').count()>=5 and page.locator('a:has-text("Configurarlos en Tareas")').count()==1, 'configurar')
+    page.locator('input[placeholder="Agregar un tema…"]').fill('Fútbol'); page.locator('button:has-text("Agregar")').click(); page.wait_for_timeout(800)
+    chk(page.locator('.rs-chip.on:has-text("Fútbol")').count()==1, 'agrega tema')
+    page.screenshot(path=S+f'r21_cfg_{w}.png', full_page=True)
     # mes y estadísticas
     page.goto(U+'#/resumen/mes'); page.wait_for_timeout(2500)
     chk(page.locator('.rs-kpi').count()==6, 'kpis mes')

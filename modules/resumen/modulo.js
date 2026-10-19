@@ -3,8 +3,8 @@
 //
 // No guarda datos de los otros módulos: se los pide (ctx.pedir) a
 // Tareas, Hábitos, Finanzas y Bitácora. Solo guarda tus revisiones.
-// En el Inicio aparece un aviso una vez al terminar la semana (domingo)
-// y otra al terminar el mes (día 1), hasta que lo abrís o lo cerrás.
+// En el Inicio, arriba de todo, un cuadro que se desliza: el aviso del mes,
+// el de la semana y el resumen del día (desde la hora de Configurar).
 // ─────────────────────────────────────────────────────────────
 
 import { pantallaResumen, dibujarAviso, cargarEstilos } from './vistas.js';
@@ -17,16 +17,17 @@ export default {
   bloquesInicio(ctx) {
     return [{
       id: 'aviso',
-      titulo: 'Aviso de revisión (semana y mes)',
+      titulo: 'Resumen (día, semana y mes)',
       ancho: 'completo',
       sinMarco: true,
+      fijo: true, arriba: true,   // siempre se muestra, primero, debajo de la fecha
       async dibujar(contenedor) {
         cargarEstilos();
         await dibujarAviso(ctx, contenedor);
         const quitar = ctx.alCambiarDatos(() => dibujarAviso(ctx, contenedor).then(() => {
           contenedor.closest('.ini-pieza')?.toggleAttribute('hidden', !contenedor.childElementCount);
         }));
-        return quitar;
+        return () => { quitar?.(); contenedor._limpiar?.(); };
       },
     }];
   },

@@ -115,6 +115,19 @@ async function pedirGemini(clave, cuerpo) {
   throw reintentable(saturado ? 'Gemini está saturado en este momento.' : `Gemini no respondió (${ultimo || '?'}).`);
 }
 
+// Para otros módulos (el Resumen del día): una pregunta de texto, con búsqueda
+// en Google si hace falta. Devuelve { texto, fuentes: [{ titulo, url }] }.
+export async function preguntarGemini(clave, texto, { buscar = false } = {}) {
+  const r = await pedirGemini(clave, {
+    contents: [{ role: 'user', parts: [{ text: texto }] }],
+    ...(buscar ? { tools: [{ google_search: {} }] } : {}),
+    generationConfig: { temperature: 0.3 },
+  });
+  const c = r?.candidates?.[0];
+  const fuentes = (c?.groundingMetadata?.groundingChunks || []).map(x => x.web).filter(Boolean).map(w => ({ titulo: w.title || '', url: w.uri || '' }));
+  return { texto: c?.content?.parts?.map(p => p.text || '').join('') || '', fuentes };
+}
+
 // Devuelve la propuesta { nombre, carpetaId, seguro, alternativas, carpetaNueva, que, de, fecha, vence, monto, contenido }.
 export async function leerConGemini(clave, blob, nombre, d) {
   const tipo = blob.type || '';
