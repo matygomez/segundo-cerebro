@@ -25,8 +25,8 @@ Carpetas y bases (campos tipo Notion), notas Markdown, plantillas, recordatorios
 Acciones: `abrir-nota, metas-carpetas, metas-contar, resumen-bitacora`.
 
 ## Calendario (`modules/calendario`, fuera de la barra del celular)
-Semana = Planificador semanal (`semana.js`: "Para planificar", arrastrar en PC, chips de días en celular, premios, foco de la semana) y Mes.
-Bloque Inicio "Esta semana": tocar un día baja a sus tareas.
+Semana = Planificador semanal (`semana.js`: "Para planificar" fijo aparte en PC (solo los días se deslizan), arrastrar en PC, chips de días en celular, premios, foco de la semana) y Mes.
+Bloque Inicio "Esta semana": tocar un día baja a sus tareas. Títulos largos se cortan con "…".
 
 ## Hábitos y metas (`modules/habitos`)
 Hoy (pendientes de días anteriores; tocar = hecho; deslizar ← no / → descanso con confirmación; lo marcado se agrupa y se corrige desde el historial),
