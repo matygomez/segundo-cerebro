@@ -117,52 +117,69 @@ const sinHTML = (t) => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/
 const separar = (t) => { const k = String(t).lastIndexOf(' - '); return k > 0 ? { titulo: t.slice(0, k).trim(), fuente: t.slice(k + 3).trim() } : { titulo: String(t).trim(), fuente: '' }; };
 
 // Google Noticias no deja leerse directo desde el navegador: se pasa por un servicio
-// gratis que lo permite (si uno no responde, el otro).
-async function titularesDe(tema) {
-  const url = rssDe(tema);
+// gratis que lo permite (si uno no responde, el otro). allorigins trae la lista
+// completa (~100); rss2json solo 10, por eso va segundo.
+async function leerRSS(url) {
   try {
-    const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
-    const j = r.ok ? await r.json() : null;
-    if (j?.status === 'ok') return (j.items || []).map(x => ({ ...separar(x.title), url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
+    const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+    if (r.ok) {
+      const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
+      const l = [...xml.querySelectorAll('item')].map(it => {
+        const val = (n) => it.querySelector(n)?.textContent || '';
+        return { ...separar(val('title')), url: val('link'), fecha: val('pubDate'), desc: sinHTML(val('description')) };
+      });
+      if (l.length) return l;
+    }
   } catch { /* probamos el otro */ }
-  const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-  if (!r.ok) throw new Error('No se pudieron traer los titulares.');
-  const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
-  return [...xml.querySelectorAll('item')].map(it => {
-    const val = (n) => it.querySelector(n)?.textContent || '';
-    return { ...separar(val('title')), url: val('link'), fecha: val('pubDate'), desc: sinHTML(val('description')) };
-  });
+  const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+  const j = r.ok ? await r.json() : null;
+  if (j?.status !== 'ok') throw new Error('No se pudieron traer los titulares.');
+  return (j.items || []).map(x => ({ ...separar(x.title), url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
 }
 
-const META = 6;   // titulares por día
+// ¿De qué tema es un titular? Por las palabras del tema (raíz de 6 letras, sin tildes).
+const plano = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+const raices = (tema) => plano(tema).split(/[^a-zñ]+/).filter(w => w.length >= 4).map(w => w.slice(0, 6));
+const RELACIONADAS = { econom: ['dolar', 'inflac', 'bcra', 'merca', 'bolsa', 'tasa', 'precio', 'fmi', 'reserv'], tecnol: ['intelig', ' ia ', 'chip', 'apple', 'google', 'celula', 'softwa', 'digita'],
+  guerra: ['ataque', 'misil', 'ejerci', 'conflic', 'ucrani', 'rusia', 'israel', 'gaza', 'otan'], politi: ['gobier', 'congre', 'senado', 'diputa', 'milei', 'eleccio', 'minist'] };
+function puntaje(x, tema) {
+  const t = ` ${plano(`${x.titulo} ${x.desc}`)} `;
+  let p = 0;
+  for (const r of raices(tema)) { if (t.includes(r)) p += 2; for (const w of RELACIONADAS[r] || []) if (t.includes(w)) p += 1; }
+  if (/argentin/.test(plano(tema)) && /argentin|milei|bcra|caputo|buenos aires/.test(t)) p += 2;
+  if (/mundial|internacional/.test(plano(tema)) && !/argentin/.test(t)) p += 1;
+  return p;
+}
+
+// Un solo pedido con todos tus temas juntos (el servicio gratis corta si se le piden varios seguidos).
 async function titulares(aj) {
   const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0)).filter(i => (i.peso || 0) > -4).slice(0, 6);
-  // De a un tema por vez: el servicio gratis corta si se le piden varios juntos.
-  const listas = [];
-  for (const t of temas) {
-    let l = await titularesDe(t.nombre).catch(() => null);
-    if (!l) { await esperar(1500); l = await titularesDe(t.nombre).catch(() => []); }
-    listas.push(l);
-    await esperar(400);
+  if (!temas.length) throw new Error('Agregá algún interés en Configurar.');
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`${temas.map(t => consulta(t.nombre)).join(' OR ')} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
+  const todos = await leerRSS(url);
+  // Cada titular va al tema con el que más coincide.
+  const vistos = new Set(), porTema = new Map(temas.map(t => [t.nombre, []])), sueltos = [];
+  for (const x of todos) {
+    const clave = plano(x.titulo).slice(0, 40);
+    if (!x.titulo || vistos.has(clave)) continue;
+    vistos.add(clave);
+    const mejor = temas.map(t => ({ t, p: puntaje(x, t.nombre) })).sort((a, b) => b.p - a.p)[0];
+    if (mejor.p > 0) porTema.get(mejor.t.nombre).push({ tema: mejor.t.nombre, ...x }); else sueltos.push(x);
   }
-  const salida = [], vistos = new Set();
-  const sumar = (t, k, cuantos) => {
-    for (const x of listas[k]) {
-      if (salida.filter(y => y.tema === t.nombre).length >= cuantos || salida.length >= META) break;
-      const clave = x.titulo.toLowerCase().slice(0, 40);
-      if (!x.titulo || vistos.has(clave)) continue;
-      vistos.add(clave);
-      salida.push({ tema: t.nombre, ...x });
+  // De a uno por tema (los de más interés primero), dando vueltas hasta llegar a 6.
+  const salida = [];
+  for (let vuelta = 0; salida.length < META && vuelta < META; vuelta++) {
+    for (const t of temas) {
+      const extra = (t.peso || 0) >= 2 && vuelta === 0 ? 2 : 1;
+      for (let k = 0; k < extra && salida.length < META; k++) { const x = porTema.get(t.nombre).shift(); if (x) salida.push(x); }
     }
-  };
-  // Primero los temas con más interés aportan dos y el resto uno; si no se llega a 6
-  // (algún tema sin noticias hoy), se completa con más de los otros.
-  temas.forEach((t, k) => sumar(t, k, (t.peso || 0) >= 2 ? 2 : 1));
-  for (let tope = 2; salida.length < META && tope <= META; tope++) temas.forEach((t, k) => sumar(t, k, tope));
-  if (!salida.length) throw new Error('No se pudieron traer los titulares. Probá más tarde.');
-  // Ordenadas por tema, según tu interés.
+  }
+  // Si igual faltan, los que no se pudieron ubicar (Gemini después les pone tema).
+  while (salida.length < META && sueltos.length) salida.push({ tema: temas[0].nombre, ...sueltos.shift() });
+  if (!salida.length) throw new Error('No llegaron titulares. Probá más tarde.');
   return temas.flatMap(t => salida.filter(x => x.tema === t.nombre));
 }
+const META = 6;   // titulares por día
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
 function pregunta(aj, hoy, lista) {
@@ -170,11 +187,12 @@ function pregunta(aj, hoy, lista) {
   return `Hoy es ${fechaLarga(hoy)}. Vivo en Argentina. Estos son titulares reales de hoy:
 ${lista.map((x, k) => `${k + 1}. [${x.tema}] ${x.titulo} (${x.fuente || 'sin medio'})${x.desc && x.desc !== x.titulo ? ` — ${x.desc.slice(0, 300)}` : ''}`).join('\n')}
 
+Mis temas son: ${aj.intereses.map(i => i.nombre).join(', ')}. En "tema" poné cuál de esos le corresponde a cada titular.
 Para cada titular escribí un resumen de una oración y un detalle de 2 o 3 párrafos cortos (separados por una línea en blanco): qué dice la noticia y el contexto general del tema para entender por qué importa.
 Usá solo lo que dice el titular y conocimiento general: no inventes cifras, nombres ni hechos que no estén en el titular. Si no sabés algo, explicalo de forma general.
 En español rioplatense, claro para alguien que no es experto.
 Devolvé SOLO un JSON, sin nada antes ni después:
-{"noticias":[{"n":1,"resumen":"...","detalle":"..."}],"sugeridos":["tema nuevo"]}
+{"noticias":[{"n":1,"tema":"...","resumen":"...","detalle":"..."}],"sugeridos":["tema nuevo"]}
 En "sugeridos" poné 2 o 3 temas nuevos que me podrían interesar (que no sean: ${no}).`;
 }
 function leerJSON(texto) {
@@ -205,7 +223,7 @@ export async function noticias(ctx, m, { forzar = false } = {}) {
     const final = lista.map((n, k) => {
       const g = (x?.noticias || []).find(y => Number(y.n) === k + 1) || {};
       return {
-        tema: n.tema, titulo: n.titulo.slice(0, 200), fuente: n.fuente, url: n.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`,
+        tema: aj.intereses.find(i => igual(i.nombre, g.tema))?.nombre || n.tema, titulo: n.titulo.slice(0, 200), fuente: n.fuente, url: n.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`,
         resumen: String(g.resumen || (n.desc !== n.titulo ? n.desc : '') || '').slice(0, 400), detalle: String(g.detalle || '').slice(0, 4000),
       };
     });
