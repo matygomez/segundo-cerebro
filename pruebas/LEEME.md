@@ -17,6 +17,7 @@ Corré solo las del módulo que tocaste (ahorra tiempo y tokens). Las capturas q
 | Hábitos y metas + Planificador | test_020 |
 | Resumen + búsqueda | test_021, test_resumen_dia |
 | Foco / teclado | test_foco |
+| Compras | test_compras |
 
 Fallas conocidas por cambios aprobados (no son errores de la app; actualizar la prueba si la tocás):
 test_019 (orden de fábrica del Inicio ahora incluye aviso del Resumen, búsqueda y Hábitos), test_015 y test_foco

@@ -38,3 +38,8 @@ Acciones: `resumen-habitos, resumen-rachas, resumen-metas`.
 ## Resumen (`modules/resumen`)
 Hoy (`dia.js`: tiempo Open-Meteo por GPS o ciudad, tareas/vencimientos/hábitos de hoy, cumpleaños, titulares de Google Noticias 1 vez por día explicados por Gemini (clave de Bitácora, sin búsqueda); aprende por tema), Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas, Configurar (nombre del saludo, hora, lugar, intereses y sugeridos, "Relanzar el panel").
 Inicio: un cuadro fijo arriba de todo (`arriba` en `js/core/inicio.js`) que se desliza mes → semana → día; mes/semana hasta abrirlo o cerrarlo, día (desde la hora de Configurar) hasta "Ver mi día"/"Ahora no". Guarda `revisiones` (tipo `dia` con noticias) y `ajustes`. Acción: `resumen-foco`. Pide `cumpleanos`/`abrir-cumpleanos` a Tareas si existen.
+
+## Compras (`modules/compras`)
+Todo por **tipo** sin marca ni tamaño ("Leche entera", en L/kg/u.); cada producto tiene tipo y contenido (Sancor 750 ml = 0,75 L). Pestañas Lista (pendientes por tipo, lista del mes/base arriba, sugeridas ✦ por consumo) · Despensa (+ Recuento) · Comidas (programadas, falta ordenado por fecha, recetario; receta a mano o pegada → Gemini) · Informe (mes + resumen Gemini) · ⚙ Ajustes (productos, orden de sectores, súpers).
+Súper: "Empezar la compra" elige dónde y qué parte de la lista (recuerda sectores por súper); escáner BarcodeDetector/zxing, Open Food Facts, Precios Claros (sin probar desde el navegador); lo escaneado suma al tipo de la lista o va "fuera de lista". Guardar: gasto vía `nuevo-gasto` de Finanzas + despensa. Acción: `compras-resumen`.
+

@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.24.7';
+const VERSION = 'sc-0.25.0';
 
 const ARCHIVOS = [
   './',
@@ -48,6 +48,17 @@ const ARCHIVOS = [
   './modules/calendario/modulo.js',
   './modules/calendario/calendario.css',
   './modules/calendario/semana.js',
+  './modules/compras/modulo.js',
+  './modules/compras/modelo.js',
+  './modules/compras/vistas.js',
+  './modules/compras/comun.js',
+  './modules/compras/externos.js',
+  './modules/compras/super.js',
+  './modules/compras/recuento.js',
+  './modules/compras/ajustes.js',
+  './modules/compras/comidas.js',
+  './modules/compras/informe.js',
+  './modules/compras/compras.css',
   './modules/habitos/modulo.js',
   './modules/habitos/modelo.js',
   './modules/habitos/vistas.js',
