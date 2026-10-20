@@ -147,7 +147,7 @@ export default {
       for (const t of d.todas) {
         if (!t.fecha) continue;
         const base = {
-          id: t.id, titulo: t.titulo, hora: t.hora || '', duracion: t.duracion || '', hecha: hecha(t), tipo: tipoDe(t),
+          id: t.id, titulo: t.titulo, hora: t.hora || '', duracion: t.duracion || '', hecha: hecha(t), tipo: tipoDe(t), areaId: t.areaId || '',
           lugar: lugar(t), repeticion: textoRepeticion(t.repeticion), clave: t.origen?.clave || '', aviso: !!t.aviso,
         };
         if (t.fecha >= desde && t.fecha <= hasta) salida.push({ ...base, fecha: t.fecha });

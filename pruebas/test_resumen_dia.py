@@ -22,7 +22,11 @@ with sync_playwright() as p:
     page=cx.new_page(); err=[]
     page.on('pageerror',lambda e: err.append(str(e)))
     page.route('**/api.open-meteo.com/**', lambda r: r.fulfill(json=CLIMA))
-    page.route('**/generativelanguage.googleapis.com/**', lambda r: (pedidos.append(1), r.fulfill(json=GEM)))
+    def gem(r):
+      pedidos.append(r.request.url)
+      if 'gemini-2.5-flash:' in r.request.url: r.fulfill(status=429, body='{"error":{"message":"Quota exceeded"}}')
+      else: r.fulfill(json=GEM)
+    page.route('**/generativelanguage.googleapis.com/**', gem)
     page.goto(U); page.wait_for_timeout(800)
     page.evaluate("""async () => { const D = await import('/js/core/datos.js'); await D.coleccion('bitacora','ajustes').crear({ clave:'gemini', api:'CLAVE' }); }""")
     page.goto(U+'#/home'); page.wait_for_timeout(3500)
@@ -30,6 +34,7 @@ with sync_playwright() as p:
     chk(dia.count()==1, 'cartel del día')
     chk('19°' in dia.inner_text(), 'tiempo en el cartel: '+dia.inner_text().replace('\n',' | '))
     chk('El dólar cerró estable' in dia.inner_text(), 'primera noticia en el cartel')
+    chk(dia.locator('.rs-aviso-t').count()==0, 'sin el renglón de la fecha')
     chk('matías' in dia.inner_text().lower(), 'saludo con nombre')
     page.screenshot(path=S+f'rd_ini_{w}.png', clip={'x':0,'y':0,'width':w,'height':560})
     page.goto(U+'#/resumen/hoy'); page.wait_for_timeout(2500)
@@ -53,5 +58,6 @@ with sync_playwright() as p:
     chk('#/home' in page.url and page.locator('.rs-aviso.dia').count()==1, 'relanzar el panel')
     print(w, err[:3]); chk(not err, 'sin errores')
     cx.close()
-  chk(len(pedidos)==2, f'un solo pedido a Gemini por día y dispositivo ({len(pedidos)})')
+  print(pedidos)
+  chk(len(pedidos)==4 and all('2.5-flash' in u for u in pedidos), f'si un modelo llegó al límite prueba el siguiente; uno por día ({len(pedidos)})')
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)

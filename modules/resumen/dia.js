@@ -183,19 +183,25 @@ const saludo = () => { const hh = new Date().getHours(); return hh < 13 ? 'Buen 
 const mini = (h, v, t) => h('span', {}, h('b', {}, v), t);
 
 // ── Cartel del día para el Inicio (sin ✕: se va con "Ver mi día" o "Ahora no") ──
-// Igual a la vista previa: saludo con tu nombre, números del día y un adelanto
-// (próximas tareas, vencimientos, cumpleaños y la primera noticia).
+// Saludo con tu nombre (sin repetir la fecha), números del día y un adelanto:
+// tareas por área, vencimientos, cumpleaños y la primera noticia.
 export async function tarjetaDia(ctx, m, alCerrar) {
   const { h } = ctx;
-  const hoy = hoyISO(), f = deISO(hoy);
+  const hoy = hoyISO();
   const aj = await leerAjustes(ctx);
   const [d, rev] = await Promise.all([loDeHoy(ctx), m.leer('dia', hoy)]);
   let tiempo = await clima(aj).catch(() => null);
   const pendientes = d.tareas.filter(x => !x.hecha), vence = d.vence.filter(x => !x.hecha);
+  const porArea = [];
+  for (const x of pendientes) {
+    const nombre = String(x.lugar || 'Bandeja').split(' › ')[0];
+    const a = porArea.find(y => y.nombre === nombre) || (porArea.push({ nombre, id: x.areaId || '', n: 0 }), porArea[porArea.length - 1]);
+    a.n++;
+  }
+  porArea.sort((a, b) => b.n - a.n);
   const nums = h('span', { class: 'rs-aviso-mini' });
   const pintarNums = () => poner(nums,
     tiempo ? mini(h, `${tiempo.temp}°`, textoClima(tiempo.codigo)[2].toLowerCase()) : null,
-    mini(h, String(pendientes.length), pendientes.length === 1 ? 'tarea' : 'tareas'),
     vence.length ? mini(h, String(vence.length), 'vence') : null,
     d.habitos.total ? mini(h, String(d.habitos.total - d.habitos.hechos), 'hábitos') : null);
   const lineas = h('div', { class: 'rs-lineas' });
@@ -206,8 +212,8 @@ export async function tarjetaDia(ctx, m, alCerrar) {
       try { tiempo = await clima(aj, { pedirPermiso: true }); pintarNums(); pintarLineas(lista, estado); } catch (e) { ctx.aviso(e.message); }
     })) : null,
     d.feriados.map(x => linea('🇦🇷', x.titulo)),
-    pendientes.slice(0, 3).map(x => linea('○', enlace(`${x.hora ? `${x.hora} · ` : ''}${x.titulo}`, () => ctx.pedir('abrir-tarea', { id: x.id })))),
-    pendientes.length > 3 ? linea('', enlace(`y ${pendientes.length - 3} más ›`, () => ctx.navegar('resumen/hoy'))) : null,
+    // Las tareas de hoy, contadas por área en un solo renglón; tocar un área la abre en Tareas.
+    porArea.length ? linea('○', h('span', { class: 'rs-chips' }, porArea.map(a => h('a', { class: 'rs-chip', href: a.id ? `#/tareas/area/${a.id}` : '#/tareas/hoy' }, a.nombre, h('b', {}, String(a.n)))))) : null,
     vence.map(x => linea('💳', enlace(`Vence: ${x.titulo}`, () => ctx.pedir('abrir-tarea', { id: x.id })))),
     (d.cumples || []).map(c => linea('🎂', enlace(`Cumpleaños de ${c.nombre} ›`, () => abrirCumpleanos(ctx)))),
     lista?.[0] ? linea('📰', enlace(lista[0].titulo, () => abrirNoticia(ctx, lista[0])))
@@ -224,7 +230,6 @@ export async function tarjetaDia(ctx, m, alCerrar) {
   const verlo = async (ir) => { await m.guardar('dia', hoy, { vista: true }); if (ir) ctx.navegar('resumen/hoy'); else alCerrar(); };
   return h('section', { class: 'rs-aviso dia' },
     h('span', { class: 'rs-aviso-et' }, `${saludo()}${aj.nombre ? `, ${aj.nombre}` : ''}`),
-    h('b', { class: 'rs-aviso-t' }, `Tu ${DIAS[f.getDay()]} ${f.getDate()}`),
     nums,
     lineas,
     h('span', { class: 'rs-aviso-bot' },

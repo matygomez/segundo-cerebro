@@ -175,3 +175,6 @@ dialog.rs-hoja p { margin: 0; line-height: 1.45; font-size: 0.93rem; }
 .rs-chip.on { border-color: var(--laton); color: var(--laton); }
 .rs-chip.sug { border-style: dashed; color: var(--tinta-2); padding-right: 4px; }
 .rs-chip-x, .rs-chip-mas { border: 0; background: none; color: inherit; font: inherit; cursor: pointer; padding: 0 4px; }
+.rs-lineas .rs-chips { gap: 6px; }
+.rs-lineas .rs-chip { padding: 3px 9px; font-size: 0.8rem; text-decoration: none; white-space: nowrap; }
+.rs-lineas .rs-chip b { color: var(--laton); margin-left: 3px; }

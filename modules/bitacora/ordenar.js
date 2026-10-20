@@ -21,6 +21,7 @@ import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
 
 const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
+const MODELOS_BUSCAR = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
 const MAX_LEER = 15 * 1024 * 1024;   // Gemini acepta hasta ~20 MB por pedido
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
 
@@ -92,9 +93,10 @@ const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 // Un error que se arregla solo con el tiempo (límite, saturación, sin conexión):
 // el archivo queda "En espera" y la app lo vuelve a intentar sola.
 const reintentable = (texto) => Object.assign(new Error(texto), { reintentable: true });
-async function pedirGemini(clave, cuerpo) {
-  let saturado = false, ultimo = 0;
-  for (const modelo of MODELOS) {
+// seguirSiLimite: si un modelo llegó a su límite, prueba el siguiente (cada modelo tiene su propio cupo gratis).
+async function pedirGemini(clave, cuerpo, { modelos = MODELOS, seguirSiLimite = false } = {}) {
+  let saturado = false, ultimo = 0, limite = '';
+  for (const modelo of modelos) {
     for (let intento = 0; intento < 2; intento++) {
       const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
         method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave }, body: JSON.stringify(cuerpo),
@@ -106,23 +108,28 @@ async function pedirGemini(clave, cuerpo) {
         if (/API key|API_KEY|permission/i.test(t)) throw reintentable('La clave de Gemini no es válida. Revisala en Configurar Bitácora.');
         throw new Error('Gemini no pudo leer este archivo.');
       }
-      if (r.status === 429) throw reintentable('Gemini llegó al límite gratis por ahora.');
+      if (r.status === 429) {
+        if (!seguirSiLimite) throw reintentable('Gemini llegó al límite gratis por ahora.');
+        limite = modelo; break;
+      }
       if (r.status === 404) break;   // ese modelo ya no existe: el siguiente
       if (r.status >= 500) { saturado = true; await esperar(1500 * (intento + 1)); continue; }
       throw reintentable(`Gemini no respondió (${r.status}).`);
     }
   }
+  if (limite) throw reintentable('Gemini llegó al límite gratis en todos los modelos.');
   throw reintentable(saturado ? 'Gemini está saturado en este momento.' : `Gemini no respondió (${ultimo || '?'}).`);
 }
 
 // Para otros módulos (el Resumen del día): una pregunta de texto, con búsqueda
 // en Google si hace falta. Devuelve { texto, fuentes: [{ titulo, url }] }.
 export async function preguntarGemini(clave, texto, { buscar = false } = {}) {
+  // La búsqueda en Google no tiene cupo gratis en todos los modelos: primero los que sí suelen tenerlo.
   const r = await pedirGemini(clave, {
     contents: [{ role: 'user', parts: [{ text: texto }] }],
     ...(buscar ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: { temperature: 0.3 },
-  });
+  }, { modelos: buscar ? MODELOS_BUSCAR : MODELOS, seguirSiLimite: true });
   const c = r?.candidates?.[0];
   const fuentes = (c?.groundingMetadata?.groundingChunks || []).map(x => x.web).filter(Boolean).map(w => ({ titulo: w.title || '', url: w.uri || '' }));
   return { texto: c?.content?.parts?.map(p => p.text || '').join('') || '', fuentes };
