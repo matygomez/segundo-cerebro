@@ -13,8 +13,10 @@ CLIMA={'current':{'temperature_2m':19.4,'weather_code':2},'daily':{'temperature_
 NOTI={'noticias':[{'n':1,'resumen':'Calma en el mercado.','detalle':'Párrafo uno.\n\nPárrafo dos.'},{'n':2,'resumen':'Gasta menos.','detalle':'Detalle.'}],'sugeridos':['Energía']}
 GEM={'candidates':[{'content':{'parts':[{'text':'```json\n'+json.dumps(NOTI)+'\n```'}]}}]}
 def RSS(url):
-  if 'econom' in url.lower() and 'argentina' in url.lower(): items=[{'title':'El dólar cerró estable - Infobae','link':'https://ejemplo/infobae','pubDate':'','description':'<a>El dólar cerró estable</a>'}]
-  elif 'tecnolog' in url.lower(): items=[{'title':'Nuevo chip - Otro','link':'https://ejemplo/chip','pubDate':'','description':''}]
+  u=url.lower()
+  if 'econom' in u and 'argentina' in u: items=[{'title':'El dólar cerró estable - Infobae','link':'https://ejemplo/infobae','pubDate':'','description':'<a>El dólar cerró estable</a>'},{'title':'Sube la nafta - Clarín','link':'https://ejemplo/2','pubDate':'','description':''},{'title':'Inflación de septiembre - La Nación','link':'https://ejemplo/3','pubDate':'','description':''}]
+  elif 'tecnolog' in u: items=[{'title':'Nuevo chip - Otro','link':'https://ejemplo/chip','pubDate':'','description':''},{'title':'IA en celulares - Xataka','link':'https://ejemplo/5','pubDate':'','description':''}]
+  elif 'guerras or' in u: items=[{'title':'Alto el fuego - BBC','link':'https://ejemplo/6','pubDate':'','description':''},{'title':'Cumbre en Ginebra - DW','link':'https://ejemplo/7','pubDate':'','description':''}]
   else: items=[]
   return {'status':'ok','items':items}
 pedidos=[]
@@ -31,7 +33,7 @@ with sync_playwright() as p:
       if 'gemini-flash-latest:' in r.request.url: r.fulfill(status=429, body='{"error":{"message":"Quota exceeded"}}')
       else: r.fulfill(json=GEM)
     page.route('**/generativelanguage.googleapis.com/**', gem)
-    page.route('**/api.rss2json.com/**', lambda r: r.fulfill(json=RSS(__import__('urllib.parse').parse.unquote(r.request.url))))
+    page.route('**/api.rss2json.com/**', lambda r: r.fulfill(json=RSS(__import__('urllib.parse').parse.unquote(__import__('urllib.parse').parse.unquote(r.request.url)))))
     page.goto(U+'#/ajustes'); page.wait_for_timeout(800)
     page.evaluate("""async () => { const D = await import('/js/core/datos.js'); await D.coleccion('bitacora','ajustes').crear({ clave:'gemini', api:'CLAVE' }); }""")
     page.goto(U+'#/home'); page.reload(); page.wait_for_timeout(3500)
@@ -43,7 +45,8 @@ with sync_playwright() as p:
     chk('matías' in dia.inner_text().lower(), 'saludo con nombre')
     page.screenshot(path=S+f'rd_ini_{w}.png', clip={'x':0,'y':0,'width':w,'height':560})
     page.goto(U+'#/resumen/hoy'); page.wait_for_timeout(2500)
-    chk(page.locator('.rs-noti').count()==2, 'noticias en Hoy')
+    print(page.locator('.rs-noti b').all_inner_texts())
+    chk(page.locator('.rs-noti').count()==6, f'6 noticias en Hoy ({page.locator(".rs-noti").count()})')
     chk(page.locator('.rs-clima').count()==1, 'tiempo en Hoy')
     page.screenshot(path=S+f'rd_hoy_{w}.png', full_page=True)
     page.locator('.rs-noti').first.click(); page.wait_for_timeout(600)

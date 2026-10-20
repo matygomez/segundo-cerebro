@@ -109,7 +109,9 @@ export const abrirCumpleanos = async (ctx) => {
 // explica cada titular (resumen y detalle), sin buscar. Si Gemini falla,
 // igual se ven los titulares con su enlace.
 const fechaLarga = (iso) => { const f = deISO(iso); return `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]} de ${f.getFullYear()}`; };
-const rssDe = (tema) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${tema} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
+// "Guerras y política internacional" → (guerras OR "política internacional"): con "y" Google exige todas las palabras.
+const consulta = (tema) => { const p = String(tema).split(/\s+y\s+|,/).map(x => x.trim()).filter(Boolean).map(x => (/\s/.test(x) ? `"${x}"` : x)); return p.length > 1 ? `(${p.join(' OR ')})` : p[0]; };
+const rssDe = (tema) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${consulta(tema)} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
 const sinHTML = (t) => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
 // "Titular - Medio" → { titulo, fuente }
 const separar = (t) => { const k = String(t).lastIndexOf(' - '); return k > 0 ? { titulo: t.slice(0, k).trim(), fuente: t.slice(k + 3).trim() } : { titulo: String(t).trim(), fuente: '' }; };
@@ -132,24 +134,36 @@ async function titularesDe(tema) {
   });
 }
 
+const META = 6;   // titulares por día
 async function titulares(aj) {
   const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0)).filter(i => (i.peso || 0) > -4).slice(0, 6);
-  const listas = await Promise.all(temas.map(t => titularesDe(t.nombre).catch(() => [])));
+  // De a un tema por vez: el servicio gratis corta si se le piden varios juntos.
+  const listas = [];
+  for (const t of temas) {
+    let l = await titularesDe(t.nombre).catch(() => null);
+    if (!l) { await esperar(1500); l = await titularesDe(t.nombre).catch(() => []); }
+    listas.push(l);
+    await esperar(400);
+  }
   const salida = [], vistos = new Set();
-  // Los temas con más interés aportan dos titulares; el resto, uno. Máximo 6.
-  temas.forEach((t, k) => {
-    const cuantos = (t.peso || 0) >= 2 ? 2 : 1;
+  const sumar = (t, k, cuantos) => {
     for (const x of listas[k]) {
-      if (salida.filter(y => y.tema === t.nombre).length >= cuantos || salida.length >= 6) break;
+      if (salida.filter(y => y.tema === t.nombre).length >= cuantos || salida.length >= META) break;
       const clave = x.titulo.toLowerCase().slice(0, 40);
       if (!x.titulo || vistos.has(clave)) continue;
       vistos.add(clave);
       salida.push({ tema: t.nombre, ...x });
     }
-  });
+  };
+  // Primero los temas con más interés aportan dos y el resto uno; si no se llega a 6
+  // (algún tema sin noticias hoy), se completa con más de los otros.
+  temas.forEach((t, k) => sumar(t, k, (t.peso || 0) >= 2 ? 2 : 1));
+  for (let tope = 2; salida.length < META && tope <= META; tope++) temas.forEach((t, k) => sumar(t, k, tope));
   if (!salida.length) throw new Error('No se pudieron traer los titulares. Probá más tarde.');
-  return salida;
+  // Ordenadas por tema, según tu interés.
+  return temas.flatMap(t => salida.filter(x => x.tema === t.nombre));
 }
+const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 
 function pregunta(aj, hoy, lista) {
   const no = [...aj.descartados, ...aj.intereses.map(i => i.nombre), ...aj.sugeridos].join(', ');
@@ -173,9 +187,11 @@ let buscando = null;
 export async function noticias(ctx, m, { forzar = false } = {}) {
   const hoy = hoyISO();
   const rev = await m.leer('dia', hoy);
-  if (rev?.noticias?.length && !forzar) return rev.noticias;
+  // Si hoy llegaron pocas (el servicio cortó), se reintenta cada media hora.
+  const pocas = rev?.noticias?.length && rev.noticias.length < 4 && Date.now() - (rev.noticiasIntento || 0) > 30 * 60e3;
+  if (rev?.noticias?.length && !forzar && !pocas) return rev.noticias;
   // Si falló hace poco (sin internet o servicio caído), espera media hora antes de reintentar.
-  if (!forzar && rev?.noticiasIntento && Date.now() - rev.noticiasIntento < 30 * 60e3) return [];
+  if (!forzar && !pocas && rev?.noticiasIntento && Date.now() - rev.noticiasIntento < 30 * 60e3) return rev?.noticias || [];
   buscando ||= (async () => {
     await m.guardar('dia', hoy, { noticiasIntento: Date.now() });
     const aj = await leerAjustes(ctx);
