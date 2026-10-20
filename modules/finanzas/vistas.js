@@ -251,6 +251,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       titulo: 'Repartir el pago de la tarjeta',
       cuerpo: [
         h('p', {}, `El ${fechaLarga(cr.proximo.resumenes.map(x => x.vencimiento).sort()[0])} vencen `, h('b', { class: 'num' }, plata(cr.proximo.total)), '.'),
+        // El tope: lo que vence menos lo que ya cubre el fondo para crédito.
+        cr.proximo.falta > 0
+          ? h('p', { class: 'nota' }, 'Máximo pendiente: ', h('b', { class: 'num' }, plata(cr.proximo.falta)))
+          : h('p', { class: 'nota' }, 'El fondo ya cubre todo.'),
         campo(ctx, `¿Cuánto pagás con lo que cobrás en ${mesVence}?`, monto,
           `El Disponible de este mes solo reserva el resto. Cuando llegue ${mesVence}, lo que falte se resta como "pendiente del mes anterior".`),
       ],
