@@ -55,3 +55,24 @@ with sync_playwright() as p:
     chk(not err, f'errores {err}')
   b.close()
 print(ok,'ok',len(fallas),'fallas')
+
+# 0.24.5: "Ocultar si está vacía" por hoja
+with sync_playwright() as p:
+  b=p.chromium.launch(); ok2=ok
+  for w in (390, 1366):
+    cx=b.new_context(viewport={'width':w,'height':844}, is_mobile=w<600, has_touch=w<600); page=cx.new_page()
+    page.goto(U); page.wait_for_timeout(500)
+    page.evaluate("""async()=>{const D=await import('/js/core/datos.js');const c=(n)=>D.coleccion('tareas',n);
+      await c('areas').crear({nombre:'Vacía',orden:1,archivada:false});const a=await c('areas').crear({nombre:'Llena',orden:2,archivada:false});
+      await c('tareas').crear({titulo:'Algo',fecha:'',inicio:'',estado:'pendiente',areaId:a,proyectoId:'',seccionId:'',etiquetas:[],subtareas:[],adjuntos:[],orden:1});}""")
+    page.goto(U+'#/tareas'); page.wait_for_timeout(900)
+    chk(page.locator('.tr-pest[title="Vacía"]').count()==1, 'vacía visible por defecto')
+    page.click('[aria-label="Configurar Tareas"]'); page.wait_for_timeout(400)
+    page.screenshot(path=S+f'0245_config_{w}.png')
+    page.click('[aria-label="Ocultar Vacía si está vacía"]'); page.click('[aria-label="Ocultar Llena si está vacía"]'); page.click('[aria-label="Ocultar Bandeja si está vacía"]'); page.wait_for_timeout(400)
+    page.keyboard.press('Escape'); page.wait_for_timeout(500)
+    chk(page.locator('.tr-pest[title="Vacía"]').count()==0, 'vacía oculta'); chk(page.locator('.tr-pest[title="Llena"]').count()==1, 'llena visible')
+    chk(page.locator('.tr-pest[title="Bandeja"]').count()==0, 'bandeja vacía oculta')
+    page.reload(); page.wait_for_timeout(900); chk(page.locator('.tr-pest[title="Vacía"]').count()==0, 'se guarda')
+  b.close()
+print(ok,'ok',len(fallas),'fallas')

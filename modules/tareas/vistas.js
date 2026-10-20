@@ -530,7 +530,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     for (const g of guardado.lista || []) {
       const x = porId.get(g.id);
       if (!x || x.fija || lista.includes(x)) continue;
-      lista.push({ ...x, vis: g.vis !== false, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
+      lista.push({ ...x, vis: g.vis !== false, vacia: !!g.vacia, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
     }
     for (const x of base) if (!lista.some(y => y.id === x.id)) lista.push(x);
     return {
@@ -541,7 +541,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     };
   }
   const guardarConfig = (cfg, cambios = {}) => m.guardarHojas(claveHojas(), {
-    lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite,
+    lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, vacia: !!x.vacia, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite,
     contador: cfg.contador, inicioCont: cfg.inicioCont, leyenda: cfg.leyenda, ...cambios,
   });
 
@@ -557,7 +557,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   function dibujarHojas(cfg) {
     const actual = hojaActual(cfg);
-    const vis = cfg.lista.filter(x => x.vis);
+    // Las marcadas "Ocultar si está vacía" no ocupan lugar sin pendientes (salvo la hoja que estás mirando).
+    const conAlgo = (x) => !x.vacia || x.id === actual || pendientes().some(x.filtro);
+    const vis = cfg.lista.filter(x => x.vis && conAlgo(x));
     const mostrar = cfg.limite && vis.length > cfg.limite ? vis.slice(0, cfg.limite) : vis;
     const resto = vis.filter(x => !mostrar.includes(x));
     const marca = (x) => {
@@ -632,7 +634,10 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
         }),
         seg([['icono', ic(x.icono), 'Solo ícono'], ['ambos', 'Ambos', 'Ícono y nombre'], ['nombre', 'Aa', 'Solo nombre']], x.modo, async (v) => { x.modo = v; pintar(); await guardar(); }),
         h('button', { type: 'button', class: 'tr-mini', 'aria-label': `Subir ${x.nombre}`, disabled: i <= 1, onclick: async () => { [cfg.lista[i - 1], cfg.lista[i]] = [cfg.lista[i], cfg.lista[i - 1]]; pintar(); await guardar(); } }, '↑'),
-        h('button', { type: 'button', class: 'tr-mini', 'aria-label': `Bajar ${x.nombre}`, disabled: x.fija || i === cfg.lista.length - 1, onclick: async () => { [cfg.lista[i + 1], cfg.lista[i]] = [cfg.lista[i], cfg.lista[i + 1]]; pintar(); await guardar(); } }, '↓')));
+        h('button', { type: 'button', class: 'tr-mini', 'aria-label': `Bajar ${x.nombre}`, disabled: x.fija || i === cfg.lista.length - 1, onclick: async () => { [cfg.lista[i + 1], cfg.lista[i]] = [cfg.lista[i], cfg.lista[i + 1]]; pintar(); await guardar(); } }, '↓'),
+        x.vis && x.filtro && x.id !== 'hoy' ? h('div', { class: 'tr-cfg-vacia' }, h('span', {}, 'Ocultar si está vacía'),
+          h('button', { type: 'button', role: 'switch', 'aria-checked': String(!!x.vacia), 'aria-label': `Ocultar ${x.nombre} si está vacía`, class: `tr-switch chico${x.vacia ? ' on' : ''}`,
+            onclick: async () => { x.vacia = !x.vacia; pintar(); await guardar(); } })) : null));
       const limite = h('select', { 'aria-label': 'Hojas visibles a la vez', onchange: async (e) => { cfg.limite = Number(e.target.value); await guardar(); } },
         [0, 3, 4, 5, 6, 8].map(n => h('option', { value: String(n), selected: cfg.limite === n }, n ? `${n} (el resto en "Más")` : 'Sin límite')));
       const enPapelera = gruposPapelera().length;

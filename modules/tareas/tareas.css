@@ -675,3 +675,8 @@ dialog.tr-hoja-editor { padding-bottom: 0; }
 .tr-ocultar[hidden] { display: none; }
 /* Al enfocar un campo (comentario, notas), el navegador lo deja arriba de la línea de botones y no debajo */
 dialog.tr-hoja-editor { scroll-padding-bottom: 6rem; }
+/* Configurar hojas: "Ocultar si está vacía" en una segunda línea de cada hoja */
+.tr-cfg-hoja { flex-wrap: wrap; }
+.tr-cfg-vacia { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0 0 0.15rem 1.6rem; font-size: 0.78rem; color: var(--tinta-2); }
+.tr-cfg-hoja.proyecto .tr-cfg-vacia { padding-left: 2.6rem; }
+.tr-switch.chico { transform: scale(0.8); transform-origin: left center; }
