@@ -162,6 +162,7 @@
 .rs-noti > span:last-child { font-size: 0.84rem; color: var(--tinta-2); }
 dialog.rs-hoja { max-width: 560px; max-height: 85vh; overflow: auto; display: grid; gap: 10px; }
 dialog.rs-hoja h2 { margin: 0; font-size: 1.2rem; }
+dialog.rs-hoja .rs-hoja-texto { display: grid; gap: 10px; }
 dialog.rs-hoja p { margin: 0; line-height: 1.45; font-size: 0.93rem; }
 
 /* Configurar */

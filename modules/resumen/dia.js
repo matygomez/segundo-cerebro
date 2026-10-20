@@ -3,9 +3,9 @@
 // cumpleaños y noticias de tus temas.
 //   - Lo de hoy se pide a Tareas y Hábitos (ctx.pedir), no se guarda.
 //   - El tiempo viene de Open-Meteo (gratis, sin clave).
-//   - Las noticias las busca Gemini una vez por día, con la clave que ya
-//     está en Bitácora (acción 'gemini-preguntar'), y quedan guardadas en
-//     la revisión del día para no gastar el cupo gratis.
+//   - Las noticias: titulares de Google Noticias una vez por día; Gemini (clave
+//     de Bitácora, acción 'gemini-preguntar') los explica. Quedan guardadas en
+//     la revisión del día.
 //   - Aprende: abrir una noticia sube su tema; "No me interesa" lo baja.
 // Ajustes (colección "ajustes", uno solo): { nombre, hora, lugar, intereses, sugeridos, descartados }
 // ─────────────────────────────────────────────────────────────
@@ -104,71 +104,133 @@ export const abrirCumpleanos = async (ctx) => {
 };
 
 // ── Noticias ──
+// Los titulares vienen de Google Noticias (edición Argentina), uno o dos por tema.
+// La clave gratis de Gemini no puede buscar en Google, así que Gemini solo
+// explica cada titular (resumen y detalle), sin buscar. Si Gemini falla,
+// igual se ven los titulares con su enlace.
 const fechaLarga = (iso) => { const f = deISO(iso); return `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]} de ${f.getFullYear()}`; };
-function pregunta(aj, hoy) {
-  const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0))
-    .map(i => `- ${i.nombre} (interés ${Math.max(1, Math.min(9, 3 + (i.peso || 0)))} de 9)`).join('\n');
-  const no = [...aj.descartados, ...aj.intereses.map(i => i.nombre), ...aj.sugeridos].join(', ');
-  return `Hoy es ${fechaLarga(hoy)}. Vivo en Argentina. Buscá en internet las noticias más importantes de hoy o de las últimas 24 horas sobre estos temas (más noticias de los temas con más interés):
-${temas}
+const rssDe = (tema) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${tema} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
+const sinHTML = (t) => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
+// "Titular - Medio" → { titulo, fuente }
+const separar = (t) => { const k = String(t).lastIndexOf(' - '); return k > 0 ? { titulo: t.slice(0, k).trim(), fuente: t.slice(k + 3).trim() } : { titulo: String(t).trim(), fuente: '' }; };
 
-Devolvé SOLO un JSON, sin nada antes ni después, con esta forma:
-{"noticias":[{"tema":"exactamente uno de los temas de arriba","titulo":"título corto","resumen":"una oración","detalle":"3 a 5 párrafos cortos separados por una línea en blanco: qué pasó, el contexto y por qué importa","fuente":"nombre del medio"}],"sugeridos":["tema nuevo"]}
-Entre 4 y 6 noticias distintas, en español rioplatense, claras para alguien que no es experto.
-En "sugeridos" poné 2 o 3 temas nuevos que me podrían interesar según los de más interés (que no sean: ${no}).`;
+// Google Noticias no deja leerse directo desde el navegador: se pasa por un servicio
+// gratis que lo permite (si uno no responde, el otro).
+async function titularesDe(tema) {
+  const url = rssDe(tema);
+  try {
+    const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
+    const j = r.ok ? await r.json() : null;
+    if (j?.status === 'ok') return (j.items || []).map(x => ({ ...separar(x.title), url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
+  } catch { /* probamos el otro */ }
+  const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
+  if (!r.ok) throw new Error('No se pudieron traer los titulares.');
+  const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
+  return [...xml.querySelectorAll('item')].map(it => {
+    const val = (n) => it.querySelector(n)?.textContent || '';
+    return { ...separar(val('title')), url: val('link'), fecha: val('pubDate'), desc: sinHTML(val('description')) };
+  });
+}
+
+async function titulares(aj) {
+  const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0)).filter(i => (i.peso || 0) > -4).slice(0, 6);
+  const listas = await Promise.all(temas.map(t => titularesDe(t.nombre).catch(() => [])));
+  const salida = [], vistos = new Set();
+  // Los temas con más interés aportan dos titulares; el resto, uno. Máximo 6.
+  temas.forEach((t, k) => {
+    const cuantos = (t.peso || 0) >= 2 ? 2 : 1;
+    for (const x of listas[k]) {
+      if (salida.filter(y => y.tema === t.nombre).length >= cuantos || salida.length >= 6) break;
+      const clave = x.titulo.toLowerCase().slice(0, 40);
+      if (!x.titulo || vistos.has(clave)) continue;
+      vistos.add(clave);
+      salida.push({ tema: t.nombre, ...x });
+    }
+  });
+  if (!salida.length) throw new Error('No se pudieron traer los titulares. Probá más tarde.');
+  return salida;
+}
+
+function pregunta(aj, hoy, lista) {
+  const no = [...aj.descartados, ...aj.intereses.map(i => i.nombre), ...aj.sugeridos].join(', ');
+  return `Hoy es ${fechaLarga(hoy)}. Vivo en Argentina. Estos son titulares reales de hoy:
+${lista.map((x, k) => `${k + 1}. [${x.tema}] ${x.titulo} (${x.fuente || 'sin medio'})${x.desc && x.desc !== x.titulo ? ` — ${x.desc.slice(0, 300)}` : ''}`).join('\n')}
+
+Para cada titular escribí un resumen de una oración y un detalle de 2 o 3 párrafos cortos (separados por una línea en blanco): qué dice la noticia y el contexto general del tema para entender por qué importa.
+Usá solo lo que dice el titular y conocimiento general: no inventes cifras, nombres ni hechos que no estén en el titular. Si no sabés algo, explicalo de forma general.
+En español rioplatense, claro para alguien que no es experto.
+Devolvé SOLO un JSON, sin nada antes ni después:
+{"noticias":[{"n":1,"resumen":"...","detalle":"..."}],"sugeridos":["tema nuevo"]}
+En "sugeridos" poné 2 o 3 temas nuevos que me podrían interesar (que no sean: ${no}).`;
 }
 function leerJSON(texto) {
   const a = texto.indexOf('{'), b = texto.lastIndexOf('}');
   try { return JSON.parse(texto.slice(a, b + 1)); } catch { return null; }
 }
-// El enlace sale de las fuentes reales que usó Gemini; si no coincide ninguna, una búsqueda de la noticia.
-function enlace(n, fuentes) {
-  const f = fuentes.find(x => n.fuente && (x.titulo.toLowerCase().includes(String(n.fuente).toLowerCase().replace(/\s+/g, '')) || String(n.fuente).toLowerCase().includes(x.titulo.toLowerCase().replace(/\.(com|ar|net|org).*$/, ''))));
-  return f?.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`;
-}
 
 let buscando = null;
-// Devuelve las noticias de hoy ([] si todavía no hay) o null si falta la clave de Gemini.
+// Devuelve las noticias de hoy ([] si todavía no hay).
 export async function noticias(ctx, m, { forzar = false } = {}) {
   const hoy = hoyISO();
   const rev = await m.leer('dia', hoy);
   if (rev?.noticias?.length && !forzar) return rev.noticias;
-  if (!await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) return null;
-  // Si falló hace poco (Gemini saturado o sin internet), espera media hora antes de reintentar.
+  // Si falló hace poco (sin internet o servicio caído), espera media hora antes de reintentar.
   if (!forzar && rev?.noticiasIntento && Date.now() - rev.noticiasIntento < 30 * 60e3) return [];
   buscando ||= (async () => {
     await m.guardar('dia', hoy, { noticiasIntento: Date.now() });
     const aj = await leerAjustes(ctx);
-    let r, x;
-    try {
-      r = await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy), buscar: true });
-      x = leerJSON(r?.texto || '');
-      if (!x?.noticias?.length) throw new Error('Gemini no devolvió noticias.');
-    } catch (e) {
-      await m.guardar('dia', hoy, { noticiasError: e.message || String(e) });
-      throw e;
+    let lista;
+    try { lista = await titulares(aj); } catch (e) { await m.guardar('dia', hoy, { noticiasError: e.message }); throw e; }
+    // Gemini explica cada titular; si no hay clave o falla, quedan los titulares solos.
+    let x = null;
+    if (await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) {
+      try { x = leerJSON((await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy, lista) }))?.texto || ''); } catch (e) { console.warn('noticias gemini', e); }
     }
-    const lista = x.noticias.slice(0, 6).map(n => ({
-      tema: String(n.tema || ''), titulo: String(n.titulo || '').slice(0, 200), resumen: String(n.resumen || '').slice(0, 400),
-      detalle: String(n.detalle || '').slice(0, 4000), fuente: String(n.fuente || ''), url: enlace(n, r.fuentes || []),
-    })).filter(n => n.titulo);
-    await m.guardar('dia', hoy, { noticias: lista, noticiasHora: Date.now(), noticiasError: '' });
-    const ya = [...aj.intereses.map(i => i.nombre), ...aj.descartados, ...aj.sugeridos];
-    const nuevos = (x.sugeridos || []).map(String).filter(s => s && !ya.some(y => igual(y, s)));
-    if (nuevos.length) await guardarAjustes(ctx, { sugeridos: [...aj.sugeridos, ...nuevos].slice(-6) });
-    return lista;
+    const final = lista.map((n, k) => {
+      const g = (x?.noticias || []).find(y => Number(y.n) === k + 1) || {};
+      return {
+        tema: n.tema, titulo: n.titulo.slice(0, 200), fuente: n.fuente, url: n.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`,
+        resumen: String(g.resumen || (n.desc !== n.titulo ? n.desc : '') || '').slice(0, 400), detalle: String(g.detalle || '').slice(0, 4000),
+      };
+    });
+    await m.guardar('dia', hoy, { noticias: final, noticiasHora: Date.now(), noticiasError: '' });
+    if (x?.sugeridos?.length) {
+      const ya = [...aj.intereses.map(i => i.nombre), ...aj.descartados, ...aj.sugeridos];
+      const nuevos = x.sugeridos.map(String).filter(s => s && !ya.some(y => igual(y, s)));
+      if (nuevos.length) await guardarAjustes(ctx, { sugeridos: [...aj.sugeridos, ...nuevos].slice(-6) });
+    }
+    return final;
   })().finally(() => { buscando = null; });
   return buscando;
+}
+
+// Si Gemini no pudo explicar el titular a la mañana, lo intenta al abrirlo (un pedido) y lo guarda.
+async function completarDetalle(ctx, n, zona) {
+  const { h } = ctx;
+  if (!await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) return;
+  poner(zona, h('p', { class: 'nota' }, 'Preparando el detalle…'));
+  try {
+    const x = leerJSON((await ctx.pedir('gemini-preguntar', { texto: pregunta(await leerAjustes(ctx), hoyISO(), [{ ...n, desc: n.resumen }]) }))?.texto || '');
+    const g = x?.noticias?.[0];
+    if (!g?.detalle) throw new Error('Gemini no devolvió el detalle.');
+    n.detalle = String(g.detalle).slice(0, 4000); n.resumen = n.resumen || String(g.resumen || '');
+    const col = ctx.datos('revisiones');
+    const rev = (await col.listar()).find(r => r.tipo === 'dia' && r.clave === hoyISO());
+    if (rev?.noticias) await col.actualizar(rev.id, { noticias: rev.noticias.map(y => (y.titulo === n.titulo ? { ...y, detalle: n.detalle, resumen: n.resumen } : y)) });
+    poner(zona, n.detalle.split(/\n\s*\n/).map(p => h('p', {}, p)));
+  } catch (e) { poner(zona, h('p', {}, n.resumen || ''), h('p', { class: 'nota' }, `No se pudo preparar el detalle (${e.message}).`)); }
 }
 
 // Ventana con la noticia completa.
 export function abrirNoticia(ctx, n) {
   const { h } = ctx;
   sumarPeso(ctx, n.tema, 1);
+  const texto = h('div', { class: 'rs-hoja-texto' }, String(n.detalle || n.resumen || '').split(/\n\s*\n/).map(p => h('p', {}, p)));
+  if (!n.detalle) completarDetalle(ctx, n, texto);
   const dlg = h('dialog', { class: 'hoja rs-hoja' },
     h('span', { class: 'rs-aviso-et' }, n.tema),
     h('h2', {}, n.titulo),
-    String(n.detalle || n.resumen).split(/\n\s*\n/).map(p => h('p', {}, p)),
+    texto,
     h('a', { href: n.url, target: '_blank', rel: 'noopener', class: 'rs-link izq' }, `Leer en la fuente original${n.fuente ? ` (${n.fuente})` : ''} ›`),
     h('div', { class: 'hoja-botones' },
       h('button', { type: 'button', class: 'boton', onclick: async () => { await sumarPeso(ctx, n.tema, -3); dlg.close(); ctx.aviso(`Listo, vas a ver menos de "${n.tema}".`); } }, 'No me interesa este tema'),
@@ -277,7 +339,7 @@ export async function pantallaHoy(cuerpo, ctx, m) {
     poner(zonaNoti, titulo,
       lista.length ? lista.map(n => h('button', { type: 'button', class: 'rs-noti', onclick: () => abrirNoticia(ctx, n) },
         h('span', { class: 'rs-aviso-et' }, n.tema), h('b', {}, n.titulo), h('span', {}, n.resumen))) : h('p', { class: 'nota' }, aviso || 'Todavía no hay noticias de hoy.'),
-      h('span', { class: 'nota' }, 'Buscadas con Gemini una vez por día. ',
+      h('span', { class: 'nota' }, 'Titulares de Google Noticias, explicados con Gemini. Una vez por día. ',
         h('button', { type: 'button', class: 'rs-bt ch', onclick: () => { poner(zonaNoti, titulo, h('p', { class: 'nota' }, 'Buscando…')); noticias(ctx, m, { forzar: true }).then(pintarNoti, e => pintarNoti([], e.message)); } }, 'Buscar de nuevo')));
   };
   noticias(ctx, m).then(l => pintarNoti(l, 'Gemini no respondió. Se vuelve a intentar sola en un rato.'), e => pintarNoti([], e.message));

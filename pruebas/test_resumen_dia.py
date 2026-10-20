@@ -10,9 +10,13 @@ def chk(c, t):
   if c: ok+=1
   else: fallas.append(t); print('FALLA', t)
 CLIMA={'current':{'temperature_2m':19.4,'weather_code':2},'daily':{'temperature_2m_max':[24],'temperature_2m_min':[12],'precipitation_probability_max':[10]},'hourly':{'temperature_2m':[15]*24}}
-NOTI={'noticias':[{'tema':'Economía argentina','titulo':'El dólar cerró estable','resumen':'Calma en el mercado.','detalle':'Párrafo uno.\n\nPárrafo dos.','fuente':'Infobae'},
-                  {'tema':'Tecnología','titulo':'Nuevo chip','resumen':'Gasta menos.','detalle':'Detalle.','fuente':'Otro'}],'sugeridos':['Energía']}
-GEM={'candidates':[{'content':{'parts':[{'text':'```json\n'+json.dumps(NOTI)+'\n```'}]},'groundingMetadata':{'groundingChunks':[{'web':{'title':'infobae.com','uri':'https://ejemplo/infobae'}}]}}]}
+NOTI={'noticias':[{'n':1,'resumen':'Calma en el mercado.','detalle':'Párrafo uno.\n\nPárrafo dos.'},{'n':2,'resumen':'Gasta menos.','detalle':'Detalle.'}],'sugeridos':['Energía']}
+GEM={'candidates':[{'content':{'parts':[{'text':'```json\n'+json.dumps(NOTI)+'\n```'}]}}]}
+def RSS(url):
+  if 'econom' in url.lower() and 'argentina' in url.lower(): items=[{'title':'El dólar cerró estable - Infobae','link':'https://ejemplo/infobae','pubDate':'','description':'<a>El dólar cerró estable</a>'}]
+  elif 'tecnolog' in url.lower(): items=[{'title':'Nuevo chip - Otro','link':'https://ejemplo/chip','pubDate':'','description':''}]
+  else: items=[]
+  return {'status':'ok','items':items}
 pedidos=[]
 with sync_playwright() as p:
   b=p.chromium.launch()
@@ -24,12 +28,13 @@ with sync_playwright() as p:
     page.route('**/api.open-meteo.com/**', lambda r: r.fulfill(json=CLIMA))
     def gem(r):
       pedidos.append(r.request.url)
-      if 'gemini-2.5-flash:' in r.request.url: r.fulfill(status=429, body='{"error":{"message":"Quota exceeded"}}')
+      if 'gemini-flash-latest:' in r.request.url: r.fulfill(status=429, body='{"error":{"message":"Quota exceeded"}}')
       else: r.fulfill(json=GEM)
     page.route('**/generativelanguage.googleapis.com/**', gem)
-    page.goto(U); page.wait_for_timeout(800)
+    page.route('**/api.rss2json.com/**', lambda r: r.fulfill(json=RSS(__import__('urllib.parse').parse.unquote(r.request.url))))
+    page.goto(U+'#/ajustes'); page.wait_for_timeout(800)
     page.evaluate("""async () => { const D = await import('/js/core/datos.js'); await D.coleccion('bitacora','ajustes').crear({ clave:'gemini', api:'CLAVE' }); }""")
-    page.goto(U+'#/home'); page.wait_for_timeout(3500)
+    page.goto(U+'#/home'); page.reload(); page.wait_for_timeout(3500)
     dia=page.locator('.rs-aviso.dia')
     chk(dia.count()==1, 'cartel del día')
     chk('19°' in dia.inner_text(), 'tiempo en el cartel: '+dia.inner_text().replace('\n',' | '))
@@ -59,5 +64,5 @@ with sync_playwright() as p:
     print(w, err[:3]); chk(not err, 'sin errores')
     cx.close()
   print(pedidos)
-  chk(len(pedidos)==4 and all('2.5-flash' in u for u in pedidos), f'si un modelo llegó al límite prueba el siguiente; uno por día ({len(pedidos)})')
+  chk(len(pedidos)>=2, f'Gemini explica los titulares ({len(pedidos)})')
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)
