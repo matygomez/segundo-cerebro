@@ -17,7 +17,7 @@ resumen-tareas, resumen-vencidas, sistema-pendientes, sistema-sincronizar`.
 
 ## Finanzas (`modules/finanzas`)
 Cuentas, créditos en cuotas, categorías con presupuesto, movimientos, préstamos, disponible, análisis.
-Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`, guarda `movimientos.controlado` y `creditos.totalBanco`).
+Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`; Repartir muestra "Máximo pendiente", guarda `movimientos.controlado` y `creditos.totalBanco`).
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 
 ## Bitácora (`modules/bitacora`)
