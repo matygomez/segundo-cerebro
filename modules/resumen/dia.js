@@ -7,7 +7,7 @@
 //     de Bitácora, acción 'gemini-preguntar') los explica. Quedan guardadas en
 //     la revisión del día.
 //   - Aprende: abrir una noticia sube su tema; "No me interesa" lo baja.
-// Ajustes (colección "ajustes", uno solo): { nombre, hora, lugar, intereses, sugeridos, descartados }
+// Ajustes (colección "ajustes", uno solo): { nombre, claveNoticias, hora, lugar, intereses, sugeridos, descartados }
 // ─────────────────────────────────────────────────────────────
 
 import { pedirSeguro, hoyISO, deISO, DIAS, MESES } from './datos.js';
@@ -151,12 +151,28 @@ function puntaje(x, tema) {
   return p;
 }
 
-// Un solo pedido con todos tus temas juntos (el servicio gratis corta si se le piden varios seguidos).
+// Con clave de NewsData.io (gratis, 200 pedidos por día): dos pedidos, noticias de Argentina
+// y del mundo en español. Después cada titular se reparte por tema igual que con Google Noticias.
+async function leerNewsData(clave) {
+  const pedir = async (extra) => {
+    const r = await fetch(`https://newsdata.io/api/1/latest?apikey=${encodeURIComponent(clave)}&language=es&${extra}`)
+      .catch(() => { throw new Error('Sin conexión con el sitio de noticias.'); });
+    if (r.status === 401 || r.status === 403) throw new Error('La clave de noticias no es válida. Revisala en Resumen › Configurar.');
+    if (r.status === 429) throw new Error('El sitio de noticias llegó al límite gratis de hoy.');
+    const j = await r.json().catch(() => null);
+    if (!r.ok || j?.status !== 'success') throw new Error(j?.results?.message || `El sitio de noticias no respondió (${r.status}).`);
+    return (j.results || []).map(x => ({ titulo: String(x.title || '').trim(), fuente: x.source_name || x.source_id || '', url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
+  };
+  const [ar, mundo] = await Promise.all([pedir('country=ar'), pedir('category=world,technology,business,politics').catch(() => [])]);
+  return [...ar, ...mundo];
+}
+
+// Sin clave: un solo pedido con todos tus temas juntos (el servicio gratis corta si se le piden varios seguidos).
 async function titulares(aj) {
   const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0)).filter(i => (i.peso || 0) > -4).slice(0, 6);
   if (!temas.length) throw new Error('Agregá algún interés en Configurar.');
   const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`${temas.map(t => consulta(t.nombre)).join(' OR ')} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
-  const todos = await leerRSS(url);
+  const todos = aj.claveNoticias ? await leerNewsData(aj.claveNoticias) : await leerRSS(url);
   // Cada titular va al tema con el que más coincide.
   const vistos = new Set(), porTema = new Map(temas.map(t => [t.nombre, []])), sueltos = [];
   for (const x of todos) {
@@ -422,6 +438,13 @@ export async function pantallaConfig(cuerpo, ctx) {
     nuevo.addEventListener('keydown', (e) => { if (e.key === 'Enter') agregar(); });
     const gps = aj.lugar?.tipo !== 'ciudad';
 
+    // Al guardar una clave nueva, las noticias de hoy se vuelven a buscar.
+    const clave = h('input', { type: 'password', value: aj.claveNoticias || '', placeholder: 'Pegá tu clave acá', autocomplete: 'off', onchange: async () => {
+      await guardar({ claveNoticias: clave.value.trim() });
+      const col = ctx.datos('revisiones'), r = (await col.listar()).find(x => x.tipo === 'dia' && x.clave === hoyISO());
+      if (r) await col.actualizar(r.id, { noticias: [], noticiasIntento: 0, noticiasError: '' });
+      ctx.aviso(clave.value.trim() ? 'Clave guardada. Las noticias se buscan de nuevo.' : 'Clave borrada.');
+    } });
     const nombre = h('input', { type: 'text', value: aj.nombre || '', placeholder: 'Tu nombre', onchange: () => guardar({ nombre: nombre.value.trim() }) });
     poner(cuerpo,
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Resumen del día'),
@@ -444,6 +467,10 @@ export async function pantallaConfig(cuerpo, ctx) {
             h('button', { type: 'button', class: 'rs-chip-mas', onclick: () => guardar({ intereses: [...aj.intereses, { nombre: s, peso: 0 }], sugeridos: aj.sugeridos.filter(x => x !== s) }) }, `+ ${s}`),
             h('button', { type: 'button', class: 'rs-chip-x', 'aria-label': `No sugerir ${s}`, onclick: () => guardar({ sugeridos: aj.sugeridos.filter(x => x !== s), descartados: [...aj.descartados, s] }) }, '✕'))))] : null,
         h('span', { class: 'nota' }, 'La app aprende de las noticias que abrís y de las que marcás "No me interesa este tema".')),
+      h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Clave de noticias', h('small', {}, aj.claveNoticias ? '✓ guardada' : 'falta')),
+        h('label', { class: 'rs-campo' }, clave),
+        h('span', { class: 'nota' }, 'Sacala gratis en ', h('a', { href: 'https://newsdata.io/register', target: '_blank', rel: 'noopener', class: 'rs-link izq' }, 'newsdata.io'),
+          ': te registrás, entrás a tu cuenta y copiás la "API Key". Pegala acá. Sin clave, la app intenta con Google Noticias (a veces no anda).')),
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Cumpleaños'),
         h('p', { class: 'nota' }, 'Los cumpleaños se configuran en Tareas. ',
           h('a', { href: '#/tareas', class: 'rs-link izq', onclick: (e) => { e.preventDefault(); abrirCumpleanos(ctx); } }, 'Configurarlos en Tareas ›'))));

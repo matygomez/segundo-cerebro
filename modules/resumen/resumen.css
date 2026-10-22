@@ -170,7 +170,7 @@ dialog.rs-hoja p { margin: 0; line-height: 1.45; font-size: 0.93rem; }
 .rs-card .rs-campo input { width: auto; flex: none; }
 .rs-campo-fila { display: flex; gap: 8px; }
 .rs-campo-fila input { flex: 1; min-width: 0; }
-.rs-card input[type=time], .rs-card input[type=search], .rs-card input[type=text] { background: var(--superficie-2); border: 1px solid var(--linea); color: var(--tinta); border-radius: 9px; padding: 8px 10px; font: inherit; }
+.rs-card input[type=time], .rs-card input[type=search], .rs-card input[type=text], .rs-card input[type=password] { background: var(--superficie-2); border: 1px solid var(--linea); color: var(--tinta); border-radius: 9px; padding: 8px 10px; font: inherit; }
 .rs-chips { display: flex; gap: 6px; flex-wrap: wrap; }
 .rs-chip { display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--linea); background: var(--superficie-2); color: var(--tinta); font: inherit; font-size: 0.84rem; cursor: pointer; }
 .rs-chip.on { border-color: var(--laton); color: var(--laton); }
@@ -179,3 +179,4 @@ dialog.rs-hoja p { margin: 0; line-height: 1.45; font-size: 0.93rem; }
 .rs-lineas .rs-chips { gap: 6px; }
 .rs-lineas .rs-chip { padding: 3px 9px; font-size: 0.8rem; text-decoration: none; white-space: nowrap; }
 .rs-lineas .rs-chip b { color: var(--laton); margin-left: 3px; }
+.rs-card .rs-campo input[type=password] { flex: 1; min-width: 0; width: 100%; }

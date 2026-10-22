@@ -36,7 +36,7 @@ Hábitos, Metas (a mano, hitos, hábito, Bitácora, Finanzas, Tareas; ritmo), Es
 Acciones: `resumen-habitos, resumen-rachas, resumen-metas`.
 
 ## Resumen (`modules/resumen`)
-Hoy (`dia.js`: tiempo Open-Meteo por GPS o ciudad, tareas/vencimientos/hábitos de hoy, cumpleaños, titulares de Google Noticias 1 vez por día explicados por Gemini (clave de Bitácora, sin búsqueda); aprende por tema), Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas, Configurar (nombre del saludo, hora, lugar, intereses y sugeridos, "Relanzar el panel").
+Hoy (`dia.js`: tiempo Open-Meteo por GPS o ciudad, tareas/vencimientos/hábitos de hoy, cumpleaños, titulares 1 vez por día (NewsData.io con clave en Configurar; sin clave, Google Noticias vía puente público) explicados por Gemini (clave de Bitácora); aprende por tema), Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas, Configurar (nombre del saludo, hora, lugar, intereses y sugeridos, "Relanzar el panel").
 Inicio: un cuadro fijo arriba de todo (`arriba` en `js/core/inicio.js`) que se desliza mes → semana → día; mes/semana hasta abrirlo o cerrarlo, día (desde la hora de Configurar) hasta "Ver mi día"/"Ahora no". Guarda `revisiones` (tipo `dia` con noticias) y `ajustes`. Acción: `resumen-foco`. Pide `cumpleanos`/`abrir-cumpleanos` a Tareas si existen.
 
 ## Compras (`modules/compras`)

@@ -32,7 +32,9 @@ with sync_playwright() as p:
       if 'gemini-flash-latest:' in r.request.url: r.fulfill(status=429, body='{"error":{"message":"Quota exceeded"}}')
       else: r.fulfill(json=GEM)
     page.route('**/generativelanguage.googleapis.com/**', gem)
-    rss=[]
+    rss=[]; nd=[]
+    ND={'status':'success','results':[{'title':'Milei anunció cambios en el gabinete','link':'https://nd/1','source_name':'Perfil','description':'x','pubDate':''},{'title':'Récord de exportaciones de chips con inteligencia artificial','link':'https://nd/2','source_name':'Reuters','description':'','pubDate':''}]}
+    page.route('**/newsdata.io/**', lambda r: (nd.append(r.request.url), r.fulfill(json=ND)))
     page.route('**/api.allorigins.win/**', lambda r: (rss.append(1), r.fulfill(body=XML(), content_type='application/rss+xml')))
     page.goto(U+'#/ajustes'); page.wait_for_timeout(800)
     page.evaluate("""async () => { const D = await import('/js/core/datos.js'); await D.coleccion('bitacora','ajustes').crear({ clave:'gemini', api:'CLAVE' }); }""")
@@ -66,6 +68,11 @@ with sync_playwright() as p:
     page.goto(U+'#/resumen/config'); page.wait_for_timeout(1200)
     page.locator('button:has-text("Relanzar el panel")').click(); page.wait_for_timeout(2500)
     chk('#/home' in page.url and page.locator('.rs-aviso.dia').count()==1, 'relanzar el panel')
+    page.goto(U+'#/resumen/config'); page.wait_for_timeout(1200)
+    page.locator('input[type=password]').fill('MICLAVE'); page.locator('input[type=password]').press('Tab'); page.wait_for_timeout(1500)
+    page.goto(U+'#/resumen/hoy'); page.wait_for_timeout(3000)
+    t=page.locator('.rs-noti b').all_inner_texts(); print('ND', t, len(nd))
+    chk(len(nd)==2 and 'apikey=MICLAVE' in nd[0] and any('Milei' in x for x in t), 'noticias con la clave de NewsData')
     print(w, err[:3]); chk(not err, 'sin errores')
     cx.close()
   print(pedidos)
