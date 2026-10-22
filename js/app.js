@@ -32,6 +32,41 @@ function leerRuta() {
 const menu = h('nav', { class: 'menu', 'aria-label': 'Secciones' });
 const engranaje = h('a', { href: '#/ajustes', class: 'barra-engranaje', 'aria-label': 'Ajustes', title: 'Ajustes', hidden: true }, icono('ajustes'));
 
+// Menú del logo (solo celular): la barra de abajo tiene lugar para pocos,
+// así que tocar el logo abre un panel con todos los módulos. En la PC el
+// logo sigue llevando al Inicio, porque ahí ya está la columna con todos.
+const panelModulos = h('div', { class: 'panel-modulos', id: 'panel-modulos', hidden: true });
+const veloModulos = h('div', { class: 'velo-modulos', hidden: true, onclick: () => abrirPanel(false) });
+const marca = h('a', { href: '#/home', class: 'marca', 'aria-controls': 'panel-modulos', onclick: (e) => {
+  if (esPC()) return;
+  e.preventDefault();
+  abrirPanel(panelModulos.hidden);
+} }, h('span', { class: 'marca-signo', 'aria-hidden': 'true' }), 'Segundo Cerebro', h('span', { class: 'marca-flecha', 'aria-hidden': 'true' }));
+
+function abrirPanel(abrir) {
+  if (abrir) {
+    dibujarPanel();
+    // Baja justo debajo de la barra de arriba, que cambia de alto según el celular.
+    const borde = `${marca.closest('.barra').getBoundingClientRect().bottom}px`;
+    panelModulos.style.top = veloModulos.style.top = borde;
+  }
+  panelModulos.hidden = veloModulos.hidden = !abrir;
+  marca.classList.toggle('abierto', abrir);
+  marca.setAttribute('aria-expanded', String(abrir));
+}
+
+function dibujarPanel() {
+  const actual = leerRuta().id;
+  const todos = [
+    ...listaModulos().filter(m => !m.oculto && visible(m.id, 'cel')),
+    { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
+  ];
+  panelModulos.replaceChildren(
+    h('div', { class: 'panel-grilla' }, todos.map(m => h('a', {
+      href: `#/${m.id}`, class: 'panel-mod', 'aria-current': m.id === actual ? 'page' : null, onclick: () => abrirPanel(false),
+    }, icono(m.icono), h('span', {}, m.nombre)))));
+}
+
 function itemsMenu() {
   const todos = [
     ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
@@ -55,8 +90,10 @@ function dibujarMenu() {
 function armarCascaron() {
   document.getElementById('app').replaceChildren(
     h('header', { class: 'barra' },
-      h('a', { href: '#/home', class: 'marca' }, h('span', { class: 'marca-signo', 'aria-hidden': 'true' }), 'Segundo Cerebro'),
+      marca,
       h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }), engranaje)),
+    veloModulos,
+    panelModulos,
     menu,
     h('main', { id: 'pantalla', tabindex: '-1' }),
   );
@@ -65,7 +102,9 @@ function armarCascaron() {
   escuchar('sync', dibujarEstado);
   escuchar('sesion', dibujarEstado);
   escuchar('preferencias', dibujarMenu);
-  matchMedia('(min-width: 900px)').addEventListener('change', dibujarMenu);
+  matchMedia('(min-width: 900px)').addEventListener('change', () => { abrirPanel(false); dibujarMenu(); });
+  window.addEventListener('hashchange', () => abrirPanel(false));
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panelModulos.hidden) abrirPanel(false); });
 }
 
 function marcarMenu(id) {
