@@ -30,7 +30,6 @@ function leerRuta() {
 // de abajo. Qué se ve y en qué orden sale de Ajustes › Módulos.
 // Los módulos ocultos (como el futuro Calendario) no aparecen.
 const menu = h('nav', { class: 'menu', 'aria-label': 'Secciones' });
-const engranaje = h('a', { href: '#/ajustes', class: 'barra-engranaje', 'aria-label': 'Ajustes', title: 'Ajustes', hidden: true }, icono('ajustes'));
 
 // Menú del logo (solo celular): la barra de abajo tiene lugar para pocos,
 // así que tocar el logo abre un panel con todos los módulos. En la PC el
@@ -82,8 +81,6 @@ function dibujarMenu() {
   menu.replaceChildren(...items.map(it => h('a', { href: `#/${it.id}`, class: 'menu-item', 'data-id': it.id },
     icono(it.icono), h('span', {}, it.nombre))));
   menu.style.setProperty('--items', String(items.length));
-  // En el celular, si Ajustes no está en la barra, queda un engranaje arriba.
-  engranaje.hidden = esPC() || items.some(it => it.id === 'ajustes');
   marcarMenu(leerRuta().id);
 }
 
@@ -91,7 +88,7 @@ function armarCascaron() {
   document.getElementById('app').replaceChildren(
     h('header', { class: 'barra' },
       marca,
-      h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }), engranaje)),
+      h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }))),
     veloModulos,
     panelModulos,
     menu,

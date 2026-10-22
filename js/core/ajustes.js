@@ -68,7 +68,7 @@ export function pantallaAjustes(contenedor) {
     const guardar = async () => { nav.barra = lista.map(x => ({ id: x.id, on: x.on })); await guardarNavegacion(nav); };
     seccionBarra.replaceChildren(
       h('h2', {}, 'Barra de abajo ', h('span', { class: 'nota' }, '(celular)')),
-      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Ajustes, queda un engranaje arriba a la derecha.`),
+      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Ajustes, lo tenés tocando el logo de arriba.`),
       h('div', { class: 'aj-tabla' }, lista.map((x, i) => {
         const oculto = ocultoCel(x.id);
         const fijo = x.id === 'home';

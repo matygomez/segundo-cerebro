@@ -3,7 +3,7 @@ Leé solo la sección que vas a tocar. Al terminar, actualizá sus 1–3 líneas
 
 ## Núcleo (`js/core/`, `js/app.js`, `sw.js`)
 Sincronización Drive (cada colección = un JSON), registro de módulos, formularios, editor de texto, búsqueda general (lupa, Ctrl+K, barra del Inicio),
-Ajustes (módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos (en PC va al Inicio). Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
+Ajustes (módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos (en PC va al Inicio); ya no hay engranaje arriba. Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
 
 ## Inicio (`modules/home`)
 Fecha, memento mori (estilos mezcla/barras/contador/años, frase; se puede apagar), botones rápidos, búsqueda, captura "Anotá algo", bloques de módulos.
