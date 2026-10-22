@@ -139,15 +139,22 @@ async function leerRSS(url) {
 
 // ¿De qué tema es un titular? Por las palabras del tema (raíz de 6 letras, sin tildes).
 const plano = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-const raices = (tema) => plano(tema).split(/[^a-zñ]+/).filter(w => w.length >= 4).map(w => w.slice(0, 6));
-const RELACIONADAS = { econom: ['dolar', 'inflac', 'bcra', 'merca', 'bolsa', 'tasa', 'precio', 'fmi', 'reserv'], tecnol: ['intelig', ' ia ', 'chip', 'apple', 'google', 'celula', 'softwa', 'digita'],
+// Palabras del tema que solas no dicen nada ("mundial" también es fútbol, "argentina" es todo).
+const VACIAS = new Set(['mundia', 'intern', 'argent', 'genera', 'actual', 'noticia']);
+const raices = (tema) => plano(tema).split(/[^a-zñ]+/).filter(w => w.length >= 4).map(w => w.slice(0, 6)).filter(w => !VACIAS.has(w));
+// Deportes y espectáculos quedan afuera, salvo que tengas un tema de eso.
+const DEPORTE = /futbol|\bgol(es)?\b|champions|partido|river|boca|seleccion|torneo|\bliga\b|tenis|\bnba\b|formula 1|\bf1\b|mundial de|copa (del|america|libertadores)|velez|racing|independiente|messi|espectacul|farandula|reality/;
+const RELACIONADAS = { econom: ['dolar', 'inflac', 'bcra', 'merca', 'bolsa', 'tasa', 'precio', 'fmi', 'reserv', 'wall st', 'accion', 'export', 'impor', 'salari', 'nafta'], tecnol: ['intelig', ' ia ', 'chip', 'apple', 'google', 'celula', 'softwa', 'digita'],
   guerra: ['ataque', 'misil', 'ejerci', 'conflic', 'ucrani', 'rusia', 'israel', 'gaza', 'otan'], politi: ['gobier', 'congre', 'senado', 'diputa', 'milei', 'eleccio', 'minist'] };
 function puntaje(x, tema) {
   const t = ` ${plano(`${x.titulo} ${x.desc}`)} `;
   let p = 0;
   for (const r of raices(tema)) { if (t.includes(r)) p += 2; for (const w of RELACIONADAS[r] || []) if (t.includes(w)) p += 1; }
-  if (/argentin/.test(plano(tema)) && /argentin|milei|bcra|caputo|buenos aires/.test(t)) p += 2;
-  if (/mundial|internacional/.test(plano(tema)) && !/argentin/.test(t)) p += 1;
+  // Tiene que haber una palabra del tema de verdad; recién ahí cuenta si es de Argentina o del mundo.
+  if (p < 1) return 0;
+  const esAR = /argentin|milei|bcra|caputo|buenos aires|kicillof|congreso nacional/.test(t);
+  if (/argentin/.test(plano(tema))) p += esAR ? 2 : -2;
+  if (/mundial|internacional/.test(plano(tema))) p += esAR ? -2 : 1;
   return p;
 }
 
@@ -163,7 +170,7 @@ async function leerNewsData(clave) {
     if (!r.ok || j?.status !== 'success') throw new Error(j?.results?.message || `El sitio de noticias no respondió (${r.status}).`);
     return (j.results || []).map(x => ({ titulo: String(x.title || '').trim(), fuente: x.source_name || x.source_id || '', url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
   };
-  const [ar, mundo] = await Promise.all([pedir('country=ar'), pedir('category=world,technology,business,politics').catch(() => [])]);
+  const [ar, mundo] = await Promise.all([pedir('country=ar&category=business,politics,technology,world'), pedir('category=world,technology,business,politics').catch(() => [])]);
   return [...ar, ...mundo];
 }
 
@@ -179,6 +186,8 @@ async function titulares(aj) {
     const clave = plano(x.titulo).slice(0, 40);
     if (!x.titulo || vistos.has(clave)) continue;
     vistos.add(clave);
+    const deportes = aj.intereses.some(i => /deport|futbol/.test(plano(i.nombre)));
+    if (!deportes && DEPORTE.test(` ${plano(x.titulo)} `)) continue;
     const mejor = temas.map(t => ({ t, p: puntaje(x, t.nombre) })).sort((a, b) => b.p - a.p)[0];
     if (mejor.p > 0) porTema.get(mejor.t.nombre).push({ tema: mejor.t.nombre, ...x }); else sueltos.push(x);
   }
@@ -190,8 +199,7 @@ async function titulares(aj) {
       for (let k = 0; k < extra && salida.length < META; k++) { const x = porTema.get(t.nombre).shift(); if (x) salida.push(x); }
     }
   }
-  // Si igual faltan, los que no se pudieron ubicar (Gemini después les pone tema).
-  while (salida.length < META && sueltos.length) salida.push({ tema: temas[0].nombre, ...sueltos.shift() });
+  // Los que no encajan en ningún tema se descartan: mejor 4 bien puestas que 6 con relleno.
   if (!salida.length) throw new Error('No llegaron titulares. Probá más tarde.');
   return temas.flatMap(t => salida.filter(x => x.tema === t.nombre));
 }
@@ -203,7 +211,7 @@ function pregunta(aj, hoy, lista) {
   return `Hoy es ${fechaLarga(hoy)}. Vivo en Argentina. Estos son titulares reales de hoy:
 ${lista.map((x, k) => `${k + 1}. [${x.tema}] ${x.titulo} (${x.fuente || 'sin medio'})${x.desc && x.desc !== x.titulo ? ` — ${x.desc.slice(0, 300)}` : ''}`).join('\n')}
 
-Mis temas son: ${aj.intereses.map(i => i.nombre).join(', ')}. En "tema" poné cuál de esos le corresponde a cada titular.
+Mis temas son: ${aj.intereses.map(i => i.nombre).join(', ')}. En "tema" poné cuál de esos le corresponde a cada titular, o "ninguno" si no encaja en ninguno (por ejemplo deportes o espectáculos).
 Para cada titular escribí un resumen de una oración y un detalle de 2 o 3 párrafos cortos (separados por una línea en blanco): qué dice la noticia y el contexto general del tema para entender por qué importa.
 Usá solo lo que dice el titular y conocimiento general: no inventes cifras, nombres ni hechos que no estén en el titular. Si no sabés algo, explicalo de forma general.
 En español rioplatense, claro para alguien que no es experto.
@@ -236,8 +244,9 @@ export async function noticias(ctx, m, { forzar = false } = {}) {
     if (await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) {
       try { x = leerJSON((await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy, lista) }))?.texto || ''); } catch (e) { console.warn('noticias gemini', e); }
     }
-    const final = lista.map((n, k) => {
-      const g = (x?.noticias || []).find(y => Number(y.n) === k + 1) || {};
+    const final = lista.map((n, k) => ({ n, k, g: (x?.noticias || []).find(y => Number(y.n) === k + 1) || {} }))
+      .filter(({ g }) => !/^ningun/i.test(String(g.tema || '').trim()))   // Gemini también descarta las que no encajan
+      .map(({ n, g }) => {
       return {
         tema: aj.intereses.find(i => igual(i.nombre, g.tema))?.nombre || n.tema, titulo: n.titulo.slice(0, 200), fuente: n.fuente, url: n.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`,
         resumen: String(g.resumen || (n.desc !== n.titulo ? n.desc : '') || '').slice(0, 400), detalle: String(g.detalle || '').slice(0, 4000),

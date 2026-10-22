@@ -14,7 +14,7 @@ NOTI={'noticias':[{'n':1,'resumen':'Calma en el mercado.','detalle':'Párrafo un
 GEM={'candidates':[{'content':{'parts':[{'text':'```json\n'+json.dumps(NOTI)+'\n```'}]}}]}
 TODOS=[('El dólar cerró estable tras el anuncio del BCRA - Infobae','https://ejemplo/infobae'),('Sube la nafta en Argentina - Clarín','https://ejemplo/2'),('Inflación de septiembre en Argentina - La Nación','https://ejemplo/3'),
   ('Nuevo chip de inteligencia artificial - Xataka','https://ejemplo/chip'),('Ataque con misiles en Ucrania - BBC','https://ejemplo/6'),('El Senado debate el presupuesto de Milei - Perfil','https://ejemplo/7'),
-  ('Wall Street cierra en alza y el mercado mundial respira - Reuters','https://ejemplo/8'),('Otra del dólar blue en Argentina - Ámbito','https://ejemplo/9')]
+  ('Wall Street cierra en alza y el mercado mundial respira - Reuters','https://ejemplo/8'),('Otra del dólar blue en Argentina - Ámbito','https://ejemplo/9'),('Miércoles de Champions League: tres goles argentinos - TyC','https://ejemplo/10')]
 def XML():
   it=''.join(f'<item><title>{t}</title><link>{l}</link><pubDate></pubDate><description></description></item>' for t,l in TODOS)
   return f'<?xml version="1.0"?><rss><channel>{it}</channel></rss>'
@@ -49,6 +49,7 @@ with sync_playwright() as p:
     page.goto(U+'#/resumen/hoy'); page.wait_for_timeout(2500)
     print(page.locator('.rs-noti b').all_inner_texts(), page.locator('.rs-noti .rs-aviso-et').all_inner_texts())
     temas=set(page.locator('.rs-noti .rs-aviso-et').all_inner_texts())
+    chk(not any('Champions' in x for x in page.locator('.rs-noti b').all_inner_texts()), 'sin deportes')
     chk(len(temas)>=4 and len(rss)==1, f'varios temas con un solo pedido ({len(temas)} temas, {len(rss)} pedidos)')
     chk(page.locator('.rs-noti').count()==6, f'6 noticias en Hoy ({page.locator(".rs-noti").count()})')
     chk(page.locator('.rs-clima').count()==1, 'tiempo en Hoy')
