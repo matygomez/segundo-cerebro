@@ -97,11 +97,29 @@ with sync_playwright() as p:
     chk(page.locator('.bt-or-sec:has-text("Ya ubicados")').count()==1 and page.locator('.bt-or-item:has-text("agua"):has-text("Casa › Luz") button:has-text("Reintentar ahora")').count()==1,'apartado sin leer en Para revisar')
     page.screenshot(path=S+f'car_sinleer_{w}.png', full_page=True)
     page.goto(U+f'#/bitacora/n/{agua[0]["id"]}' if agua else U); page.wait_for_timeout(1500)
-    chk(page.locator('.bt-ficha button:has-text("Reintentar ahora")').count()==1,'reintentar en la nota')
+    chk(page.locator('.bt-ficha button:has-text("Leer con Gemini")').count()==1 and page.locator('.bt-ficha button:has-text("Listo, completado")').count()==1,'botones leer y completado en la nota')
     est['falla']=False
-    page.locator('.bt-ficha button:has-text("Reintentar ahora")').click(); page.wait_for_timeout(2500)
+    page.locator('.bt-ficha button:has-text("Leer con Gemini")').click(); page.wait_for_timeout(2500)
     r=page.evaluate(NOTAS)
     chk(any(x['a']['lectura']=='lista' for x in r['notas'] if x['id']==(agua[0]['id'] if agua else '')),'reintento completó')
+    # Completado a mano: sale de Para revisar
+    est['falla']=True
+    page.goto(U+f'#/bitacora/c/{ids["luz"]}'); page.wait_for_timeout(1000)
+    page.locator('.bt-nueva').first.click(); page.wait_for_timeout(300)
+    with page.expect_file_chooser() as fc: page.locator('dialog[open] .bt-menu-op:has-text("Subir archivo acá")').click()
+    fc.value.set_files(files=[{'name':'gas.pdf','mimeType':'application/pdf','buffer':pdf('Gas 1234')}])
+    page.wait_for_timeout(2000)
+    gas=[x for x in page.evaluate(NOTAS)['notas'] if x['titulo']=='gas'][0]
+    page.goto(U+f'#/bitacora/n/{gas["id"]}'); page.wait_for_timeout(1500)
+    page.locator('.bt-ficha button:has-text("Listo, completado")').click(); page.wait_for_timeout(800)
+    chk([x for x in page.evaluate(NOTAS)['notas'] if x['id']==gas['id']][0]['a']['lectura']=='lista','completado a mano')
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    chk(page.locator('.bt-or-item:has-text("gas")').count()==0,'sale de Para revisar')
+    # Forzar lectura aunque esté completado
+    est['falla']=False
+    page.goto(U+f'#/bitacora/n/{gas["id"]}'); page.wait_for_timeout(1200)
+    n0=est['pedidos']; page.locator('.bt-ficha button:has-text("Leer con Gemini")').click(); page.wait_for_timeout(2500)
+    chk(est['pedidos']==n0+1,'forzar lectura')
     # Buscador
     res=page.evaluate("""async () => { const B = await import('/js/core/busqueda.js'); return (await B.buscar('312 kWh')).map(x => x.titulo); }""")
     chk('2026-10 Luz Edenor' in res,'buscador encuentra')

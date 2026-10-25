@@ -175,10 +175,10 @@ const enCola = (fn) => { const p = cola.then(fn, fn); cola = p.catch(() => {}); 
 const ESPERAS = [1, 2, 5, 15, 30, 60];
 const enCurso = new Set();
 
-async function leerPendiente(ctx, m, id, blob) {
+async function leerPendiente(ctx, m, id, blob, forzar = false) {
   const col = m.col.pendientes;
   const p = await col.obtener(id);
-  if (!p || p.estado === 'listo') return;
+  if (!p || (p.estado === 'listo' && !forzar)) return;
   const d = await m.cargar();
   const clave = d.ajuste('gemini')?.api;
   const enEspera = async (texto) => {
@@ -196,10 +196,10 @@ async function leerPendiente(ctx, m, id, blob) {
   }
 }
 
-function aLaCola(ctx, m, id, blob = null) {
+function aLaCola(ctx, m, id, blob = null, forzar = false) {
   if (enCurso.has(id)) return;
   enCurso.add(id);
-  enCola(() => leerPendiente(ctx, m, id, blob)).finally(() => enCurso.delete(id));
+  enCola(() => leerPendiente(ctx, m, id, blob, forzar)).finally(() => enCurso.delete(id));
 }
 
 // Mientras la app está abierta, revisa cada medio minuto si hay archivos
@@ -228,11 +228,12 @@ export function reintentarSolo(ctx, m) {
 // fondo (con la carpeta ya decidida) y completa nombre, datos y lo que dice
 // adentro. Si encuentra vencimiento o monto, la nota ofrece crear la tarea
 // o cargar el gasto ("sugerir").
-async function leerNota(ctx, m, id, blob) {
+// forzar: leerla aunque ya esté leída o completada a mano ("Leer con Gemini").
+async function leerNota(ctx, m, id, blob, forzar = false) {
   const d = await m.cargar();
   const n = d.nota(id);
   const a = n?.archivo;
-  if (!a || n.papelera || a.lectura === 'lista' || !a.lectura) return;
+  if (!a || n.papelera || (!forzar && (a.lectura === 'lista' || !a.lectura))) return;
   const guardarLectura = async (cambios) => { const x = (await m.cargar()).nota(id); if (x?.archivo) await m.guardarNota(id, { archivo: { ...x.archivo, ...cambios } }); };
   const enEspera = async (texto) => {
     const intentos = (a.intentos || 0) + 1;
@@ -245,7 +246,7 @@ async function leerNota(ctx, m, id, blob) {
     const principal = (n.adjuntos || []).find(x => x.principal);
     const pr = await leerConGemini(clave, blob || await ctx.archivos.descargar(principal), a.original || n.titulo, d, { carpetaFija: n.carpetaId || null });
     const ahora = (await m.cargar()).nota(id);
-    if (!ahora?.archivo) return;
+    if (!ahora?.archivo || ahora.archivo.lectura !== 'leyendo') return;   // la marcaste como completada mientras tanto
     const x = ahora.archivo;
     // Lo que ya completaste a mano no se pisa.
     const cambios = { archivo: { ...x, que: x.que || pr.que, de: x.de || pr.de, fecha: x.fecha || pr.fecha, vence: x.vence || pr.vence, monto: x.monto || pr.monto,
@@ -261,11 +262,11 @@ async function leerNota(ctx, m, id, blob) {
   }
 }
 
-export function aLaColaNota(ctx, m, id, blob = null) {
+export function aLaColaNota(ctx, m, id, blob = null, forzar = false) {
   const k = `nota:${id}`;
   if (enCurso.has(k)) return;
   enCurso.add(k);
-  enCola(() => leerNota(ctx, m, id, blob)).finally(() => enCurso.delete(k));
+  enCola(() => leerNota(ctx, m, id, blob, forzar)).finally(() => enCurso.delete(k));
 }
 
 export async function subirACarpeta(ctx, m, lista, carpetaId) {
@@ -349,7 +350,7 @@ export async function recibirArchivos(ctx, m, lista, via) {
   return nuevos;
 }
 
-export const reintentar = (ctx, m, p) => aLaCola(ctx, m, p.id);
+export const reintentar = (ctx, m, p, forzar = false) => aLaCola(ctx, m, p.id, null, forzar);
 
 // Elegir archivos del dispositivo.
 function elegirDelDispositivo(ctx, m) {
@@ -543,6 +544,7 @@ export async function revisar(ctx, m, p) {
   { botones: [
     h('button', { type: 'button', class: 'boton peligro', onclick: descartar }, repetida ? 'No guardar' : 'Descartar'),
     h('span', { class: 'bt-espacio' }),
+    h('button', { type: 'button', class: 'boton', onclick: () => { reintentar(ctx, m, p, true); dlg.close(); ctx.aviso('Gemini lo está leyendo. Cuando termine, lo ves en la lista.'); } }, 'Leer con Gemini'),
     h('button', { type: 'button', class: 'boton principal', onclick: confirmar }, repetida ? 'Guardar igual' : 'Confirmar')] });
   // La casilla de mensual solo tiene sentido si la carpeta elegida no es ya mensual.
   actualizarMensual = () => { mensual.parentElement.hidden = !!destino && mensuales.some(x => x.carpetaId === destino); };
@@ -693,8 +695,7 @@ export function fichaArchivo(ctx, m, n) {
 
   // Lectura de Gemini (archivos subidos directo a una carpeta).
   const lectura = a.lectura === 'leyendo' ? h('p', { class: 'bt-or-duda' }, 'Gemini está leyendo el archivo para completar los datos…')
-    : a.lectura === 'espera' ? h('p', { class: 'bt-or-duda' }, `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}. `,
-      h('button', { type: 'button', class: 'boton bt-chico', onclick: () => aLaColaNota(ctx, m, n.id) }, 'Reintentar ahora'))
+    : a.lectura === 'espera' ? h('p', { class: 'bt-or-duda' }, `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}.`)
       : a.lectura === 'error' ? h('p', { class: 'bt-or-duda' }, `${a.error} Podés completar los datos a mano.`) : null;
 
   // Sugerencias: tarea por el vencimiento y gasto en Finanzas.
@@ -716,9 +717,18 @@ export function fichaArchivo(ctx, m, n) {
     sug.gasto && a.monto ? h('div', { class: 'bt-or-sug' }, h('span', {}, `Monto ${plata(a.monto)}. ¿Lo cargo en Finanzas?`), h('button', { type: 'button', class: 'boton principal', onclick: cargarGasto }, 'Cargar gasto')) : null,
     h('button', { type: 'button', class: 'bt-link-chico bt-ficha-no', onclick: () => guardar({ sugerir: {} }) }, 'No, gracias')) : null;
 
+  // Botones de Revisar: leer ahora (aunque ya esté leído) y marcarlo como completado a mano.
+  const enRevisar = a.lectura && a.lectura !== 'lista';
+  const leerAhora = () => { aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Gemini lo está leyendo. Lo que completaste a mano no se pisa.'); };
+  const completado = async () => { await guardar({ lectura: 'lista', error: '' }); ctx.aviso('Listo: salió de Para revisar.'); };
+  const acciones = p ? h('div', { class: 'bt-ficha-bot' },
+    h('button', { type: 'button', class: 'boton', disabled: a.lectura === 'leyendo', onclick: leerAhora }, a.lectura === 'leyendo' ? 'Leyendo…' : 'Leer con Gemini'),
+    enRevisar ? h('button', { type: 'button', class: 'boton principal', onclick: completado }, ic('tilde'), 'Listo, completado') : null) : null;
+
   return h('div', { class: 'bt-ficha' },
     p ? portada(ctx, p) : null,
     lectura,
+    acciones,
     sugerencias,
     h('div', { class: 'bt-ficha-datos' }, dato('Qué es', a.que), dato('De', a.de), dato('Fecha', a.fecha ? fechaCorta(a.fecha) : ''), dato('Monto', a.monto ? plata(a.monto) : ''), dato('Vence', a.vence ? fechaCorta(a.vence) : '')),
     h('div', { class: 'bt-ficha-bot' },
