@@ -21,6 +21,15 @@ export function abrirMovimiento(ctx, m, d, tipo, mov = null, base = {}) {
   const filas = [campo(ctx, 'Importe', importe)];
   let validar, armar;
 
+  // Ventanita de la app de Android: arriba se cambia entre gasto, ingreso y transferencia.
+  if (base.alCambiarTipo && !mov) {
+    const NOMBRES = { gasto: 'Gasto', ingreso: 'Ingreso', transferencia: 'Transferencia' };
+    filas.unshift(h('div', { class: 'fz-tipos', role: 'group', 'aria-label': 'Tipo' }, Object.keys(NOMBRES).map(t => h('button', {
+      type: 'button', 'aria-pressed': String(t === tipo),
+      onclick: (e) => { if (t === tipo) return; base.alCambiarTipo(t, importe.value); e.target.closest('dialog').close(); },
+    }, NOMBRES[t]))));
+  }
+
   if (tipo === 'gasto') {
     const valorMedio = v.creditoId ? `t:${v.creditoId}` : v.sinDescontar ? 'y:' : v.cuentaId ? `c:${v.cuentaId}` : '';
     const medio = selectCuentas(ctx, d, { tipos: ['cuenta', 'reserva'], creditos: true, valor: valorMedio, yaHecho: esAjuste ? null : 'Ya pagado' });

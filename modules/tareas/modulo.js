@@ -258,6 +258,24 @@ export default {
     'sistema-pendientes': (datos, ctx) => crearModelo(ctx).pendientesDeSistema(String(datos?.prefijo || '')),
     'sistema-sincronizar': (datos, ctx) => crearModelo(ctx).sincronizarSistema(datos || {}),
 
+    // App de Android: ventanita "Nueva tarea". Termina cuando se cierra.
+    async 'nueva-tarea-ventana'(_, ctx) {
+      cargarEstilos();
+      const m = crearModelo(ctx);
+      const d = await m.cargar();
+      return new Promise((listo) => abrirEditor(ctx, m, d, null, {}, { alCerrar: () => listo(true) }));
+    },
+    // App de Android: tareas pendientes para el widget y los avisos (sin las ocultas ni los eventos).
+    async 'tareas-android'(_, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const BANDEJA = 'Bandeja';
+      const tareas = d.tareas.filter(t => !hecha(t) && !t.aviso && !d.enOculto?.(t)).slice(0, 400).map(t => ({
+        id: t.id, titulo: t.titulo, area: d.area(t.areaId)?.nombre || BANDEJA, proyecto: d.proyecto(t.proyectoId)?.nombre || '',
+        fecha: t.fecha || '', hora: t.hora || '', recordatorio: t.recordatorio || '',
+      }));
+      return { areas: [BANDEJA, ...d.areas.filter(a => !a.archivada).map(a => a.nombre)], tareas };
+    },
+
     async 'crear-tarea'(datos, ctx) {
       const { titulo, fecha = '', hora = '', notas = '' } = datos || {};
       return crearModelo(ctx).crearTarea({ titulo, fecha, hora, notas });

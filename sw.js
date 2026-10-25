@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.26.6';
+const VERSION = 'sc-0.27.0';
 
 const ARCHIVOS = [
   './',
@@ -20,6 +20,7 @@ const ARCHIVOS = [
   './js/modulos.js',
   './js/core/ajustes.js',
   './js/core/android.js',
+  './js/core/android-app.js',
   './js/core/archivos.js',
   './js/core/datos.js',
   './js/core/db.js',

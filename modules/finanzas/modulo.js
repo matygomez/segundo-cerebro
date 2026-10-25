@@ -107,6 +107,21 @@ export default {
       return !!(await abrirMovimiento(ctx, m, await m.cargar(), 'gasto', null, { importe, descripcion, ...(fecha ? { fecha } : {}) }));
     },
 
+    // Botón Finanzas de la app de Android: abre en gasto y deja cambiar el tipo.
+    // Devuelve true si se guardó algo.
+    async 'movimiento-rapido'({ tipo = 'gasto' } = {}, ctx) {
+      cargarEstilos();
+      const m = crearModelo(ctx);
+      let siguiente = tipo, importe = '';
+      while (siguiente) {
+        const actual = siguiente;
+        siguiente = null;
+        const alCambiarTipo = (t, imp) => { siguiente = t; importe = imp; };
+        if (await abrirMovimiento(ctx, m, await m.cargar(), actual, null, { importe, alCambiarTipo })) return true;
+      }
+      return false;
+    },
+
     // Para las metas de Hábitos: cuentas y categorías que se pueden elegir.
     async 'metas-cuentas'(_, ctx) {
       const d = await crearModelo(ctx).cargar();

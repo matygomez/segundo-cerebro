@@ -22,20 +22,20 @@ import java.util.ArrayList;
 import java.util.List;
 
 // Lo que la app web le puede pedir a Android (window.CerebroAndroid en js/core/android.js).
-// Las respuestas vuelven llamando a window.__cerebroAndroid.token(...).
+// Las respuestas del inicio de sesión vuelven llamando a window.__cerebroAndroid.token(...).
 public class Puente {
 
-    private final MainActivity act;
+    private final BaseWeb act;
     private final WebView web;
     volatile String urlActual = "";
 
-    Puente(MainActivity act, WebView web) {
+    Puente(BaseWeb act, WebView web) {
         this.act = act;
         this.web = web;
     }
 
     private boolean permitido() {
-        return MainActivity.esNuestra(urlActual);
+        return BaseWeb.esNuestra(urlActual);
     }
 
     @JavascriptInterface
@@ -52,6 +52,93 @@ public class Puente {
         act.runOnUiThread(() -> act.abrirAfuera(u));
     }
 
+    // ── Ventanitas y pedidos ──
+
+    @JavascriptInterface
+    public String ventana() {
+        return permitido() ? act.ventana() : "";
+    }
+
+    @JavascriptInterface
+    public void cerrarVentana(boolean guardado) {
+        if (permitido()) act.runOnUiThread(() -> act.cerrarVentana(guardado));
+    }
+
+    @JavascriptInterface
+    public String tomarAccion() {
+        if (!permitido()) return "";
+        String[] r = {""};
+        esperarEnPantalla(() -> r[0] = act.tomarAccion());
+        return r[0];
+    }
+
+    @JavascriptInterface
+    public String tomarCompartido() {
+        if (!permitido()) return "";
+        String[] r = {""};
+        esperarEnPantalla(() -> r[0] = act.tomarCompartido());
+        return r[0];
+    }
+
+    @JavascriptInterface
+    public void volver() {
+        if (permitido()) act.runOnUiThread(act::volver);
+    }
+
+    // Los pedidos se guardan en la pantalla; se leen ahí para no mezclarse.
+    private void esperarEnPantalla(Runnable r) {
+        final Object listo = new Object();
+        final boolean[] hecho = {false};
+        act.runOnUiThread(() -> {
+            r.run();
+            synchronized (listo) { hecho[0] = true; listo.notifyAll(); }
+        });
+        synchronized (listo) {
+            long hasta = System.currentTimeMillis() + 2000;
+            while (!hecho[0] && System.currentTimeMillis() < hasta) {
+                try { listo.wait(200); } catch (InterruptedException e) { return; }
+            }
+        }
+    }
+
+    // ── Avisos y widget ──
+
+    @JavascriptInterface
+    public void guardarTareas(String json) {
+        if (permitido()) Avisos.guardarTareas(act.getApplicationContext(), json);
+    }
+
+    @JavascriptInterface
+    public String ajustesAvisos() {
+        return permitido() ? Avisos.ajustes(act).toString() : "";
+    }
+
+    @JavascriptInterface
+    public void guardarAjustesAvisos(String json) {
+        if (permitido()) Avisos.guardarAjustes(act.getApplicationContext(), json);
+    }
+
+    @JavascriptInterface
+    public String estadoAvisos() {
+        return permitido() ? Avisos.estado(act).toString() : "";
+    }
+
+    @JavascriptInterface
+    public void pedirPermisoNotificaciones() {
+        if (permitido()) act.runOnUiThread(act::pedirPermisoNotificaciones);
+    }
+
+    @JavascriptInterface
+    public void abrirAjuste(String cual) {
+        if (permitido()) act.runOnUiThread(() -> act.abrirAjuste(cual));
+    }
+
+    @JavascriptInterface
+    public String probarNotificacion() {
+        return permitido() ? Avisos.probar(act) : "";
+    }
+
+    // ── Inicio de sesión de Google ──
     // Pide a Google el permiso de Drive (y Calendario) con la cuenta del teléfono.
     // Google no deja iniciar sesión con su ventana web adentro de una app,
     // por eso en Android se usa esto en lugar de accounts.google.com.

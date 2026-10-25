@@ -4,6 +4,12 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Clima del Resumen y supermercados cercanos en Compras -->
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <!-- Avisos: notificaciones a la hora justa, también después de reiniciar el teléfono -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" android:maxSdkVersion="32" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
 
     <application
         android:label="@string/app_name"
@@ -23,6 +29,75 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- "Compartir" desde otras apps: va a la Bitácora, como en la versión web -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
         </activity>
+
+        <!-- Ventanitas del panel: tarea aparte, para no traer la app al frente -->
+        <activity
+            android:name=".VentanaActivity"
+            android:exported="false"
+            android:theme="@style/Tema.Transparente"
+            android:taskAffinity="ar.matygomez.segundocerebro.ventana"
+            android:launchMode="singleTask"
+            android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboard|keyboardHidden|uiMode|density"
+            android:windowSoftInputMode="adjustResize" />
+
+        <activity
+            android:name=".WidgetOpciones"
+            android:exported="false"
+            android:theme="@style/Tema.Transparente"
+            android:taskAffinity="ar.matygomez.segundocerebro.widget"
+            android:excludeFromRecents="true" />
+
+        <receiver android:name=".AlarmaReceptor" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <receiver android:name=".TareasWidget" android:exported="true" android:label="@string/widget_tareas">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/widget_tareas" />
+        </receiver>
+
+        <service
+            android:name=".WidgetServicio"
+            android:exported="false"
+            android:permission="android.permission.BIND_REMOTEVIEWS" />
+
+        <service
+            android:name=".Botones$Finanzas"
+            android:exported="true"
+            android:icon="@drawable/ic_finanzas"
+            android:label="@string/boton_finanzas"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service
+            android:name=".Botones$Tarea"
+            android:exported="true"
+            android:icon="@drawable/ic_tarea"
+            android:label="@string/boton_tarea"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
+        <service
+            android:name=".Botones$Anotar"
+            android:exported="true"
+            android:icon="@drawable/ic_anotar"
+            android:label="@string/boton_anotar"
+            android:permission="android.permission.BIND_QUICK_SETTINGS_TILE">
+            <intent-filter><action android:name="android.service.quicksettings.action.QS_TILE" /></intent-filter>
+        </service>
     </application>
 </manifest>

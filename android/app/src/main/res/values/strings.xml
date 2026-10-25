@@ -1,4 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Segundo Cerebro</string>
+    <string name="app_name">Cerebro</string>
+    <string name="boton_finanzas">Finanzas</string>
+    <string name="boton_tarea">Nueva tarea</string>
+    <string name="boton_anotar">Anotar</string>
+    <string name="widget_tareas">Tareas</string>
 </resources>

@@ -617,3 +617,7 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
 .bq-desp .bq-r { padding: 0.45rem 0.8rem; }
 .bq-mas { display: block; width: 100%; text-align: left; padding: 0.6rem 0.8rem; border: 0; border-top: 1px solid var(--linea); background: none; color: var(--laton); font: inherit; font-size: 0.86rem; cursor: pointer; }
 @media (max-width: 899px) { .barra { gap: 0.5rem; padding-left: 0.85rem; padding-right: 0.85rem; } }
+
+/* Ajustes › App de Android */
+.aj-estado-ok { color: var(--verde); font-weight: 600; white-space: nowrap; }
+.aj-dos { display: inline-flex; align-items: center; gap: 0.5rem; }

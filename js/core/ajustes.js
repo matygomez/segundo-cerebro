@@ -6,6 +6,7 @@
 
 import * as drive from './drive.js';
 import * as android from './android.js';
+import { seccionAjustes as seccionAndroid } from './android-app.js';
 import * as db from './db.js';
 import { sincronizar, estadoSync } from './sincronizacion.js';
 import { escuchar } from './eventos.js';
@@ -209,9 +210,11 @@ export function pantallaAjustes(contenedor) {
     );
   }
 
+  const [seccionApp, quitarApp] = seccionAndroid();
   contenedor.replaceChildren(
     h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Ajustes')),
     seccionDrive,
+    seccionApp,
     seccionModulos,
     seccionBarra,
     seccionIni,
@@ -231,5 +234,5 @@ export function pantallaAjustes(contenedor) {
     escuchar('datos', dibujarDispositivo),
     escuchar('preferencias', () => { dibujarModulos(); dibujarBarra(); }),
   ];
-  return () => { quitar.forEach(q => q()); quitarInicio(); };
+  return () => { quitar.forEach(q => q()); quitarInicio(); quitarApp(); };
 }

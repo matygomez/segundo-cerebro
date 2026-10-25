@@ -43,3 +43,25 @@ export async function hayVersionNueva() {
 export function bajarVersionNueva() {
   nativo()?.abrirAfuera(DESCARGA);
 }
+
+// ── Lo demás que ofrece la app (botones, avisos, widget) ──
+// Cada función devuelve algo razonable si la app instalada es vieja y no la tiene.
+const llamar = (nombre, ...args) => {
+  try { return typeof nativo()?.[nombre] === 'function' ? nativo()[nombre](...args) : undefined; } catch { return undefined; }
+};
+const json = (texto, siNo) => { try { return texto ? JSON.parse(texto) : siNo; } catch { return siNo; } };
+
+// Qué abrió la ventanita del panel ('finanzas', 'tarea', 'anotar'); '' en la app normal.
+export const ventana = () => llamar('ventana') || '';
+export const cerrarVentana = (guardado) => llamar('cerrarVentana', !!guardado);
+// Pedido que llegó desde el widget o una notificación ('abrir-tarea:<id>', 'actualizar', …).
+export const tomarAccion = () => llamar('tomarAccion') || '';
+export const volver = () => llamar('volver');
+export const guardarTareas = (datos) => llamar('guardarTareas', JSON.stringify(datos));
+export const ajustesAvisos = () => json(llamar('ajustesAvisos'), null);
+export const guardarAjustesAvisos = (datos) => llamar('guardarAjustesAvisos', JSON.stringify(datos));
+export const estadoAvisos = () => json(llamar('estadoAvisos'), null);
+export const pedirPermisoNotificaciones = () => llamar('pedirPermisoNotificaciones');
+export const abrirAjuste = (cual) => llamar('abrirAjuste', cual);
+export const probarNotificacion = () => llamar('probarNotificacion') || 'vieja';
+export const tomarCompartido = () => json(llamar('tomarCompartido'), null);

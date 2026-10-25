@@ -1,87 +1,63 @@
 package ar.matygomez.segundocerebro;
 
 import android.Manifest;
-import android.content.ActivityNotFoundException;
-import android.content.ClipData;
+import android.content.ContentResolver;
 import android.content.Intent;
 import android.content.pm.PackageManager;
-import android.graphics.Color;
+import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.webkit.CookieManager;
-import android.webkit.GeolocationPermissions;
-import android.webkit.ValueCallback;
-import android.webkit.WebChromeClient;
+import android.provider.OpenableColumns;
+import android.util.Base64;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
-import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
-import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
-import androidx.activity.result.ActivityResultLauncher;
-import androidx.activity.result.IntentSenderRequest;
-import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.core.graphics.Insets;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import androidx.core.view.WindowInsetsControllerCompat;
 
-// La app de Android es una ventana que abre la misma app web de GitHub Pages.
-// Así casi todas las actualizaciones siguen llegando solas, como en el navegador.
-// Lo propio de Android (inicio de sesión de Google, y más adelante widget,
-// botones y avisos) se le ofrece a la web a través de Puente.
-public class MainActivity extends ComponentActivity {
+import org.json.JSONArray;
+import org.json.JSONObject;
 
-    static final String HOST = "matygomez.github.io";
-    static final String RUTA = "/segundo-cerebro";
-    static final String INICIO = "https://" + HOST + RUTA + "/#/home";
-    private static final int PAPEL = Color.parseColor("#0B0B0C");
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.util.ArrayList;
+import java.util.List;
 
-    private WebView web;
-    private Puente puente;
-    private ValueCallback<Uri[]> archivosPendientes;
-    private GeolocationPermissions.Callback ubicacionPendiente;
-    private String origenUbicacion;
+// La app: una ventana que abre la misma app web de GitHub Pages, así casi todas
+// las actualizaciones siguen llegando solas, como en el navegador.
+// También recibe los pedidos del widget, de las notificaciones y de "Compartir".
+public class MainActivity extends BaseWeb {
 
-    private final ActivityResultLauncher<Intent> elegirArchivos = registerForActivityResult(
-            new ActivityResultContracts.StartActivityForResult(), r -> {
-                if (archivosPendientes == null) return;
-                archivosPendientes.onReceiveValue(archivosElegidos(r.getResultCode(), r.getData()));
-                archivosPendientes = null;
-            });
+    // Extra con un pedido para la web: 'abrir-tarea:<id>', 'completar:<id>', 'tareas', 'actualizar'.
+    static final String EXTRA_ACCION = "accion";
+    private static final int MAXIMO_ARCHIVO = 20 * 1024 * 1024;
 
-    private final ActivityResultLauncher<String> pedirUbicacion = registerForActivityResult(
-            new ActivityResultContracts.RequestPermission(), ok -> {
-                if (ubicacionPendiente != null) ubicacionPendiente.invoke(origenUbicacion, ok, false);
-                ubicacionPendiente = null;
-            });
+    private String accionPendiente = "";
+    private String compartidoPendiente = "";
 
-    final ActivityResultLauncher<IntentSenderRequest> permisoGoogle = registerForActivityResult(
-            new ActivityResultContracts.StartIntentSenderForResult(),
-            r -> puente.alVolverDeGoogle(r.getResultCode(), r.getData()));
-
-    // Solo la app propia puede usar el puente y abrirse adentro; el resto va al navegador.
-    static boolean esNuestra(String url) {
-        if (url == null) return false;
-        Uri u = Uri.parse(url);
-        String ruta = u.getPath() == null ? "" : u.getPath();
-        return "https".equals(u.getScheme()) && HOST.equals(u.getHost()) && ruta.startsWith(RUTA);
+    static Intent intentAccion(android.content.Context ctx, String accion) {
+        return new Intent(ctx, MainActivity.class)
+                .putExtra(EXTRA_ACCION, accion)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
     }
 
     @Override
     protected void onCreate(Bundle guardado) {
         super.onCreate(guardado);
         prepararVentana();
+        Avisos.crearCanales(this);
 
-        web = new WebView(this);
-        web.setBackgroundColor(PAPEL);
         FrameLayout raiz = new FrameLayout(this);
         raiz.setBackgroundColor(PAPEL);
-        raiz.addView(web);
+        raiz.addView(crearWeb(false));
         // La web queda entre la barra de arriba y la de abajo, y se achica con el teclado.
         ViewCompat.setOnApplyWindowInsetsListener(raiz, (v, ins) -> {
             Insets b = ins.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.ime());
@@ -89,22 +65,7 @@ public class MainActivity extends ComponentActivity {
             return WindowInsetsCompat.CONSUMED;
         });
         setContentView(raiz);
-
-        WebSettings s = web.getSettings();
-        s.setJavaScriptEnabled(true);
-        s.setDomStorageEnabled(true);
-        s.setDatabaseEnabled(true);
-        s.setGeolocationEnabled(true);
-        s.setAllowFileAccess(false);
-        s.setUserAgentString(s.getUserAgentString() + " SegundoCerebroAndroid/" + BuildConfig.VERSION_CODE);
-
-        puente = new Puente(this, web);
-        web.addJavascriptInterface(puente, "CerebroAndroid");
         web.setWebViewClient(new Navegacion());
-        web.setWebChromeClient(new Ventanas());
-        web.setDownloadListener((url, agente, disposicion, tipo, largo) -> {
-            if (url.startsWith("http")) abrirAfuera(Uri.parse(url));
-        });
 
         getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
             @Override
@@ -114,7 +75,26 @@ public class MainActivity extends ComponentActivity {
             }
         });
 
+        procesar(getIntent());
         if (guardado == null || web.restoreState(guardado) == null) web.loadUrl(INICIO);
+        pedirPermisoLaPrimeraVez();
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        procesar(intent);
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // Lo guardado desde una ventanita del panel: la app vuelve a leer los datos.
+        if (Avisos.prefs(this).getBoolean(Avisos.RECARGAR, false)) {
+            Avisos.prefs(this).edit().putBoolean(Avisos.RECARGAR, false).apply();
+            web.reload();
+        }
     }
 
     private void prepararVentana() {
@@ -124,22 +104,120 @@ public class MainActivity extends ComponentActivity {
         barras.setAppearanceLightNavigationBars(false);
     }
 
-    void abrirAfuera(Uri u) {
-        try {
-            startActivity(new Intent(Intent.ACTION_VIEW, u));
-        } catch (ActivityNotFoundException e) { /* no hay con qué abrirlo */ }
+    // Android 13 o más: la primera vez se pide el permiso de notificaciones.
+    private void pedirPermisoLaPrimeraVez() {
+        if (Build.VERSION.SDK_INT < 33) return;
+        if (checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return;
+        if (Avisos.prefs(this).getBoolean("permisoPedido", false)) return;
+        Avisos.prefs(this).edit().putBoolean("permisoPedido", true).apply();
+        pedirPermisoNotificaciones();
     }
 
-    // Un archivo o varios, según lo que devuelva el selector de Android.
-    private static Uri[] archivosElegidos(int resultado, Intent datos) {
-        if (resultado != RESULT_OK || datos == null) return null;
-        ClipData varios = datos.getClipData();
-        if (varios != null) {
-            Uri[] lista = new Uri[varios.getItemCount()];
-            for (int i = 0; i < lista.length; i++) lista[i] = varios.getItemAt(i).getUri();
-            return lista;
+    // ── Pedidos para la web ──
+
+    private void procesar(Intent intent) {
+        if (intent == null) return;
+        String accion = intent.getStringExtra(EXTRA_ACCION);
+        if (accion != null && !accion.isEmpty()) {
+            intent.removeExtra(EXTRA_ACCION);   // que no se repita al girar o volver
+            if (accion.startsWith("completar:")) Avisos.cancelarTarea(this, accion.substring(10));
+            accionPendiente = accion;
+            entregarAccion();
+            return;
         }
-        return datos.getData() != null ? new Uri[]{datos.getData()} : null;
+        String tipo = intent.getAction();
+        if (Intent.ACTION_SEND.equals(tipo) || Intent.ACTION_SEND_MULTIPLE.equals(tipo)) {
+            intent.setAction(Intent.ACTION_MAIN);
+            leerCompartido(intent);
+        }
+    }
+
+    // Si la web ya está abierta, se le avisa; si está cargando, lo pide sola al arrancar.
+    private void entregarAccion() {
+        if (web == null) return;
+        web.post(() -> web.evaluateJavascript(
+                "window.__cerebroAndroid && window.__cerebroAndroid.accion && window.__cerebroAndroid.accion()", null));
+    }
+
+    @Override
+    String tomarAccion() {
+        String a = accionPendiente;
+        accionPendiente = "";
+        return a;
+    }
+
+    @Override
+    String tomarCompartido() {
+        String c = compartidoPendiente;
+        compartidoPendiente = "";
+        return c;
+    }
+
+    // Lo que llega de "Compartir": texto, link y archivos (leídos aparte para no trabar la pantalla).
+    private void leerCompartido(Intent intent) {
+        final String titulo = texto(intent.getStringExtra(Intent.EXTRA_SUBJECT));
+        final String texto = texto(intent.getStringExtra(Intent.EXTRA_TEXT));
+        final List<Uri> uris = new ArrayList<>();
+        if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction()) || intent.hasExtra(Intent.EXTRA_STREAM)) {
+            ArrayList<Uri> varios = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+            if (varios != null) uris.addAll(varios);
+            else {
+                Uri uno = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+                if (uno != null) uris.add(uno);
+            }
+        }
+        new Thread(() -> {
+            JSONObject o = new JSONObject();
+            try {
+                boolean esLink = texto.trim().matches("https?://\\S+");
+                o.put("titulo", titulo);
+                o.put("texto", esLink ? "" : texto);
+                o.put("url", esLink ? texto.trim() : "");
+                JSONArray archivos = new JSONArray();
+                for (Uri u : uris) {
+                    JSONObject a = leerArchivo(u);
+                    if (a != null) archivos.put(a);
+                }
+                o.put("archivos", archivos);
+            } catch (Exception e) { /* se manda lo que se pudo leer */ }
+            runOnUiThread(() -> {
+                compartidoPendiente = o.toString();
+                accionPendiente = "compartir";
+                entregarAccion();
+            });
+        }).start();
+    }
+
+    private JSONObject leerArchivo(Uri u) {
+        ContentResolver cr = getContentResolver();
+        try (InputStream in = cr.openInputStream(u)) {
+            if (in == null) return null;
+            ByteArrayOutputStream salida = new ByteArrayOutputStream();
+            byte[] buf = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(buf)) > 0) {
+                salida.write(buf, 0, n);
+                if (salida.size() > MAXIMO_ARCHIVO) return null;   // demasiado grande para pasarlo a la web
+            }
+            JSONObject a = new JSONObject();
+            a.put("nombre", nombreDe(u));
+            a.put("tipo", texto(cr.getType(u)));
+            a.put("base64", Base64.encodeToString(salida.toByteArray(), Base64.NO_WRAP));
+            return a;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private String nombreDe(Uri u) {
+        try (Cursor c = getContentResolver().query(u, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) {
+            if (c != null && c.moveToFirst()) return texto(c.getString(0));
+        } catch (Exception e) { /* sin nombre */ }
+        return "";
+    }
+
+    private static String texto(String s) {
+        return s == null ? "" : s;
     }
 
     private class Navegacion extends WebViewClient {
@@ -167,39 +245,10 @@ public class MainActivity extends ComponentActivity {
             if (!pedido.isForMainFrame()) return;
             String html = "<html><body style=\"background:#0B0B0C;color:#eee;font-family:sans-serif;"
                     + "display:flex;flex-direction:column;align-items:center;justify-content:center;height:90vh;text-align:center\">"
-                    + "<p>No se pudo abrir Segundo Cerebro.<br>Revisá la conexión a internet.</p>"
+                    + "<p>No se pudo abrir Cerebro.<br>Revisá la conexión a internet.</p>"
                     + "<a href=\"" + INICIO + "\" style=\"color:#0B0B0C;background:#D3AB5C;padding:12px 20px;"
                     + "border-radius:8px;text-decoration:none\">Probar de nuevo</a></body></html>";
             v.loadDataWithBaseURL(null, html, "text/html", "utf-8", null);
-        }
-    }
-
-    private class Ventanas extends WebChromeClient {
-        @Override
-        public boolean onShowFileChooser(WebView v, ValueCallback<Uri[]> alElegir, FileChooserParams opciones) {
-            if (archivosPendientes != null) archivosPendientes.onReceiveValue(null);
-            archivosPendientes = alElegir;
-            Intent pedido = opciones.createIntent();
-            if (opciones.getMode() == FileChooserParams.MODE_OPEN_MULTIPLE) pedido.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
-            try {
-                elegirArchivos.launch(pedido);
-                return true;
-            } catch (ActivityNotFoundException e) {
-                archivosPendientes = null;
-                return false;
-            }
-        }
-
-        @Override
-        public void onGeolocationPermissionsShowPrompt(String origen, GeolocationPermissions.Callback cb) {
-            if (!HOST.equals(Uri.parse(origen).getHost())) { cb.invoke(origen, false, false); return; }
-            if (checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
-                cb.invoke(origen, true, false);
-                return;
-            }
-            ubicacionPendiente = cb;
-            origenUbicacion = origen;
-            pedirUbicacion.launch(Manifest.permission.ACCESS_COARSE_LOCATION);
         }
     }
 
@@ -207,18 +256,5 @@ public class MainActivity extends ComponentActivity {
     protected void onSaveInstanceState(Bundle estado) {
         super.onSaveInstanceState(estado);
         web.saveState(estado);
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        web.onResume();
-    }
-
-    @Override
-    protected void onPause() {
-        web.onPause();
-        CookieManager.getInstance().flush();
-        super.onPause();
     }
 }

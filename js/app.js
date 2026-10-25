@@ -15,6 +15,8 @@ import { pantallaAjustes } from './core/ajustes.js';
 import { escuchar } from './core/eventos.js';
 import { h, icono, aviso } from './core/ui.js';
 import { botonBusqueda } from './core/busqueda.js';
+import { ventana } from './core/android.js';
+import { abrirVentana, iniciarAndroid } from './core/android-app.js';
 import { cargarPreferencias, visible, barraCelular, esPC, definirOcultosPorDefecto, definirFueraDeBarra } from './core/preferencias.js';
 
 const INICIO = 'home';
@@ -225,12 +227,16 @@ async function arrancar() {
   definirOcultosPorDefecto(listaModulos().filter(m => m.ocultoPorDefecto).map(m => m.id));
   definirFueraDeBarra(listaModulos().filter(m => m.fueraDeBarra).map(m => m.id));
   await cargarPreferencias();
+  // Ventanita del panel de Android (Finanzas, Nueva tarea, Anotar): solo el formulario.
+  const cual = ventana();
+  if (cual) { abrirVentana(cual); return; }
   armarCascaron();
   window.addEventListener('hashchange', mostrar);
   await mostrar();
   iniciarSincronizacion();
   registrarServiceWorker();
   iniciarModulos();
+  iniciarAndroid();
 }
 
 arrancar();

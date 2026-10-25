@@ -4,7 +4,7 @@
 Falta probar con datos reales: Precios Claros desde el navegador (si CORS lo bloquea, queda el último precio) y links de recetas (casi todas las webs bloquean leerlas: se pega el texto).
 
 ## Pensándolo él (no empezar sin que lo pida)
-- **App de Android por etapas** (1 hecha: app base + login). Faltan: 2) botón en ajustes rápidos + notificación con botones + "Probar notificación"; 3) widget; 4) compartir a la app y avisos.
+- **App de Android:** tanda 2 hecha en 0.27.0 (botones, avisos, widget, compartir). Probar en el celular.
 
 ## Ideas ofrecidas, sin decidir
 Captura inteligente ("gasté 8500 en súper" → gasto), diario con ánimo, registro de tiro, alumnos del curso CLU, notificaciones,
