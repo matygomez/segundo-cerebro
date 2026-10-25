@@ -459,6 +459,7 @@ dialog.hoja::backdrop { background: rgb(10 15 18 / 0.45); }
 .ai-prog { display: block; background: var(--linea); border-radius: 3px; overflow: hidden; }
 .ai-prog i { display: block; height: 100%; background: var(--laton); }
 .ai-fecha { width: auto !important; min-height: 2.3rem !important; }
+.ai-vida { width: 5rem !important; min-height: 2.3rem !important; text-align: center; }
 .ai-envuelve { flex-wrap: wrap; }
 .ai-seg button { padding: 0.3rem 0.65rem; }
 .ai-frase { width: 100%; display: grid; gap: 0.4rem; }

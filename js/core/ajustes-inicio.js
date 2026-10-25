@@ -52,6 +52,13 @@ export function seccionInicio(seccion) {
     fecha.addEventListener('change', () => { cfg.nacimiento = fecha.value; guardar(); });
     const textoFrase = h('textarea', { rows: 2, placeholder: 'Tu frase (mejor corta: menos de 60 letras)', 'aria-label': 'Frase' }, cfg.fraseTexto || '');
     const autorFrase = h('input', { type: 'text', value: cfg.fraseAutor || '', placeholder: 'Autor (opcional)', 'aria-label': 'Autor de la frase' });
+    const vida = h('input', { type: 'number', min: 50, max: 120, step: 1, inputmode: 'numeric', value: cfg.vida || 100, 'aria-label': 'Años de vida', class: 'ai-vida' });
+    vida.addEventListener('change', () => {
+      const n = Math.round(Number(vida.value));
+      // Fuera de rango o vacío: se ajusta al límite más cercano en vez de ignorarlo.
+      cfg.vida = Math.min(120, Math.max(50, Number.isFinite(n) && vida.value !== '' ? n : 100));
+      guardar();
+    });
     textoFrase.addEventListener('change', () => { cfg.fraseTexto = textoFrase.value.trim(); guardar(); });
     autorFrase.addEventListener('change', () => { cfg.fraseAutor = autorFrase.value.trim(); guardar(); });
 
@@ -70,7 +77,8 @@ export function seccionInicio(seccion) {
         cfg.frase === 'auto' ? h('p', { class: 'nota ai-ancho' }, 'Una frase estoica distinta cada día (Séneca, Marco Aurelio, Epicteto). El autor va en la línea de abajo.') : null),
       cfg.frase !== 'no' ? h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Frase en una sola línea', h('small', { class: 'nota' }, ' (se achica para entrar)')),
         sw(cfg.unaLinea !== false, 'Frase en una sola línea', () => { cfg.unaLinea = cfg.unaLinea === false; guardar(); })) : null,
-      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Vida contada hasta'), h('span', { class: 'nota' }, '100 años')),
+      h('div', { class: 'aj-fila' }, h('span', { class: 'aj-nombre' }, 'Vida contada hasta', h('small', { class: 'nota' }, ' (entre 50 y 120 años)')),
+        h('span', {}, vida, h('span', { class: 'nota' }, ' años'))),
     ];
 
     // ── Qué aparece y en qué orden ──
@@ -107,10 +115,10 @@ export function seccionInicio(seccion) {
       h('p', { class: 'nota ai-pie' }, '“½” pone el cuadro a media pantalla en la PC (dos lado a lado); “Entero” ocupa todo el ancho. En el celular todo va uno abajo del otro.'),
       h('button', {
         type: 'button', class: 'boton chico', onclick: async () => {
-          if (!await confirmar('¿Volver el Inicio a como venía de fábrica? Tu fecha de nacimiento y tu frase no se tocan.', { si: 'Volver a fábrica' })) return;
-          const { nacimiento, frase, fraseTexto, fraseAutor, unaLinea } = { ...MEMENTO_INICIAL, ...estado.cfg };
+          if (!await confirmar('¿Volver el Inicio a como venía de fábrica? Tu fecha de nacimiento, los años y tu frase no se tocan.', { si: 'Volver a fábrica' })) return;
+          const { nacimiento, frase, fraseTexto, fraseAutor, unaLinea, vida } = { ...MEMENTO_INICIAL, ...estado.cfg };
           ocupado = true;
-          await guardarConfigInicio({ ...MEMENTO_INICIAL, nacimiento, frase, fraseTexto, fraseAutor, unaLinea, items: null, botones: null });
+          await guardarConfigInicio({ ...MEMENTO_INICIAL, nacimiento, frase, fraseTexto, fraseAutor, unaLinea, vida, items: null, botones: null });
           ocupado = false;
           cargar();
         },

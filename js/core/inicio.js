@@ -21,7 +21,7 @@ import { configInicio, visible } from './preferencias.js';
 const ORDEN_INICIAL = ['mm', 'resumen:aviso', 'botones', 'busqueda', 'captura', 'tareas:hoy', 'calendario:semana', 'finanzas:disponible', 'bitacora:notas', 'bitacora:viendo'];
 const BOTONES_INICIALES = ['tareas:nueva-tarea', 'finanzas:gasto', 'bitacora:nota'];
 
-export const MEMENTO_INICIAL = { nacimiento: '', estilo: 'mezcla', frase: 'auto', fraseTexto: '', fraseAutor: '', unaLinea: true };
+export const MEMENTO_INICIAL = { nacimiento: '', estilo: 'mezcla', frase: 'auto', fraseTexto: '', fraseAutor: '', unaLinea: true, vida: 100 };
 
 const opcionesDe = (lista = [], guardadas = {}) => Object.fromEntries(lista.map(o => [o.id, guardadas?.[o.id] ?? o.defecto !== false]));
 

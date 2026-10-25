@@ -21,12 +21,13 @@ const CITAS = [
   ['Hoy podés irte de la vida: actuá en consecuencia.', 'Marco Aurelio'],
   ['Empezá a vivir ahora mismo.', 'Séneca'],
 ];
-const VIDA = 100;
+// Años totales de vida que cuenta el memento mori (se elige en Configurar Inicio).
+const vidaDe = (cfg) => Math.min(120, Math.max(50, Math.round(Number(cfg?.vida) || 100)));
 const esPC = () => matchMedia('(min-width: 900px)').matches;
 const fmt = (n) => Math.max(0, Math.round(n)).toLocaleString('es-AR');
 const pct = (p) => `${Math.round(Math.max(0, Math.min(1, p)) * 100)} %`;
 
-function datosVida(nacimiento) {
+function datosVida(nacimiento, VIDA) {
   const hoy = new Date();
   const nac = new Date(`${nacimiento}T00:00`);
   if (Number.isNaN(nac.getTime()) || nac > hoy) return null;
@@ -53,7 +54,7 @@ function porcentajes() {
 // ── Memento mori ──
 function memento(ctx, cfg) {
   const { h } = ctx;
-  const d = cfg.nacimiento ? datosVida(cfg.nacimiento) : null;
+  const d = cfg.nacimiento ? datosVida(cfg.nacimiento, vidaDe(cfg)) : null;
   if (!d) {
     return h('section', { class: 'tarjeta mm' },
       h('span', { class: 'mm-etq' }, 'Memento mori'),
@@ -84,8 +85,8 @@ function memento(ctx, cfg) {
         h('div', {}, h('span', { class: 'nota' }, 'Fines de semana'), h('b', {}, fmt(d.quedan / 7))),
         h('div', {}, h('span', { class: 'nota' }, 'Veranos'), h('b', {}, String(d.anios))))];
   } else if (cfg.estilo === 'anios') {
-    cuerpo = [cab('100 años', `${d.edad} vividos · ${d.anios} por delante`),
-      h('div', { class: 'mm-anios' }, Array.from({ length: VIDA }, (_, i) => h('i', {
+    cuerpo = [cab(`${vidaDe(cfg)} años`, `${d.edad} vividos · ${d.anios} por delante`),
+      h('div', { class: 'mm-anios' }, Array.from({ length: vidaDe(cfg) }, (_, i) => h('i', {
         class: i < d.edad ? 'v' : i === d.edad ? 'a' : i % 10 === 9 ? 'd' : '',
         style: i === d.edad ? `--p:${Math.round(d.pAnio * 100)}%` : null, title: `${i} años`,
       })))];
