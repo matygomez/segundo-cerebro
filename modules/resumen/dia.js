@@ -1,21 +1,15 @@
 // ─────────────────────────────────────────────────────────────
-// Resumen del día: el tiempo, lo de hoy (tareas, vencimientos, hábitos),
-// cumpleaños y noticias de tus temas.
+// Resumen del día: el tiempo, lo de hoy (tareas, vencimientos, hábitos) y cumpleaños.
 //   - Lo de hoy se pide a Tareas y Hábitos (ctx.pedir), no se guarda.
 //   - El tiempo viene de Open-Meteo (gratis, sin clave).
-//   - Las noticias: titulares de Google Noticias una vez por día; Gemini (clave
-//     de Bitácora, acción 'gemini-preguntar') los explica. Quedan guardadas en
-//     la revisión del día.
-//   - Aprende: abrir una noticia sube su tema; "No me interesa" lo baja.
-// Ajustes (colección "ajustes", uno solo): { nombre, claveNoticias, hora, lugar, intereses, sugeridos, descartados }
+//   (Las noticias se sacaron en 0.25.5: dependían de servicios gratis que fallaban.)
+// Ajustes (colección "ajustes", uno solo): { nombre, hora, lugar }
 // ─────────────────────────────────────────────────────────────
 
-import { pedirSeguro, hoyISO, deISO, DIAS, MESES } from './datos.js';
+import { pedirSeguro, hoyISO } from './datos.js';
 
-const INTERESES = ['Economía mundial', 'Economía argentina', 'Tecnología', 'Guerras y política internacional', 'Política argentina'];
-const base = () => ({ nombre: 'Matías', hora: '05:00', lugar: { tipo: 'gps' }, intereses: INTERESES.map(nombre => ({ nombre, peso: 0 })), sugeridos: [], descartados: [] });
+const base = () => ({ nombre: 'Matías', hora: '05:00', lugar: { tipo: 'gps' } });
 const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
-const igual = (a, b) => String(a || '').trim().toLowerCase() === String(b || '').trim().toLowerCase();
 
 // ── Ajustes ──
 export async function leerAjustes(ctx) {
@@ -27,12 +21,6 @@ export async function guardarAjustes(ctx, cambios) {
   const r = (await col.listar()).sort((a, b) => (b.modificado || 0) - (a.modificado || 0))[0];
   if (r) await col.actualizar(r.id, cambios);
   else await col.crear({ ...base(), ...cambios });
-}
-// Abrir una noticia suma; "No me interesa" resta. El peso ordena lo que se le pide a Gemini.
-async function sumarPeso(ctx, tema, n) {
-  const aj = await leerAjustes(ctx);
-  const intereses = aj.intereses.map(i => (igual(i.nombre, tema) ? { ...i, peso: Math.max(-5, Math.min(10, (i.peso || 0) + n)) } : i));
-  await guardarAjustes(ctx, { intereses });
 }
 
 // ── Tiempo ──
@@ -103,214 +91,17 @@ export const abrirCumpleanos = async (ctx) => {
   ctx.navegar('tareas');
 };
 
-// ── Noticias ──
-// Los titulares vienen de Google Noticias (edición Argentina), uno o dos por tema.
-// La clave gratis de Gemini no puede buscar en Google, así que Gemini solo
-// explica cada titular (resumen y detalle), sin buscar. Si Gemini falla,
-// igual se ven los titulares con su enlace.
-const fechaLarga = (iso) => { const f = deISO(iso); return `${DIAS[f.getDay()]} ${f.getDate()} de ${MESES[f.getMonth()]} de ${f.getFullYear()}`; };
-// "Guerras y política internacional" → (guerras OR "política internacional"): con "y" Google exige todas las palabras.
-const consulta = (tema) => { const p = String(tema).split(/\s+y\s+|,/).map(x => x.trim()).filter(Boolean).map(x => (/\s/.test(x) ? `"${x}"` : x)); return p.length > 1 ? `(${p.join(' OR ')})` : p[0]; };
-const rssDe = (tema) => `https://news.google.com/rss/search?q=${encodeURIComponent(`${consulta(tema)} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
-const sinHTML = (t) => String(t || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
-// "Titular - Medio" → { titulo, fuente }
-const separar = (t) => { const k = String(t).lastIndexOf(' - '); return k > 0 ? { titulo: t.slice(0, k).trim(), fuente: t.slice(k + 3).trim() } : { titulo: String(t).trim(), fuente: '' }; };
-
-// Google Noticias no deja leerse directo desde el navegador: se pasa por un servicio
-// gratis que lo permite (si uno no responde, el otro). allorigins trae la lista
-// completa (~100); rss2json solo 10, por eso va segundo.
-async function leerRSS(url) {
-  try {
-    const r = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`);
-    if (r.ok) {
-      const xml = new DOMParser().parseFromString(await r.text(), 'text/xml');
-      const l = [...xml.querySelectorAll('item')].map(it => {
-        const val = (n) => it.querySelector(n)?.textContent || '';
-        return { ...separar(val('title')), url: val('link'), fecha: val('pubDate'), desc: sinHTML(val('description')) };
-      });
-      if (l.length) return l;
-    }
-  } catch { /* probamos el otro */ }
-  const r = await fetch(`https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`);
-  const j = r.ok ? await r.json() : null;
-  if (j?.status !== 'ok') throw new Error('No se pudieron traer los titulares.');
-  return (j.items || []).map(x => ({ ...separar(x.title), url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
-}
-
-// ¿De qué tema es un titular? Por las palabras del tema (raíz de 6 letras, sin tildes).
-const plano = (t) => String(t || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-// Palabras del tema que solas no dicen nada ("mundial" también es fútbol, "argentina" es todo).
-const VACIAS = new Set(['mundia', 'intern', 'argent', 'genera', 'actual', 'noticia']);
-const raices = (tema) => plano(tema).split(/[^a-zñ]+/).filter(w => w.length >= 4).map(w => w.slice(0, 6)).filter(w => !VACIAS.has(w));
-// Deportes y espectáculos quedan afuera, salvo que tengas un tema de eso.
-const DEPORTE = /futbol|\bgol(es)?\b|champions|partido|river|boca|seleccion|torneo|\bliga\b|tenis|\bnba\b|formula 1|\bf1\b|mundial de|copa (del|america|libertadores)|velez|racing|independiente|messi|espectacul|farandula|reality/;
-const RELACIONADAS = { econom: ['dolar', 'inflac', 'bcra', 'merca', 'bolsa', 'tasa', 'precio', 'fmi', 'reserv', 'wall st', 'accion', 'export', 'impor', 'salari', 'nafta'], tecnol: ['intelig', ' ia ', 'chip', 'apple', 'google', 'celula', 'softwa', 'digita'],
-  guerra: ['ataque', 'misil', 'ejerci', 'conflic', 'ucrani', 'rusia', 'israel', 'gaza', 'otan'], politi: ['gobier', 'congre', 'senado', 'diputa', 'milei', 'eleccio', 'minist'] };
-function puntaje(x, tema) {
-  const t = ` ${plano(`${x.titulo} ${x.desc}`)} `;
-  let p = 0;
-  for (const r of raices(tema)) { if (t.includes(r)) p += 2; for (const w of RELACIONADAS[r] || []) if (t.includes(w)) p += 1; }
-  // Tiene que haber una palabra del tema de verdad; recién ahí cuenta si es de Argentina o del mundo.
-  if (p < 1) return 0;
-  const esAR = /argentin|milei|bcra|caputo|buenos aires|kicillof|congreso nacional/.test(t);
-  if (/argentin/.test(plano(tema))) p += esAR ? 2 : -2;
-  if (/mundial|internacional/.test(plano(tema))) p += esAR ? -2 : 1;
-  return p;
-}
-
-// Con clave de NewsData.io (gratis, 200 pedidos por día): dos pedidos, noticias de Argentina
-// y del mundo en español. Después cada titular se reparte por tema igual que con Google Noticias.
-async function leerNewsData(clave) {
-  const pedir = async (extra) => {
-    const r = await fetch(`https://newsdata.io/api/1/latest?apikey=${encodeURIComponent(clave)}&language=es&${extra}`)
-      .catch(() => { throw new Error('Sin conexión con el sitio de noticias.'); });
-    if (r.status === 401 || r.status === 403) throw new Error('La clave de noticias no es válida. Revisala en Resumen › Configurar.');
-    if (r.status === 429) throw new Error('El sitio de noticias llegó al límite gratis de hoy.');
-    const j = await r.json().catch(() => null);
-    if (!r.ok || j?.status !== 'success') throw new Error(j?.results?.message || `El sitio de noticias no respondió (${r.status}).`);
-    return (j.results || []).map(x => ({ titulo: String(x.title || '').trim(), fuente: x.source_name || x.source_id || '', url: x.link, fecha: x.pubDate, desc: sinHTML(x.description) }));
-  };
-  const [ar, mundo] = await Promise.all([pedir('country=ar&category=business,politics,technology,world'), pedir('category=world,technology,business,politics').catch(() => [])]);
-  return [...ar, ...mundo];
-}
-
-// Sin clave: un solo pedido con todos tus temas juntos (el servicio gratis corta si se le piden varios seguidos).
-async function titulares(aj) {
-  const temas = [...aj.intereses].sort((a, b) => (b.peso || 0) - (a.peso || 0)).filter(i => (i.peso || 0) > -4).slice(0, 6);
-  if (!temas.length) throw new Error('Agregá algún interés en Configurar.');
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(`${temas.map(t => consulta(t.nombre)).join(' OR ')} when:1d`)}&hl=es-419&gl=AR&ceid=AR:es-419`;
-  const todos = aj.claveNoticias ? await leerNewsData(aj.claveNoticias) : await leerRSS(url);
-  // Cada titular va al tema con el que más coincide.
-  const vistos = new Set(), porTema = new Map(temas.map(t => [t.nombre, []])), sueltos = [];
-  for (const x of todos) {
-    const clave = plano(x.titulo).slice(0, 40);
-    if (!x.titulo || vistos.has(clave)) continue;
-    vistos.add(clave);
-    const deportes = aj.intereses.some(i => /deport|futbol/.test(plano(i.nombre)));
-    if (!deportes && DEPORTE.test(` ${plano(x.titulo)} `)) continue;
-    const mejor = temas.map(t => ({ t, p: puntaje(x, t.nombre) })).sort((a, b) => b.p - a.p)[0];
-    if (mejor.p > 0) porTema.get(mejor.t.nombre).push({ tema: mejor.t.nombre, ...x }); else sueltos.push(x);
-  }
-  // De a uno por tema (los de más interés primero), dando vueltas hasta llegar a 6.
-  const salida = [];
-  for (let vuelta = 0; salida.length < META && vuelta < META; vuelta++) {
-    for (const t of temas) {
-      const extra = (t.peso || 0) >= 2 && vuelta === 0 ? 2 : 1;
-      for (let k = 0; k < extra && salida.length < META; k++) { const x = porTema.get(t.nombre).shift(); if (x) salida.push(x); }
-    }
-  }
-  // Los que no encajan en ningún tema se descartan: mejor 4 bien puestas que 6 con relleno.
-  if (!salida.length) throw new Error('No llegaron titulares. Probá más tarde.');
-  return temas.flatMap(t => salida.filter(x => x.tema === t.nombre));
-}
-const META = 6;   // titulares por día
-const esperar = (ms) => new Promise(r => setTimeout(r, ms));
-
-function pregunta(aj, hoy, lista) {
-  const no = [...aj.descartados, ...aj.intereses.map(i => i.nombre), ...aj.sugeridos].join(', ');
-  return `Hoy es ${fechaLarga(hoy)}. Vivo en Argentina. Estos son titulares reales de hoy:
-${lista.map((x, k) => `${k + 1}. [${x.tema}] ${x.titulo} (${x.fuente || 'sin medio'})${x.desc && x.desc !== x.titulo ? ` — ${x.desc.slice(0, 300)}` : ''}`).join('\n')}
-
-Mis temas son: ${aj.intereses.map(i => i.nombre).join(', ')}. En "tema" poné cuál de esos le corresponde a cada titular, o "ninguno" si no encaja en ninguno (por ejemplo deportes o espectáculos).
-Para cada titular escribí un resumen de una oración y un detalle de 2 o 3 párrafos cortos (separados por una línea en blanco): qué dice la noticia y el contexto general del tema para entender por qué importa.
-Usá solo lo que dice el titular y conocimiento general: no inventes cifras, nombres ni hechos que no estén en el titular. Si no sabés algo, explicalo de forma general.
-En español rioplatense, claro para alguien que no es experto.
-Devolvé SOLO un JSON, sin nada antes ni después:
-{"noticias":[{"n":1,"tema":"...","resumen":"...","detalle":"..."}],"sugeridos":["tema nuevo"]}
-En "sugeridos" poné 2 o 3 temas nuevos que me podrían interesar (que no sean: ${no}).`;
-}
-function leerJSON(texto) {
-  const a = texto.indexOf('{'), b = texto.lastIndexOf('}');
-  try { return JSON.parse(texto.slice(a, b + 1)); } catch { return null; }
-}
-
-let buscando = null;
-// Devuelve las noticias de hoy ([] si todavía no hay).
-export async function noticias(ctx, m, { forzar = false } = {}) {
-  const hoy = hoyISO();
-  const rev = await m.leer('dia', hoy);
-  // Si hoy llegaron pocas (el servicio cortó), se reintenta cada media hora.
-  const pocas = rev?.noticias?.length && rev.noticias.length < 4 && Date.now() - (rev.noticiasIntento || 0) > 30 * 60e3;
-  if (rev?.noticias?.length && !forzar && !pocas) return rev.noticias;
-  // Si falló hace poco (sin internet o servicio caído), espera media hora antes de reintentar.
-  if (!forzar && !pocas && rev?.noticiasIntento && Date.now() - rev.noticiasIntento < 30 * 60e3) return rev?.noticias || [];
-  buscando ||= (async () => {
-    await m.guardar('dia', hoy, { noticiasIntento: Date.now() });
-    const aj = await leerAjustes(ctx);
-    let lista;
-    try { lista = await titulares(aj); } catch (e) { await m.guardar('dia', hoy, { noticiasError: e.message }); throw e; }
-    // Gemini explica cada titular; si no hay clave o falla, quedan los titulares solos.
-    let x = null;
-    if (await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) {
-      try { x = leerJSON((await ctx.pedir('gemini-preguntar', { texto: pregunta(aj, hoy, lista) }))?.texto || ''); } catch (e) { console.warn('noticias gemini', e); }
-    }
-    const final = lista.map((n, k) => ({ n, k, g: (x?.noticias || []).find(y => Number(y.n) === k + 1) || {} }))
-      .filter(({ g }) => !/^ningun/i.test(String(g.tema || '').trim()))   // Gemini también descarta las que no encajan
-      .map(({ n, g }) => {
-      return {
-        tema: aj.intereses.find(i => igual(i.nombre, g.tema))?.nombre || n.tema, titulo: n.titulo.slice(0, 200), fuente: n.fuente, url: n.url || `https://www.google.com/search?tbm=nws&q=${encodeURIComponent(n.titulo)}`,
-        resumen: String(g.resumen || (n.desc !== n.titulo ? n.desc : '') || '').slice(0, 400), detalle: String(g.detalle || '').slice(0, 4000),
-      };
-    });
-    await m.guardar('dia', hoy, { noticias: final, noticiasHora: Date.now(), noticiasError: '' });
-    if (x?.sugeridos?.length) {
-      const ya = [...aj.intereses.map(i => i.nombre), ...aj.descartados, ...aj.sugeridos];
-      const nuevos = x.sugeridos.map(String).filter(s => s && !ya.some(y => igual(y, s)));
-      if (nuevos.length) await guardarAjustes(ctx, { sugeridos: [...aj.sugeridos, ...nuevos].slice(-6) });
-    }
-    return final;
-  })().finally(() => { buscando = null; });
-  return buscando;
-}
-
-// Si Gemini no pudo explicar el titular a la mañana, lo intenta al abrirlo (un pedido) y lo guarda.
-async function completarDetalle(ctx, n, zona) {
-  const { h } = ctx;
-  if (!await pedirSeguro(ctx, 'gemini-hay-clave', {}, false)) return;
-  poner(zona, h('p', { class: 'nota' }, 'Preparando el detalle…'));
-  try {
-    const x = leerJSON((await ctx.pedir('gemini-preguntar', { texto: pregunta(await leerAjustes(ctx), hoyISO(), [{ ...n, desc: n.resumen }]) }))?.texto || '');
-    const g = x?.noticias?.[0];
-    if (!g?.detalle) throw new Error('Gemini no devolvió el detalle.');
-    n.detalle = String(g.detalle).slice(0, 4000); n.resumen = n.resumen || String(g.resumen || '');
-    const col = ctx.datos('revisiones');
-    const rev = (await col.listar()).find(r => r.tipo === 'dia' && r.clave === hoyISO());
-    if (rev?.noticias) await col.actualizar(rev.id, { noticias: rev.noticias.map(y => (y.titulo === n.titulo ? { ...y, detalle: n.detalle, resumen: n.resumen } : y)) });
-    poner(zona, n.detalle.split(/\n\s*\n/).map(p => h('p', {}, p)));
-  } catch (e) { poner(zona, h('p', {}, n.resumen || ''), h('p', { class: 'nota' }, `No se pudo preparar el detalle (${e.message}).`)); }
-}
-
-// Ventana con la noticia completa.
-export function abrirNoticia(ctx, n) {
-  const { h } = ctx;
-  sumarPeso(ctx, n.tema, 1);
-  const texto = h('div', { class: 'rs-hoja-texto' }, String(n.detalle || n.resumen || '').split(/\n\s*\n/).map(p => h('p', {}, p)));
-  if (!n.detalle) completarDetalle(ctx, n, texto);
-  const dlg = h('dialog', { class: 'hoja rs-hoja' },
-    h('span', { class: 'rs-aviso-et' }, n.tema),
-    h('h2', {}, n.titulo),
-    texto,
-    h('a', { href: n.url, target: '_blank', rel: 'noopener', class: 'rs-link izq' }, `Leer en la fuente original${n.fuente ? ` (${n.fuente})` : ''} ›`),
-    h('div', { class: 'hoja-botones' },
-      h('button', { type: 'button', class: 'boton', onclick: async () => { await sumarPeso(ctx, n.tema, -3); dlg.close(); ctx.aviso(`Listo, vas a ver menos de "${n.tema}".`); } }, 'No me interesa este tema'),
-      h('button', { type: 'button', class: 'boton principal', onclick: () => dlg.close() }, 'Cerrar')));
-  dlg.addEventListener('close', () => dlg.remove());
-  dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
-  document.body.append(dlg);
-  dlg.showModal();
-}
-
 const saludo = () => { const hh = new Date().getHours(); return hh < 13 ? 'Buen día' : hh < 20 ? 'Buenas tardes' : 'Buenas noches'; };
 const mini = (h, v, t) => h('span', {}, h('b', {}, v), t);
 
 // ── Cartel del día para el Inicio (sin ✕: se va con "Ver mi día" o "Ahora no") ──
 // Saludo con tu nombre (sin repetir la fecha), números del día y un adelanto:
-// tareas por área, vencimientos, cumpleaños y la primera noticia.
+// tareas por área, vencimientos y cumpleaños.
 export async function tarjetaDia(ctx, m, alCerrar) {
   const { h } = ctx;
   const hoy = hoyISO();
   const aj = await leerAjustes(ctx);
-  const [d, rev] = await Promise.all([loDeHoy(ctx), m.leer('dia', hoy)]);
+  const d = await loDeHoy(ctx);
   let tiempo = await clima(aj).catch(() => null);
   const pendientes = d.tareas.filter(x => !x.hecha), vence = d.vence.filter(x => !x.hecha);
   const porArea = [];
@@ -328,26 +119,17 @@ export async function tarjetaDia(ctx, m, alCerrar) {
   const lineas = h('div', { class: 'rs-lineas' });
   const enlace = (texto, alTocar) => h('a', { href: '#', onclick: (e) => { e.preventDefault(); alTocar(); } }, texto);
   const linea = (icono, ...cont) => h('span', {}, h('em', {}, icono), ...cont);
-  const pintarLineas = (lista, estado = '') => poner(lineas,
+  const pintarLineas = () => poner(lineas,
     !tiempo && aj.lugar?.tipo !== 'ciudad' ? linea('🌤️', enlace('Tocá para ver el tiempo', async () => {
-      try { tiempo = await clima(aj, { pedirPermiso: true }); pintarNums(); pintarLineas(lista, estado); } catch (e) { ctx.aviso(e.message); }
+      try { tiempo = await clima(aj, { pedirPermiso: true }); pintarNums(); pintarLineas(); } catch (e) { ctx.aviso(e.message); }
     })) : null,
     d.feriados.map(x => linea('🇦🇷', x.titulo)),
     // Las tareas de hoy, contadas por área en un solo renglón; tocar un área la abre en Tareas.
     porArea.length ? linea('○', h('span', { class: 'rs-chips' }, porArea.map(a => h('a', { class: 'rs-chip', href: a.id ? `#/tareas/area/${a.id}` : '#/tareas/hoy' }, a.nombre, h('b', {}, String(a.n)))))) : null,
     vence.map(x => linea('💳', enlace(`Vence: ${x.titulo}`, () => ctx.pedir('abrir-tarea', { id: x.id })))),
-    (d.cumples || []).map(c => linea('🎂', enlace(`Cumpleaños de ${c.nombre} ›`, () => abrirCumpleanos(ctx)))),
-    lista?.[0] ? linea('📰', enlace(lista[0].titulo, () => abrirNoticia(ctx, lista[0])))
-      : lista === null ? linea('📰', 'Para ver noticias, poné tu clave de Gemini en ', h('a', { href: '#/bitacora/ajustes' }, 'Configurar Bitácora'))
-        : linea('📰', h('span', { class: 'rs-tenue' }, estado || 'Buscando las noticias de hoy…')));
+    (d.cumples || []).map(c => linea('🎂', enlace(`Cumpleaños de ${c.nombre} ›`, () => abrirCumpleanos(ctx)))));
   pintarNums();
-  if (rev?.noticias?.length) pintarLineas(rev.noticias);
-  else {
-    pintarLineas([], rev?.noticiasError ? `Las noticias no llegaron (${rev.noticiasError}). Se reintenta sola.` : '');
-    // Se buscan de fondo y aparecen cuando llegan.
-    noticias(ctx, m).then(l => pintarLineas(l, l?.length ? '' : 'Las noticias todavía no llegaron. Se reintenta sola.'))
-      .catch(e => pintarLineas([], `Las noticias no llegaron (${e.message}). Se reintenta sola.`));
-  }
+  pintarLineas();
   const verlo = async (ir) => { await m.guardar('dia', hoy, { vista: true }); if (ir) ctx.navegar('resumen/hoy'); else alCerrar(); };
   return h('section', { class: 'rs-aviso dia' },
     h('span', { class: 'rs-aviso-et' }, `${saludo()}${aj.nombre ? `, ${aj.nombre}` : ''}`),
@@ -365,7 +147,6 @@ export async function pantallaHoy(cuerpo, ctx, m) {
   const aj = await leerAjustes(ctx);
   const d = await loDeHoy(ctx);
   const zonaClima = h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Tiempo'), h('p', { class: 'nota' }, 'Buscando el pronóstico…'));
-  const zonaNoti = h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Noticias para vos', h('small', {}, 'Tocá una para verla completa')), h('p', { class: 'nota' }, 'Buscando las noticias de hoy…'));
   const fila = (icono, texto, der, alTocar, hecha) => h(alTocar ? 'button' : 'div', alTocar ? { type: 'button', class: `rs-fila${hecha ? ' hecha' : ''}`, onclick: alTocar } : { class: 'rs-fila' },
     h('span', { class: 'rs-t' }, icono ? `${icono} ${texto}` : texto), der ? h('small', {}, der) : null);
 
@@ -380,8 +161,7 @@ export async function pantallaHoy(cuerpo, ctx, m) {
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Cumpleaños'),
         d.cumples?.length ? d.cumples.map(c => fila('🎂', c.nombre, c.edad ? `cumple ${c.edad}` : 'hoy', () => abrirCumpleanos(ctx)))
           : d.cumples ? h('p', { class: 'nota' }, 'Hoy no cumple nadie.')
-            : h('p', { class: 'nota' }, 'Los cumpleaños se van a cargar en Tareas. ', h('a', { href: '#/tareas', class: 'rs-link izq', onclick: (e) => { e.preventDefault(); abrirCumpleanos(ctx); } }, 'Ir a Tareas ›'))),
-      zonaNoti));
+            : h('p', { class: 'nota' }, 'Los cumpleaños se van a cargar en Tareas. ', h('a', { href: '#/tareas', class: 'rs-link izq', onclick: (e) => { e.preventDefault(); abrirCumpleanos(ctx); } }, 'Ir a Tareas ›')))));
 
   clima(aj, { pedirPermiso: true }).then(t => {
     if (!t) return;
@@ -392,31 +172,19 @@ export async function pantallaHoy(cuerpo, ctx, m) {
         h('span', { class: 'rs-horas' }, t.horas.map(x => h('span', {}, `${x.hora}h`, h('b', {}, `${x.temp}°`))))));
   }).catch(e => poner(zonaClima, h('h3', {}, 'Tiempo'), h('p', { class: 'nota' }, e.message, ' ', h('a', { href: '#/resumen/config', class: 'rs-link izq' }, 'Configurar ›'))));
 
-  const pintarNoti = (lista, aviso = '') => {
-    const titulo = h('h3', {}, 'Noticias para vos', h('small', {}, 'Tocá una para verla completa'));
-    if (lista === null) { poner(zonaNoti, titulo, h('p', { class: 'nota' }, 'Para ver noticias, poné tu clave de Gemini en ', h('a', { href: '#/bitacora/ajustes', class: 'rs-link izq' }, 'Configurar Bitácora'), '.')); return; }
-    poner(zonaNoti, titulo,
-      lista.length ? lista.map(n => h('button', { type: 'button', class: 'rs-noti', onclick: () => abrirNoticia(ctx, n) },
-        h('span', { class: 'rs-aviso-et' }, n.tema), h('b', {}, n.titulo), h('span', {}, n.resumen))) : h('p', { class: 'nota' }, aviso || 'Todavía no hay noticias de hoy.'),
-      h('span', { class: 'nota' }, 'Titulares de Google Noticias, explicados con Gemini. Una vez por día. ',
-        h('button', { type: 'button', class: 'rs-bt ch', onclick: () => { poner(zonaNoti, titulo, h('p', { class: 'nota' }, 'Buscando…')); noticias(ctx, m, { forzar: true }).then(pintarNoti, e => pintarNoti([], e.message)); } }, 'Buscar de nuevo')));
-  };
-  noticias(ctx, m).then(l => pintarNoti(l, 'Gemini no respondió. Se vuelve a intentar sola en un rato.'), e => pintarNoti([], e.message));
   // Abrir "Hoy" cuenta como visto: el cartel del Inicio se va.
   const rev = await m.leer('dia', hoy);
   if (!rev?.vista) m.guardar('dia', hoy, { vista: true });
 }
 
 // ── Configurar Resumen (#/resumen/config) ──
-// Vuelve a mostrar el panel del Inicio (mes, semana y día que estaban cerrados) y reintenta las noticias.
+// Vuelve a mostrar el panel del Inicio (mes, semana y día que estaban cerrados).
 async function relanzar(ctx) {
   const col = ctx.datos('revisiones');
   for (const r of await col.listar()) {
     if (!r.vista || r.hecha) continue;
     if ((r.tipo === 'dia' && r.clave === hoyISO()) || r.tipo === 'semana' || r.tipo === 'mes') await col.actualizar(r.id, { vista: false });
   }
-  const hoyRev = (await col.listar()).find(r => r.tipo === 'dia' && r.clave === hoyISO());
-  if (hoyRev && !hoyRev.noticias?.length) await col.actualizar(hoyRev.id, { noticiasIntento: 0, noticiasError: '' });
   ctx.navegar('home');
 }
 
@@ -438,22 +206,8 @@ export async function pantallaConfig(cuerpo, ctx) {
       } catch (e) { poner(resultados, h('span', { class: 'nota' }, e.message)); }
     };
     buscar.addEventListener('keydown', (e) => { if (e.key === 'Enter') hacerBusqueda(); });
-    const nuevo = h('input', { type: 'text', placeholder: 'Agregar un tema…', enterkeyhint: 'done' });
-    const agregar = () => {
-      const t = nuevo.value.trim();
-      if (!t || aj.intereses.some(i => igual(i.nombre, t))) return;
-      guardar({ intereses: [...aj.intereses, { nombre: t, peso: 0 }], sugeridos: aj.sugeridos.filter(s => !igual(s, t)) });
-    };
-    nuevo.addEventListener('keydown', (e) => { if (e.key === 'Enter') agregar(); });
     const gps = aj.lugar?.tipo !== 'ciudad';
 
-    // Al guardar una clave nueva, las noticias de hoy se vuelven a buscar.
-    const clave = h('input', { type: 'password', value: aj.claveNoticias || '', placeholder: 'Pegá tu clave acá', autocomplete: 'off', onchange: async () => {
-      await guardar({ claveNoticias: clave.value.trim() });
-      const col = ctx.datos('revisiones'), r = (await col.listar()).find(x => x.tipo === 'dia' && x.clave === hoyISO());
-      if (r) await col.actualizar(r.id, { noticias: [], noticiasIntento: 0, noticiasError: '' });
-      ctx.aviso(clave.value.trim() ? 'Clave guardada. Las noticias se buscan de nuevo.' : 'Clave borrada.');
-    } });
     const nombre = h('input', { type: 'text', value: aj.nombre || '', placeholder: 'Tu nombre', onchange: () => guardar({ nombre: nombre.value.trim() }) });
     poner(cuerpo,
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Resumen del día'),
@@ -467,19 +221,6 @@ export async function pantallaConfig(cuerpo, ctx) {
           !gps ? h('button', { type: 'button', class: 'rs-chip on' }, aj.lugar.nombre) : null),
         h('div', { class: 'rs-campo-fila' }, buscar, h('button', { type: 'button', class: 'rs-bt', onclick: hacerBusqueda }, 'Buscar')),
         resultados),
-      h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Intereses', h('small', {}, 'Tocá ✕ para quitar')),
-        h('div', { class: 'rs-chips' }, aj.intereses.map(i => h('span', { class: 'rs-chip on' }, i.nombre,
-          h('button', { type: 'button', class: 'rs-chip-x', 'aria-label': `Quitar ${i.nombre}`, onclick: () => guardar({ intereses: aj.intereses.filter(x => x !== i), descartados: [...aj.descartados, i.nombre] }) }, '✕')))),
-        h('div', { class: 'rs-campo-fila' }, nuevo, h('button', { type: 'button', class: 'rs-bt', onclick: agregar }, 'Agregar')),
-        aj.sugeridos.length ? [h('h3', {}, 'Te sugiero', h('small', {}, 'según lo que abrís')),
-          h('div', { class: 'rs-chips' }, aj.sugeridos.map(s => h('span', { class: 'rs-chip sug' },
-            h('button', { type: 'button', class: 'rs-chip-mas', onclick: () => guardar({ intereses: [...aj.intereses, { nombre: s, peso: 0 }], sugeridos: aj.sugeridos.filter(x => x !== s) }) }, `+ ${s}`),
-            h('button', { type: 'button', class: 'rs-chip-x', 'aria-label': `No sugerir ${s}`, onclick: () => guardar({ sugeridos: aj.sugeridos.filter(x => x !== s), descartados: [...aj.descartados, s] }) }, '✕'))))] : null,
-        h('span', { class: 'nota' }, 'La app aprende de las noticias que abrís y de las que marcás "No me interesa este tema".')),
-      h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Clave de noticias', h('small', {}, aj.claveNoticias ? '✓ guardada' : 'falta')),
-        h('label', { class: 'rs-campo' }, clave),
-        h('span', { class: 'nota' }, 'Sacala gratis en ', h('a', { href: 'https://newsdata.io/register', target: '_blank', rel: 'noopener', class: 'rs-link izq' }, 'newsdata.io'),
-          ': te registrás, entrás a tu cuenta y copiás la "API Key". Pegala acá. Sin clave, la app intenta con Google Noticias (a veces no anda).')),
       h('section', { class: 'tarjeta rs-card' }, h('h3', {}, 'Cumpleaños'),
         h('p', { class: 'nota' }, 'Los cumpleaños se configuran en Tareas. ',
           h('a', { href: '#/tareas', class: 'rs-link izq', onclick: (e) => { e.preventDefault(); abrirCumpleanos(ctx); } }, 'Configurarlos en Tareas ›'))));

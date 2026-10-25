@@ -156,14 +156,6 @@
 .rs-clima > span small { display: block; color: var(--tinta-2); font-size: 0.8rem; }
 .rs-horas { display: flex; gap: 12px; margin-left: auto; font-size: 0.78rem; color: var(--tinta-2); text-align: center; }
 .rs-horas b { display: block; font-size: 1rem; color: var(--tinta); }
-.rs-noti { display: grid; gap: 3px; padding: 10px 0; border: 0; border-top: 1px solid var(--linea); background: none; color: var(--tinta); font: inherit; text-align: left; cursor: pointer; width: 100%; }
-.rs-card h3 + .rs-noti { border-top: 0; }
-.rs-noti b { font-size: 0.95rem; font-weight: 500; }
-.rs-noti > span:last-child { font-size: 0.84rem; color: var(--tinta-2); }
-dialog.rs-hoja { max-width: 560px; max-height: 85vh; overflow: auto; display: grid; gap: 10px; }
-dialog.rs-hoja h2 { margin: 0; font-size: 1.2rem; }
-dialog.rs-hoja .rs-hoja-texto { display: grid; gap: 10px; }
-dialog.rs-hoja p { margin: 0; line-height: 1.45; font-size: 0.93rem; }
 
 /* Configurar */
 .rs-campo { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 0.9rem; }

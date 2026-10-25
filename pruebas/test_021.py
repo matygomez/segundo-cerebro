@@ -77,12 +77,10 @@ with sync_playwright() as p:
     chk(page.locator('.rs-aviso').count()==0 and page.locator('.ini-pieza[data-clave="resumen:aviso"]').is_hidden(), 'sin avisos')
     # hoy y configurar
     page.goto(U+'#/resumen'); page.wait_for_timeout(2500)
-    chk(page.locator('.rs-pest a.sel').inner_text()=='Hoy' and page.locator('.rs-card').count()==4, 'pantalla hoy')
+    chk(page.locator('.rs-pest a.sel').inner_text()=='Hoy' and page.locator('.rs-card').count()==3, 'pantalla hoy')
     page.screenshot(path=S+f'r21_hoy_{w}.png', full_page=True)
     page.goto(U+'#/resumen/config'); page.wait_for_timeout(1500)
-    chk(page.locator('.rs-chip.on').count()>=5 and page.locator('a:has-text("Configurarlos en Tareas")').count()==1, 'configurar')
-    page.locator('input[placeholder="Agregar un tema…"]').fill('Fútbol'); page.locator('button:has-text("Agregar")').click(); page.wait_for_timeout(800)
-    chk(page.locator('.rs-chip.on:has-text("Fútbol")').count()==1, 'agrega tema')
+    chk(page.locator('a:has-text("Configurarlos en Tareas")').count()==1, 'configurar')
     page.screenshot(path=S+f'r21_cfg_{w}.png', full_page=True)
     # mes y estadísticas
     page.goto(U+'#/resumen/mes'); page.wait_for_timeout(2500)
