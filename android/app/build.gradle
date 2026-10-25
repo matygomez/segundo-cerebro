@@ -44,6 +44,8 @@ android {
 }
 
 dependencies {
+    // Alinea las piezas de Kotlin que traen las librerías (si no, se duplican clases).
+    implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
     implementation 'androidx.activity:activity:1.9.3'
     implementation 'androidx.core:core:1.13.1'
     implementation 'com.google.android.gms:play-services-auth:21.2.0'
