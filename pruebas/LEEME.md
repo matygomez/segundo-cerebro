@@ -12,7 +12,7 @@ Corré solo las del módulo que tocaste (ahorra tiempo y tokens). Las capturas q
 |---|---|
 | Tareas | test_tareas, test_t110, test_0211, test_013, test_014 |
 | Finanzas | test_015 (también Calendario) |
-| Bitácora / Filmoteca | test_bit, test_bit2, test_bit3, test_bit4, test_espejo, test_film, test_ordenar |
+| Bitácora / Filmoteca | test_bit, test_bit2, test_bit3, test_bit4, test_espejo, test_film, test_ordenar, test_carpeta |
 | Inicio / Ajustes | test_018, test_019 |
 | Hábitos y metas + Planificador | test_020 |
 | Resumen + búsqueda | test_021, test_resumen_dia |

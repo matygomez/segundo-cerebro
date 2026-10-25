@@ -19,6 +19,7 @@
 
 import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
+import { portada } from './visor.js';
 
 const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
 const MODELOS_BUSCAR = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
@@ -69,8 +70,8 @@ const ESQUEMA = {
   required: ['nombre', 'carpetaId', 'seguro', 'que', 'de', 'fecha', 'vence', 'monto', 'contenido'],
 };
 
-function instrucciones(nombre, d) {
-  return `Sos quien ordena los documentos personales de una persona que vive en Argentina. Hoy es ${hoyISO()}.
+function instrucciones(nombre, d, carpetaFija = null) {
+  return `${carpetaFija ? `El archivo ya tiene carpeta decidida: "${d.nombreRuta(carpetaFija)}" (id ${carpetaFija}). Poné ese id en carpetaId y seguí el estilo de nombre de sus ejemplos.\n` : ''}Sos quien ordena los documentos personales de una persona que vive en Argentina. Hoy es ${hoyISO()}.
 Leé el archivo adjunto (nombre original: "${nombre}") y completá:
 - nombre: nombre corto y claro para guardarlo, sin extensión, que empiece con el año y mes del documento (AAAA-MM), por ejemplo "2026-10 Gas Metrogas". Si la carpeta tiene ejemplos, seguí ese mismo estilo.
 - carpetaId: el id de la carpeta donde va, elegido SOLO de la lista de abajo. Si ninguna encaja bien, dejalo vacío.
@@ -136,9 +137,9 @@ export async function preguntarGemini(clave, texto, { buscar = false } = {}) {
 }
 
 // Devuelve la propuesta { nombre, carpetaId, seguro, alternativas, carpetaNueva, que, de, fecha, vence, monto, contenido }.
-export async function leerConGemini(clave, blob, nombre, d) {
+export async function leerConGemini(clave, blob, nombre, d, { carpetaFija = null } = {}) {
   const tipo = blob.type || '';
-  const partes = [{ text: instrucciones(nombre, d) }];
+  const partes = [{ text: instrucciones(nombre, d, carpetaFija) }];
   if (blob.size > MAX_LEER) partes.push({ text: 'El archivo es muy grande para mandarlo: usá solo el nombre.' });
   else if (/^text\//.test(tipo) || /\.(txt|csv|md)$/i.test(nombre)) partes.push({ text: (await blob.text()).slice(0, 30000) });
   else if (/^image\//.test(tipo) || tipo === 'application/pdf' || /\.pdf$/i.test(nombre)) partes.push({ inline_data: { mime_type: tipo || 'application/pdf', data: await enBase64(blob) } });
@@ -210,9 +211,120 @@ export function reintentarSolo(ctx, m) {
       const colgado = p.estado === 'leyendo' && ahora - (p.modificado || p.creado) > 180000;
       if ((p.estado === 'espera' && (p.proximo || 0) <= ahora) || colgado) aLaCola(ctx, m, p.id);
     }
+    // Los subidos directo a una carpeta que Gemini todavía no pudo leer.
+    for (const n of await m.col.notas.listar()) {
+      const a = n.archivo;
+      if (!a || n.papelera || !a.lectura || a.lectura === 'lista' || a.lectura === 'error') continue;
+      const colgado = a.lectura === 'leyendo' && ahora - (n.modificado || n.creado) > 180000;
+      if ((a.lectura === 'espera' && (a.proximo || 0) <= ahora) || colgado) aLaColaNota(ctx, m, n.id);
+    }
   };
   setTimeout(revisar, 5000);
   setInterval(revisar, 30000);
+}
+
+// ── Subir directo a una carpeta ──
+// Se guarda al toque como nota con el nombre del archivo; Gemini lo lee de
+// fondo (con la carpeta ya decidida) y completa nombre, datos y lo que dice
+// adentro. Si encuentra vencimiento o monto, la nota ofrece crear la tarea
+// o cargar el gasto ("sugerir").
+async function leerNota(ctx, m, id, blob) {
+  const d = await m.cargar();
+  const n = d.nota(id);
+  const a = n?.archivo;
+  if (!a || n.papelera || a.lectura === 'lista' || !a.lectura) return;
+  const guardarLectura = async (cambios) => { const x = (await m.cargar()).nota(id); if (x?.archivo) await m.guardarNota(id, { archivo: { ...x.archivo, ...cambios } }); };
+  const enEspera = async (texto) => {
+    const intentos = (a.intentos || 0) + 1;
+    await guardarLectura({ lectura: 'espera', error: texto, intentos, proximo: Date.now() + ESPERAS[Math.min(intentos, ESPERAS.length) - 1] * 60000 });
+  };
+  const clave = d.ajuste('gemini')?.api;
+  if (!clave) { await enEspera('Falta la clave de Gemini (en Configurar Bitácora).'); return; }
+  await guardarLectura({ lectura: 'leyendo', error: '' });
+  try {
+    const principal = (n.adjuntos || []).find(x => x.principal);
+    const pr = await leerConGemini(clave, blob || await ctx.archivos.descargar(principal), a.original || n.titulo, d, { carpetaFija: n.carpetaId || null });
+    const ahora = (await m.cargar()).nota(id);
+    if (!ahora?.archivo) return;
+    const x = ahora.archivo;
+    // Lo que ya completaste a mano no se pisa.
+    const cambios = { archivo: { ...x, que: x.que || pr.que, de: x.de || pr.de, fecha: x.fecha || pr.fecha, vence: x.vence || pr.vence, monto: x.monto || pr.monto,
+      contenido: pr.contenido, lectura: 'lista', error: '', intentos: 0, sugerir: { tarea: !!(x.vence || pr.vence), gasto: !!(x.monto || pr.monto) } } };
+    if (pr.nombre && ahora.titulo === sinExtension(x.original || '')) {
+      cambios.titulo = pr.nombre;
+      cambios.adjuntos = (ahora.adjuntos || []).map(y => (y.principal ? { ...y, nombre: pr.nombre + extension(y.nombre) } : y));
+    }
+    await m.guardarNota(id, cambios);
+  } catch (e) {
+    if (e.reintentable || !navigator.onLine) await enEspera(e.message || String(e));
+    else await guardarLectura({ lectura: 'error', error: e.message || String(e) });
+  }
+}
+
+export function aLaColaNota(ctx, m, id, blob = null) {
+  const k = `nota:${id}`;
+  if (enCurso.has(k)) return;
+  enCurso.add(k);
+  enCola(() => leerNota(ctx, m, id, blob)).finally(() => enCurso.delete(k));
+}
+
+export async function subirACarpeta(ctx, m, lista, carpetaId) {
+  const d = await m.cargar();
+  let guardados = 0, ultimo = '';
+  for (const x of lista) {
+    const nombre = x.nombre || x.blob.name || 'archivo';
+    try {
+      const tipo = x.blob.type || '';
+      const huella = await huellaDe(x.blob);
+      const rep = d.notas.find(z => z.archivo?.huella === huella);
+      if (rep && !await ctx.confirmar(`"${nombre}" ya lo tenés: ${rep.titulo} (${d.nombreRuta(rep.carpetaId)}). ¿Lo subo igual?`, { si: 'Subir igual' })) continue;
+      const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
+      ultimo = await m.crearNota({
+        titulo: sinExtension(nombre), carpetaId,
+        archivo: { que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '', huella, original: nombre, lectura: 'leyendo' },
+        adjuntos: [{ ...adjunto, nombre, origen: 'subido', principal: true }],
+      });
+      guardados++;
+      aLaColaNota(ctx, m, ultimo, x.blob);
+    } catch (e) { ctx.aviso(`No se pudo subir ${nombre}: ${e.message}`); }
+  }
+  if (guardados) ctx.aviso(`${guardados === 1 ? 'Guardado' : `${guardados} archivos guardados`} en ${d.nombreRuta(carpetaId)}. Gemini completa los datos.`,
+    guardados === 1 ? { accion: 'Abrir', alTocar: () => ctx.navegar(`bitacora/n/${ultimo}`) } : {});
+}
+
+// "+ Nueva › Subir archivo acá".
+export function elegirParaCarpeta(ctx, m, carpetaId) {
+  const input = ctx.h('input', { type: 'file', multiple: true, hidden: true });
+  input.addEventListener('change', () => {
+    const lista = [...input.files].map(f => ({ blob: f, nombre: f.name }));
+    input.remove();
+    if (lista.length) subirACarpeta(ctx, m, lista, carpetaId);
+  });
+  document.body.append(input);
+  input.click();
+}
+
+// Arrastrar archivos arriba de una carpeta abierta (o la Bandeja) en la PC.
+export function soltarEnCarpeta(ctx, m, main) {
+  if (main.dataset.soltar) return;
+  main.dataset.soltar = '1';
+  const destino = () => {
+    const r = location.hash.match(/^#\/bitacora\/(?:c\/([^/]+)|(bandeja))$/);
+    return r ? (r[1] || '') : null;
+  };
+  const conArchivos = (e) => [...(e.dataTransfer?.types || [])].includes('Files');
+  main.addEventListener('dragover', (e) => { if (destino() === null || !conArchivos(e)) return; e.preventDefault(); main.classList.add('bt-soltando'); });
+  main.addEventListener('dragleave', (e) => { if (!main.contains(e.relatedTarget)) main.classList.remove('bt-soltando'); });
+  main.addEventListener('drop', async (e) => {
+    const id = destino();
+    main.classList.remove('bt-soltando');
+    if (id === null || !conArchivos(e)) return;
+    e.preventDefault();
+    const d = await m.cargar();
+    if (id && (!d.carpeta(id) || d.carpeta(id).sistema)) return;
+    const lista = [...e.dataTransfer.files].map(f => ({ blob: f, nombre: f.name }));
+    if (lista.length) subirACarpeta(ctx, m, lista, id);
+  });
 }
 
 // Recibe archivos: [{ blob, nombre }]. Devuelve cuántos quedaron para revisar.
@@ -548,6 +660,7 @@ export function fichaArchivo(ctx, m, n) {
   const a = n.archivo;
   const p = (n.adjuntos || []).find(x => x.principal);
   const dato = (t, v) => (v ? h('div', {}, h('small', {}, t), v) : null);
+  const guardar = (cambios) => m.guardarNota(n.id, { archivo: { ...a, ...cambios } });
   const editar = async () => {
     const r = await ctx.formulario({ titulo: 'Datos del archivo', textoGuardar: 'Guardar', campos: [
       { id: 'que', etiqueta: 'Qué es', tipo: 'texto', valor: a.que || '' },
@@ -556,12 +669,41 @@ export function fichaArchivo(ctx, m, n) {
       { id: 'vence', etiqueta: 'Vence', tipo: 'fecha', valor: a.vence || '' },
       { id: 'monto', etiqueta: 'Monto', tipo: 'numero', valor: a.monto || '' },
     ] });
-    if (r) await m.guardarNota(n.id, { archivo: { ...a, ...r, monto: Number(r.monto) || 0 } });
+    if (r) await guardar({ ...r, monto: Number(r.monto) || 0 });
   };
+
+  // Lectura de Gemini (archivos subidos directo a una carpeta).
+  const lectura = a.lectura === 'leyendo' ? h('p', { class: 'bt-or-duda' }, 'Gemini está leyendo el archivo para completar los datos…')
+    : a.lectura === 'espera' ? h('p', { class: 'bt-or-duda' }, `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}. `,
+      h('button', { type: 'button', class: 'boton bt-chico', onclick: () => aLaColaNota(ctx, m, n.id) }, 'Reintentar ahora'))
+      : a.lectura === 'error' ? h('p', { class: 'bt-or-duda' }, `${a.error} Podés completar los datos a mano.`) : null;
+
+  // Sugerencias: tarea por el vencimiento y gasto en Finanzas.
+  const sug = a.sugerir || {};
+  const dias = h('select', { 'aria-label': 'Cuándo avisar' }, VENTANAS.map(([v, t]) => h('option', { value: v }, t)));
+  dias.value = '3';
+  const crearTarea = async () => {
+    const cuando = sumarDias(a.vence, -Number(dias.value));
+    await m.crearRecordatorio({ notaId: n.id, titulo: a.monto ? `Pagar ${a.que || n.titulo} (${plata(a.monto)})` : `Vence: ${n.titulo}`, fecha: cuando < hoyISO() ? hoyISO() : cuando });
+    await guardar({ sugerir: { ...sug, tarea: false } });
+    ctx.aviso('Tarea creada en Tareas › Sistemas › Bitácora.');
+  };
+  const cargarGasto = async () => {
+    await guardar({ sugerir: { ...sug, gasto: false } });
+    ctx.pedir('nuevo-gasto', { importe: a.monto, descripcion: [a.que, a.de].filter(Boolean).join(' · ') }).catch(e => ctx.aviso(e.message));
+  };
+  const sugerencias = (sug.tarea && a.vence) || (sug.gasto && a.monto) ? h('div', { class: 'bt-ficha-sug' },
+    sug.tarea && a.vence ? h('div', { class: 'bt-or-sug' }, h('span', {}, `Vence el ${fechaCorta(a.vence)}. ¿Creo la tarea?`), dias, h('button', { type: 'button', class: 'boton principal', onclick: crearTarea }, 'Crear tarea')) : null,
+    sug.gasto && a.monto ? h('div', { class: 'bt-or-sug' }, h('span', {}, `Monto ${plata(a.monto)}. ¿Lo cargo en Finanzas?`), h('button', { type: 'button', class: 'boton principal', onclick: cargarGasto }, 'Cargar gasto')) : null,
+    h('button', { type: 'button', class: 'bt-link-chico bt-ficha-no', onclick: () => guardar({ sugerir: {} }) }, 'No, gracias')) : null;
+
   return h('div', { class: 'bt-ficha' },
+    p ? portada(ctx, p) : null,
+    lectura,
+    sugerencias,
     h('div', { class: 'bt-ficha-datos' }, dato('Qué es', a.que), dato('De', a.de), dato('Fecha', a.fecha ? fechaCorta(a.fecha) : ''), dato('Monto', a.monto ? plata(a.monto) : ''), dato('Vence', a.vence ? fechaCorta(a.vence) : '')),
     h('div', { class: 'bt-ficha-bot' },
-      p?.url ? h('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'boton principal' }, ic('clip'), 'Abrir archivo') : p?.pendiente ? h('span', { class: 'nota' }, 'El archivo se está subiendo…') : null,
+      p?.url ? h('a', { href: p.url, target: '_blank', rel: 'noopener', class: 'boton' }, ic('drive'), 'Abrir en Drive') : p?.pendiente ? h('span', { class: 'nota' }, 'El archivo se está subiendo…') : null,
       h('button', { type: 'button', class: 'boton', onclick: editar }, ic('editar'), 'Editar datos')),
     a.contenido ? h('details', { class: 'bt-ficha-txt' }, h('summary', {}, 'Qué dice adentro'), h('p', {}, a.contenido)) : null);
 }

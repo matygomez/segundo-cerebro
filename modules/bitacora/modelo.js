@@ -486,7 +486,8 @@ export function crearModelo(ctx) {
     async actualizarAdjunto(pendiente, archivo) {
       for (const n of await col.notas.listar()) {
         let cambio = false;
-        const adjuntos = (n.adjuntos || []).map(a => (a.pendiente === pendiente ? (cambio = true, { ...archivo, nombre: a.nombre, origen: a.origen || 'subido' }) : a));
+        // Se conserva lo propio del adjunto (ej. "principal"), sin la marca de espera.
+        const adjuntos = (n.adjuntos || []).map(({ pendiente: p, ...a }) => (p === pendiente ? (cambio = true, { ...a, ...archivo, nombre: a.nombre, origen: a.origen || 'subido' }) : p ? { pendiente: p, ...a } : a));
         const props = { ...(n.props || {}) };
         for (const [k, v] of Object.entries(props)) if (v && typeof v === 'object' && v.pendiente === pendiente) { props[k] = { ...archivo, nombre: v.nombre }; cambio = true; }
         if (cambio) await col.notas.actualizar(n.id, { adjuntos, props });

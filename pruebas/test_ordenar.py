@@ -59,7 +59,8 @@ with sync_playwright() as p:
     chk(r['titulo']=='2026-10 Gas Metrogas' and r['carpeta']=='Casa › Servicios › Gas','nota creada en carpeta')
     chk(r['monto']==18430 and r['adj']=='2026-10 Gas Metrogas.pdf','datos y adjunto')
     chk(r['pend']==0,'pendiente borrado')
-    chk(r['rec']==[['Pagar Factura de gas ($ 18.430)','2026-10-24']],'recordatorio 3 días antes')
+    hoy=__import__('datetime').date.today().isoformat()
+    chk(r['rec']==[['Pagar Factura de gas ($ 18.430)',max('2026-10-24',hoy)]],'recordatorio 3 días antes (o hoy si ya pasó)')
     chk('Casa/Servicios/Gas/2026-10 Gas Metrogas.md' in r['esp'],'espejo md en carpeta')
     # Finanzas: se abrió el formulario de gasto con el monto
     chk(page.locator('dialog input').evaluate_all("l => l.some(i => String(i.value).replace(/\\D/g,'').startsWith('18430'))"),'formulario de gasto con monto')

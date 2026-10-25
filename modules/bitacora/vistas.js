@@ -10,7 +10,7 @@ import { filaSeguirViendo, items as itemsCine, config as configCine } from './fi
 import {
   BANDEJA, DIAS_PAPELERA, TIPOS, COLORES_CARPETA, resumen, etiquetasDe, plantillaTitulo, comparar, hoyISO,
 } from './modelo.js';
-import { seccionArchivos, seccionMensuales } from './ordenar.js';
+import { seccionArchivos, seccionMensuales, elegirParaCarpeta, soltarEnCarpeta } from './ordenar.js';
 
 // Como replaceChildren, pero ignora los vacíos (null, false).
 export const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
@@ -312,6 +312,7 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   if (carpetaId && !c) { poner(main, vacio(ctx, 'Esta carpeta no existe', 'Puede que se haya borrado en otro dispositivo.', h('a', { href: '#/bitacora', class: 'boton' }, 'Volver a la Bitácora'))); return; }
   const ruta = c ? d.ruta(c.id) : [];
   const padre = ruta.length > 1 ? ruta[ruta.length - 2] : null;
+  soltarEnCarpeta(ctx, m, main);   // en la PC: arrastrar archivos a la carpeta abierta
   const botones = [];
   if (c) {
     if (c.base) botones.push(h('a', { href: `#/bitacora/c/${c.id}/campos`, class: 'boton-icono', title: 'Campos de la base', 'aria-label': 'Campos de la base' }, ic('ajustes')));
@@ -335,7 +336,7 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
     ? h('section', { class: 'tarjeta bt-bloque' }, h('div', { class: 'bt-lista' }, notas.map(n => filaNota(ctx, d, n, c ? {} : {
       extra: h('button', { type: 'button', class: 'boton bt-mover', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const id = await elegirCarpeta(ctx, d, { actual: BANDEJA }); if (id !== null && id !== BANDEJA) { await m.guardarNota(n.id, { carpetaId: id }); ctx.aviso(`Movida a ${d.nombreRuta(id)}`); } } }, 'Mover…'),
     }))))
-    : vacio(ctx, c ? 'Carpeta vacía' : 'La Bandeja está vacía', c ? 'Creá una nota acá con "+ Nueva".' : null));
+    : vacio(ctx, c ? 'Carpeta vacía' : 'La Bandeja está vacía', c ? 'Creá una nota o subí un archivo con "+ Nueva" (en la PC también podés arrastrarlo acá).' : null));
   poner(main, ...cont);
 }
 
@@ -522,6 +523,7 @@ export function menuNueva(ctx, m, d, carpetaId = BANDEJA) {
   menu(ctx, 'Nueva', [
     base ? { icono: 'base', texto: `Nuevo en ${base.nombre}`, nota: 'Formulario con los campos de la base', accion: () => notaRapida(ctx, m, d, { plantilla: rapidaBase, carpetaId: base.id }) } : null,
     { icono: 'nota', texto: base ? 'Nota en blanco en la base' : 'Nota en blanco', nota: `en ${d.nombreRuta(carpetaId)}`, accion: () => crearYAbrir(ctx, m, d, { carpetaId }) },
+    { icono: 'clip', texto: 'Subir archivo acá', nota: `en ${d.nombreRuta(carpetaId)} · Gemini completa los datos`, accion: () => elegirParaCarpeta(ctx, m, carpetaId) },
     rapidas.length ? { separador: 'Notas rápidas' } : null,
     ...rapidas.map(p => ({ icono: p.icono || 'nota', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => notaRapida(ctx, m, d, { plantilla: p, carpetaId: destinoDe(p) }) })),
     otras.length ? { separador: 'Plantillas' } : null,
