@@ -93,6 +93,9 @@ with sync_playwright() as p:
     r=page.evaluate(NOTAS); agua=[x for x in r['notas'] if x['titulo']=='agua']
     chk(len(agua)==1 and agua[0]['carpeta']=='Casa › Luz','arrastrar a la carpeta')
     chk(agua and agua[0]['a']['lectura']=='espera','en espera si Gemini no puede')
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1200)
+    chk(page.locator('.bt-or-sec:has-text("Ya ubicados")').count()==1 and page.locator('.bt-or-item:has-text("agua"):has-text("Casa › Luz") button:has-text("Reintentar ahora")').count()==1,'apartado sin leer en Para revisar')
+    page.screenshot(path=S+f'car_sinleer_{w}.png', full_page=True)
     page.goto(U+f'#/bitacora/n/{agua[0]["id"]}' if agua else U); page.wait_for_timeout(1500)
     chk(page.locator('.bt-ficha button:has-text("Reintentar ahora")').count()==1,'reintentar en la nota')
     est['falla']=False
