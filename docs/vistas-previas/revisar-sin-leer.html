@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa: Para revisar · sin leer</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--papel:#0B0B0C;--superficie:#1B1C1E;--superficie-2:#242528;--superficie-3:#2c2d31;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--tinta-3:#6B6E72;--linea:#2E3033;--laton:#D3AB5C;--laton-f:#2B2416;--verde:#6FB4A0;--verde-f:#17302A;--rojo:#E2786C;--rojo-f:#3A201D;--azul:#8DB4DC;--azul-f:#1A2633;--titulo:'Barlow Condensed','Barlow',sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#050506;color:var(--tinta);font-family:'Barlow',system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.ic{width:18px;height:18px;flex:none}
+.control{position:sticky;top:0;z-index:20;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.05rem;letter-spacing:.02em;color:var(--laton)}
+.g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.g>span{font-size:.8rem;color:var(--tinta-2)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--linea);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--superficie);padding:6px 11px;font-size:.85rem;cursor:pointer;color:var(--tinta-2)}
+.seg button.sel{background:var(--laton);color:#17130a;font-weight:600}
+.nota-prev{max-width:1240px;margin:12px auto 0;padding:0 16px;color:var(--tinta-2);font-size:.86rem;line-height:1.45}
+.escena{padding:16px 16px 50px;display:flex;justify-content:center}
+.app{width:1240px;max-width:100%;background:var(--papel);border:1px solid var(--linea);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:210px 1fr;grid-template-rows:auto 1fr;min-height:780px;position:relative}
+.app.cel{width:390px;grid-template-columns:1fr;border-radius:28px}
+.barra{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:12px 22px;border-bottom:1px solid var(--linea)}
+.marca{display:flex;align-items:center;gap:8px;font-weight:600}.marca i{width:15px;height:15px;border-radius:50%;border:2px solid var(--laton);background:radial-gradient(circle,var(--laton) 0 3px,transparent 3.5px)}
+.chip{border:1px solid var(--linea);background:var(--superficie);border-radius:999px;padding:4px 11px;font-size:.78rem;color:var(--tinta-2)}
+.menu{background:var(--superficie);border-right:1px solid var(--linea);padding:18px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:9px;color:var(--tinta-2);font-size:.95rem}
+.menu a.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}.menu a.sel svg{color:var(--laton)}
+.app.cel .menu{position:absolute;bottom:0;left:0;right:0;flex-direction:row;justify-content:space-around;padding:8px 4px 14px;border-right:0;border-top:1px solid var(--linea);z-index:3}
+.app.cel .menu a{flex-direction:column;gap:3px;font-size:.68rem;padding:4px;background:none}
+.contenido{padding:24px 28px 40px;min-width:0}
+.app.cel .contenido{padding:16px 14px 100px}
+.cab{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cab h1{font-family:var(--titulo);font-weight:600;font-size:2.2rem;margin:0;line-height:1}
+.cab p{margin:4px 0 0;color:var(--tinta-2);font-size:.92rem}
+.app.cel .cab h1{font-size:1.8rem}
+.pest{display:inline-flex;background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:3px;margin-bottom:16px}
+.pest button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:.88rem;color:var(--tinta-2);cursor:pointer;display:flex;gap:6px;align-items:center}
+.pest button.sel{background:var(--superficie-3);color:var(--tinta);font-weight:600}
+.num{background:var(--laton);color:#17130a;border-radius:999px;font-size:.7rem;font-weight:700;padding:0 6px;min-width:18px;text-align:center}
+.caja{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;padding:14px 16px}
+.subir{border:1.5px dashed var(--linea);border-radius:14px;padding:18px;display:flex;gap:14px;align-items:center;color:var(--tinta-2);margin-bottom:16px;cursor:pointer}
+.subir:hover{border-color:var(--laton);color:var(--tinta)}
+.subir .ic{width:28px;height:28px;color:var(--laton)}.subir b{color:var(--tinta);display:block}
+.lista{display:grid;gap:10px}
+.arch{display:flex;gap:12px;align-items:center;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:12px 14px;cursor:pointer}
+.arch:hover{border-color:#44474b}
+.pdf{width:38px;height:46px;border-radius:6px;background:var(--superficie-3);display:grid;place-items:center;font-size:.62rem;font-weight:700;color:var(--rojo);flex:none}
+.arch .t{flex:1;min-width:0}.arch .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arch .t small{color:var(--tinta-2);font-size:.8rem;display:block}
+.est{font-size:.72rem;font-weight:600;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.est.confirmar{background:var(--laton-f);color:var(--laton)}.est.duda{background:var(--azul-f);color:var(--azul)}
+.est.repetido{background:var(--rojo-f);color:var(--rojo)}.est.leyendo{background:var(--superficie-3);color:var(--tinta-2)}
+.vacio{color:var(--tinta-3);text-align:center;padding:30px}
+.volver{display:inline-flex;gap:6px;align-items:center;color:var(--tinta-2);cursor:pointer;margin-bottom:12px;font-size:.9rem}
+.rev{display:grid;grid-template-columns:1fr 1fr;gap:14px}.app.cel .rev{grid-template-columns:1fr}
+.rev h3{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.campo{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin-bottom:8px;font-size:.92rem}
+.campo span{color:var(--tinta-2)}
+.campo input,select{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 9px;width:100%;min-width:0}
+.ubic{display:flex;gap:10px;align-items:center;background:var(--superficie-2);border-radius:10px;padding:10px 12px}
+.ubic b{flex:1}.ubic .ic{color:var(--laton)}
+.link{color:var(--laton);cursor:pointer;font-size:.88rem;border:0;background:none;padding:0}
+.opc{display:grid;gap:6px;margin-top:8px}
+.opc button{text-align:left;border:1px solid var(--linea);background:var(--superficie-2);border-radius:9px;padding:8px 11px;cursor:pointer}
+.opc button.sel{border-color:var(--laton);background:var(--laton-f)}
+.aviso{border-radius:10px;padding:11px 13px;font-size:.9rem;line-height:1.4}
+.aviso.duda{background:var(--azul-f);color:var(--azul)}.aviso.rep{background:var(--rojo-f);color:var(--rojo)}
+.sug{border:1px solid var(--linea);border-radius:12px;padding:12px;display:grid;gap:8px}
+.sug .fila{display:flex;gap:10px;align-items:flex-start}
+.sug .fila p{margin:0;flex:1;font-size:.92rem}.sug .fila p small{display:block;color:var(--tinta-2)}
+.tog{width:38px;height:22px;border-radius:999px;background:var(--superficie-3);position:relative;cursor:pointer;flex:none;border:0}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--tinta-2);transition:.15s}
+.tog.on{background:var(--laton)}.tog.on::after{left:19px;background:#17130a}
+.botones{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;grid-column:1/-1}
+.btn{border:1px solid var(--linea);background:var(--superficie-2);border-radius:10px;padding:9px 16px;cursor:pointer}
+.btn.si{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.btn.peligro{color:var(--rojo)}
+.carpetas{display:grid;grid-template-columns:240px 1fr;gap:14px}.app.cel .carpetas{grid-template-columns:1fr}
+.arbol div{padding:6px 8px;border-radius:7px;color:var(--tinta-2);font-size:.92rem;display:flex;gap:7px;align-items:center}
+.arbol div.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}
+.ficha{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.app.cel .ficha{grid-template-columns:1fr 1fr}
+.ficha div{background:var(--superficie-2);border-radius:9px;padding:8px 10px}.ficha small{display:block;color:var(--tinta-2);font-size:.72rem}
+.verpdf{display:flex;gap:12px;align-items:center;border:1px solid var(--linea);border-radius:10px;padding:10px}
+.adentro{color:var(--tinta-2);font-size:.88rem;line-height:1.5;margin-top:10px}
+.mes{display:flex;align-items:center;gap:10px;margin-bottom:12px}.mes b{font-size:1.1rem}
+.carga{display:flex;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--linea)}
+.carga:last-child{border:0}.carga .t{flex:1}.carga .t small{display:block;color:var(--tinta-2);font-size:.8rem}
+.ok{color:var(--verde);font-weight:600;font-size:.85rem}.falta{color:var(--rojo);font-weight:600;font-size:.85rem}
+.area h2{font-family:var(--titulo);font-size:1.3rem;margin:18px 0 8px;display:flex;gap:8px;align-items:center}
+.area h2 .nuevo{font-size:.6rem;font-weight:700;color:#17130a;background:var(--laton);border-radius:5px;padding:1px 5px;font-family:'Barlow'}
+.area h2.cerr{color:var(--tinta-3)}
+.tar{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;font-size:.92rem}
+.tar .c{width:17px;height:17px;border-radius:5px;border:1.6px solid var(--tinta-2);flex:none;margin-top:2px}
+.tar .tt{flex:1}.tar .tt small{display:block;color:var(--tinta-3);font-size:.78rem}
+.busca{display:flex;gap:10px;align-items:center;background:var(--superficie);border:1px solid var(--laton);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.busca input{flex:1;background:none;border:0;outline:0;font-size:1rem}
+.grupo{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2);margin:12px 0 6px}
+.res{display:flex;gap:12px;padding:10px;border-radius:10px;background:var(--superficie);margin-bottom:8px}
+.res .t small{display:block;color:var(--tinta-2);font-size:.8rem}.res .t p{margin:4px 0 0;font-size:.85rem;color:var(--tinta-2)}
+mark{background:var(--laton-f);color:var(--laton);border-radius:3px;padding:0 2px}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--superficie-3);border:1px solid var(--linea);border-radius:10px;padding:10px 16px;font-size:.9rem;z-index:30;display:none;white-space:nowrap}
+.app.cel .toast{bottom:90px;white-space:normal;width:86%}
+.toast.ver{display:block}
+.sec{display:flex;align-items:center;gap:8px;margin:20px 0 10px;font-family:var(--titulo);font-size:1.25rem}
+.sec small{font-family:'Barlow';font-size:.8rem;color:var(--tinta-2)}
+.sec .num{font-family:'Barlow'}
+.ruta{display:inline-flex;gap:5px;align-items:center;color:var(--laton);font-size:.8rem}
+.btn.chico{padding:5px 10px;font-size:.82rem}
+.app.cel{grid-template-columns:minmax(0,1fr)}.app.cel .contenido{min-width:0;overflow:hidden}.app.cel .arch{flex-wrap:wrap}.app.cel .arch .t{flex:1 1 calc(100% - 52px)}.app.cel .arch .est{margin-left:50px}
+.est.error{background:var(--rojo-f);color:var(--rojo)}
+.ayuda{color:var(--tinta-2);font-size:.85rem;margin:-4px 0 10px}
+</style></head><body>
+<div class="control">
+  <b>VISTA PREVIA</b>
+  <div class="g"><span>Ver en</span><div class="seg" id="disp"><button class="sel" data-v="pc">PC</button><button data-v="cel">Celular</button></div></div>
+</div>
+<p class="nota-prev"><b style="color:var(--laton)">Para revisar con un apartado nuevo.</b> Abajo de lo que espera que confirmes dónde va, aparece <b>"Ya ubicados, falta que Gemini los lea"</b>: los archivos que subiste directo a una carpeta y que Gemini todavía no leyó (está leyendo, está ocupado o falló). Tocá uno para abrir su nota y completarlo a mano, o "Reintentar ahora". Maqueta con datos de ejemplo, no toca la app.</p>
+<div class="escena"><div class="app" id="app">
+  <div class="barra"><div class="marca"><i></i>Segundo Cerebro</div><span class="chip">Al día</span></div>
+  <nav class="menu" id="menu"></nav>
+  <main class="contenido" id="cont"></main>
+  <div class="toast" id="toast"></div>
+</div></div>
+<script>
+const S=(t,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${t}</svg>`;
+const I={home:'<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z"/>',tareas:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>',fin:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>',bit:'<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6Z"/><path d="M6 3v18M10 8h5M10 12h5"/>',aj:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',carp:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',clip:'<path d="M15.5 7.5 9 14a2 2 0 0 0 2.8 2.8l7-7a4 4 0 0 0-5.6-5.6l-7.3 7.2a6 6 0 0 0 8.5 8.5L20 14.5"/>',izq:'<path d="m15 6-6 6 6 6"/>'};
+let cel=false;
+let PEND=[
+ {n:'2026-10 Gas Metrogas',sub:'Casa › Servicios › Gas · vence 27 oct',via:'Compartido desde el celular · hace 5 min',est:['Para confirmar','confirmar']},
+ {n:'IMG_20261018_1932.jpg',sub:'¿Dónde lo guardo?',via:'Subido desde este dispositivo · hace 1 h',est:['No sé dónde va','duda']}];
+let SIN=[
+ {id:1,n:'factura_edenor_oct.pdf',c:'Casa › Servicios › Luz',e:'leyendo',t:'Gemini lo está leyendo…'},
+ {id:2,n:'resumen_visa_octubre.pdf',c:'Finanzas › Tarjetas',e:'espera',t:'Gemini llegó al límite gratis por ahora. Lo reintenta sola a las 04:35.'},
+ {id:3,n:'poliza_auto_2026.pdf',c:'Auto › Seguro',e:'espera',t:'Gemini está saturado en este momento. Lo reintenta sola a las 05:10.'},
+ {id:4,n:'contrato_alquiler.docx',c:'Casa › Alquiler',e:'error',t:'Gemini no pudo leer este tipo de archivo. Completalo a mano.'}];
+const EST={leyendo:['Leyendo…','leyendo'],espera:['En espera','leyendo'],error:['Revisar a mano','error']};
+function menu(){document.getElementById('menu').innerHTML=[['home','Inicio'],['tareas','Tareas'],['fin','Finanzas'],['bit','Bitácora',1],['aj','Ajustes']].map(([i,n,s])=>`<a class="${s?'sel':''}">${S(I[i])}<span>${n}</span></a>`).join('');}
+const ext=n=>n.includes('.')?n.split('.').pop().toUpperCase():'PDF';
+function pintar(){document.getElementById('app').classList.toggle('cel',cel);menu();
+ document.getElementById('cont').innerHTML=`<span class="volver">${S(I.izq)} Bitácora</span>
+ <div class="cab"><div><h1>${S(I.clip,'ic" style="width:26px;height:26px;color:var(--laton)')} Para revisar</h1></div></div>
+ <div class="subir">${S(I.clip)}<span><b>Subir archivos</b>Tocá para elegir, arrastralos acá o compartilos con "Compartir › Segundo Cerebro".</span></div>
+ <div class="sec">Falta elegir dónde va <span class="num">${PEND.length}</span></div>
+ <div class="lista">${PEND.length?PEND.map(p=>`<div class="arch"><span class="pdf">${ext(p.n)}</span><span class="t"><b>${p.n}</b><small>${p.sub}</small><small>${p.via}</small></span><span class="est ${p.est[1]}">${p.est[0]}</span></div>`).join(''):'<div class="vacio">Nada para ubicar.</div>'}</div>
+ <div class="sec">Ya ubicados, falta que Gemini los lea <span class="num">${SIN.length}</span></div>
+ <p class="ayuda">Ya están guardados en su carpeta. Cuando Gemini los lea se completan solos el nombre, los datos y el texto para el buscador.</p>
+ <div class="lista">${SIN.length?SIN.map(x=>`<div class="arch" data-abrir="${x.id}"><span class="pdf">${ext(x.n)}</span><span class="t"><b>${x.n}</b><small><span class="ruta">${S(I.carp,'ic" style="width:13px;height:13px')} ${x.c}</span></small><small>${x.t}</small></span><span class="est ${EST[x.e][1]}">${EST[x.e][0]}</span>${x.e!=='leyendo'?`<button class="btn chico" data-re="${x.id}">${x.e==='error'?'Completar':'Reintentar ahora'}</button>`:''}</div>`).join(''):'<div class="vacio">Gemini ya leyó todo.</div>'}</div>`;}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('ver');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('ver'),2600);}
+document.getElementById('disp').onclick=e=>{const b=e.target.closest('button');if(!b)return;cel=b.dataset.v==='cel';document.querySelectorAll('#disp button').forEach(x=>x.classList.toggle('sel',x===b));pintar();};
+document.getElementById('cont').addEventListener('click',e=>{const re=e.target.closest('[data-re]');if(re){e.stopPropagation();const x=SIN.find(y=>y.id==re.dataset.re);if(x.e==='error'){toast('Se abre la nota para completar los datos a mano.');return;}x.e='leyendo';x.t='Gemini lo está leyendo…';pintar();setTimeout(()=>{SIN=SIN.filter(y=>y!==x);pintar();toast(`Gemini leyó "${x.n}": ya tiene nombre y datos.`);},1500);return;}
+ const a=e.target.closest('[data-abrir]');if(a)toast('Se abre la nota del archivo (con la vista previa) para completarlo a mano.');});
+pintar();
+</script></body></html>
