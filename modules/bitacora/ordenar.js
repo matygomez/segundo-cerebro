@@ -426,9 +426,10 @@ export async function pantallaPendientes(ctx, m, d, main) {
           h('span', { class: 'bt-or-ext' }, (extension(a.original || '').slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, n.titulo), h('small', { class: 'bt-or-ruta' }, ic('carpeta'), d.nombreRuta(n.carpetaId)), h('small', {}, sub)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
-          a.lectura === 'espera' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); aLaColaNota(ctx, m, n.id); } }, 'Reintentar ahora')
-            : a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar')
-              : a.lectura === 'lista' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async (e) => { e.stopPropagation(); await m.guardarNota(n.id, { archivo: { ...a, revisado: true } }); ctx.aviso('Listo: salió de Para revisar.'); } }, 'Listo') : null);
+          // Leer con Gemini en todos (menos mientras lee); después, completar a mano o dar por listo.
+          a.lectura !== 'leyendo' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Gemini lo está leyendo.'); } }, 'Leer con Gemini') : null,
+          a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar')
+            : a.lectura === 'lista' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async (e) => { e.stopPropagation(); await m.guardarNota(n.id, { archivo: { ...a, revisado: true } }); ctx.aviso('Listo: salió de Para revisar.'); } }, 'Listo') : null);
       })),
     ] : null);
 }

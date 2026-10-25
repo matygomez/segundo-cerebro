@@ -37,6 +37,7 @@ with sync_playwright() as p:
     def gem(route):
         est['pedidos']+=1; est['prompt']=json.loads(route.request.post_data)['contents'][0]['parts'][0]['text']
         if est['falla']: route.fulfill(status=429, body='{}'); return
+        if est.get('malo'): route.fulfill(status=400, body='{"error":"bad"}'); return
         x={'nombre':'2026-10 Luz Edenor','carpetaId':ids['luz'],'seguro':True,'alternativas':[],'carpetaNueva':'','que':'Factura de luz','de':'Edenor','fecha':'2026-10-08','vence':'2026-11-03','monto':22910,'contenido':'Edenor consumo 312 kWh total 22910'}
         route.fulfill(status=200, content_type='application/json', body=json.dumps({'candidates':[{'content':{'parts':[{'text':json.dumps(x)}]}}]}))
     page.goto(U); page.wait_for_timeout(800)
@@ -58,6 +59,7 @@ with sync_playwright() as p:
     chk(page.locator('.bt-fila:has-text("2026-10 Luz Edenor"), .bt-lista a:has-text("2026-10 Luz Edenor")').count()>=1,'aparece en la carpeta')
     page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
     chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor"):has-text("Para confirmar")').count()==1,'leido queda para confirmar')
+    chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor") button:has-text("Leer con Gemini")').count()==1,'leer con gemini en para confirmar')
     # Nota: vista previa y sugerencias
     page.goto(U+f'#/bitacora/n/{n["id"]}'); page.wait_for_timeout(3500)
     chk(page.locator('.bt-portada img').count()==1,'vista previa del pdf')
@@ -101,7 +103,7 @@ with sync_playwright() as p:
     chk(len(agua)==1 and agua[0]['carpeta']=='Casa › Luz','arrastrar a la carpeta')
     chk(agua and agua[0]['a']['lectura']=='espera','en espera si Gemini no puede')
     page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1200)
-    chk(page.locator('.bt-or-sec:has-text("Ya ubicados")').count()==1 and page.locator('.bt-or-item:has-text("agua"):has-text("Casa › Luz") button:has-text("Reintentar ahora")').count()==1,'apartado sin leer en Para revisar')
+    chk(page.locator('.bt-or-sec:has-text("Ya ubicados")').count()==1 and page.locator('.bt-or-item:has-text("agua"):has-text("Casa › Luz") button:has-text("Leer con Gemini")').count()==1,'apartado sin leer en Para revisar')
     page.screenshot(path=S+f'car_sinleer_{w}.png', full_page=True)
     page.goto(U+f'#/bitacora/n/{agua[0]["id"]}' if agua else U); page.wait_for_timeout(1500)
     chk(page.locator('.bt-ficha button:has-text("Leer con Gemini")').count()==1 and page.locator('.bt-ficha button:has-text("Listo, completado")').count()==1,'botones leer y completado en la nota')
@@ -127,6 +129,19 @@ with sync_playwright() as p:
     page.goto(U+f'#/bitacora/n/{gas["id"]}'); page.wait_for_timeout(1200)
     n0=est['pedidos']; page.locator('.bt-ficha button:has-text("Leer con Gemini")').click(); page.wait_for_timeout(2500)
     chk(est['pedidos']==n0+1,'forzar lectura')
+    # No se pudo leer: botón Leer con Gemini en la lista
+    est['malo']=True
+    page.goto(U+f'#/bitacora/c/{ids["luz"]}'); page.wait_for_timeout(1000)
+    page.locator('.bt-nueva').first.click(); page.wait_for_timeout(300)
+    with page.expect_file_chooser() as fc: page.locator('dialog[open] .bt-menu-op:has-text("Subir archivo acá")').click()
+    fc.value.set_files(files=[{'name':'raro.pdf','mimeType':'application/pdf','buffer':pdf('Raro 1')}])
+    page.wait_for_timeout(2000)
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    fila=page.locator('.bt-or-item:has-text("raro"):has-text("Revisar a mano")')
+    chk(fila.locator('button:has-text("Leer con Gemini")').count()==1 and fila.locator('button:has-text("Completar")').count()==1,'leer con gemini en la lista')
+    est['malo']=False; n0=est['pedidos']
+    fila.locator('button:has-text("Leer con Gemini")').click(); page.wait_for_timeout(2500)
+    chk(est['pedidos']==n0+1 and page.locator('.bt-or-item:has-text("Para confirmar")').count()>=1,'lectura forzada desde la lista')
     # Buscador
     res=page.evaluate("""async () => { const B = await import('/js/core/busqueda.js'); return (await B.buscar('312 kWh')).map(x => x.titulo); }""")
     chk('2026-10 Luz Edenor' in res,'buscador encuentra')
