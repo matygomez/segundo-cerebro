@@ -39,10 +39,13 @@ jobs:
         run: |
           codigo=$(grep -oP 'versionCode\s+\K\d+' android/app/build.gradle)
           etiqueta="android-$codigo"
+          # Dos copias: una con la versión en el nombre (la que baja la app) y otra
+          # con nombre fijo, para el link .../latest/download/segundo-cerebro.apk
           cp android/app/build/outputs/apk/release/app-release.apk segundo-cerebro.apk
+          cp segundo-cerebro.apk "cerebro-v$codigo.apk"
           if gh release view "$etiqueta" >/dev/null 2>&1; then
-            gh release upload "$etiqueta" segundo-cerebro.apk --clobber
+            gh release upload "$etiqueta" segundo-cerebro.apk "cerebro-v$codigo.apk" --clobber
           else
-            gh release create "$etiqueta" segundo-cerebro.apk --latest \
-              --title "App Android $codigo" --notes "Bajá segundo-cerebro.apk en el celular e instalalo."
+            gh release create "$etiqueta" "cerebro-v$codigo.apk" segundo-cerebro.apk --latest \
+              --title "App Android $codigo" --notes "Bajá cerebro-v$codigo.apk en el celular e instalalo."
           fi

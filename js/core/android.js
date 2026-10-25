@@ -35,13 +35,18 @@ export async function hayVersionNueva() {
   if (!esAndroid()) return false;
   const r = await fetch(RELEASES, { cache: 'no-store' });
   if (!r.ok) return false;
-  const ultima = Number(String((await r.json()).tag_name || '').replace('android-', '')) || 0;
+  const release = await r.json();
+  const ultima = Number(String(release.tag_name || '').replace('android-', '')) || 0;
+  // El archivo con la versión en el nombre (cerebro-v4.apk), para saber cuál es al bajarlo.
+  const conVersion = (release.assets || []).find(a => /^cerebro-v\d+\.apk$/.test(a.name));
+  if (conVersion) descarga = conVersion.browser_download_url;
   return ultima > versionAndroid();
 }
 
 // Abre la descarga en el navegador; al terminar, Android pregunta si instalarla.
+let descarga = DESCARGA;
 export function bajarVersionNueva() {
-  nativo()?.abrirAfuera(DESCARGA);
+  nativo()?.abrirAfuera(descarga);
 }
 
 // ── Lo demás que ofrece la app (botones, avisos, widget) ──
