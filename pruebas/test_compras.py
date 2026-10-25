@@ -12,11 +12,11 @@ SEEDC="""async () => {
   const pollo = await T('Pechuga de pollo','kg','🍗','Carnes y freezer','Freezer');
   const papel = await T('Papel higiénico','u.','🧻','Baño','Baño');
   const P = (nombre, marca, codigo, tipoId, contenido) => c('productos').crear({ nombre, marca, codigo, tipoId, contenido, origen: codigo?'off':'mio', duracion:'' });
-  const ser = await P('Leche La Serenísima Entera 1 L','La Serenísima','7790742362109',leche,1);
-  const san = await P('Leche Sancor Entera 750 ml','Sancor','7790080054508',leche,0.75);
-  const pla = await P('Yerba Playadito 1 kg','Playadito','7790387000017',yerba,1);
+  const ser = await P('Leche La Serenísima Entera 1 L','La Serenísima','7790742362100',leche,1);
+  const san = await P('Leche Sancor Entera 750 ml','Sancor','7790080054507',leche,0.75);
+  const pla = await P('Yerba Playadito 1 kg','Playadito','7790387000016',yerba,1);
   const ceb = await P('Cebolla','', '',cebolla,1);
-  const pap = await P('Papel Higienol x4','Higienol','7790250001234',papel,4);
+  const pap = await P('Papel Higienol x4','Higienol','7790250001232',papel,4);
   await c('compras').crear({ fecha:f(-40), super:'Coto', items:[{productoId:ser,tipoId:leche,nombre:'Leche',precio:1150,cantidad:12,contenido:1,descuento:0},{productoId:pla,tipoId:yerba,nombre:'Yerba',precio:5900,cantidad:2,contenido:1,descuento:0}], bruto:30000, descTarjeta:0, total:30000, ahorro:0 });
   await c('compras').crear({ fecha:f(-10), super:'Día', items:[{productoId:ser,tipoId:leche,nombre:'Leche',precio:1290,cantidad:6,contenido:1,descuento:500},{productoId:pap,tipoId:papel,nombre:'Papel',precio:3900,cantidad:2,contenido:4,descuento:0,fueraDeLista:true}], bruto:15540, descTarjeta:1000, total:14040, ahorro:1500 });
   await c('despensa').crear({ tipoId:leche, lugar:'Heladera', cantidad:2, vence:f(2), nota:'' });
@@ -74,13 +74,15 @@ with sync_playwright() as p:
     chk('$ 7.200' in tx(page,'.cp-total'), 'total 7200: '+tx(page,'.cp-total'))
     # escanear con código a mano: Sancor (otro tipo de la lista: leche, no elegida -> igual cuenta)
     page.click('text=Escanear un producto'); page.wait_for_timeout(800)
-    page.fill('.cp-esc input','7790080054508'); page.press('.cp-esc input','Enter'); page.wait_for_timeout(900)
+    page.fill('.cp-esc input','7790080054500'); page.press('.cp-esc input','Enter'); page.wait_for_timeout(300)
+    chk('no parece un código' in tx(page,'.cp-esc'), 'rechaza código mal leído')
+    page.fill('.cp-esc input','7790080054507'); page.press('.cp-esc input','Enter'); page.wait_for_timeout(900)
     chk(page.locator('.cp-encontrado').count()==1 and 'Cuenta para' in tx(page,'.cp-encontrado'), 'sancor cuenta para leche')
     page.screenshot(path=S+f'cp_super_{w}.png', full_page=True)
     page.fill('#cp-otro','1180'); page.wait_for_timeout(200); chk('/L' in tx(page,'.cp-encontrado'), 'precio por litro: '+tx(page,'.cp-encontrado')[:400]); page.click('text=Agregar al carrito'); page.wait_for_timeout(800)
     # código desconocido -> OFF falla -> formulario nombre -> elegir tipo
     page.click('text=Escanear un producto'); page.wait_for_timeout(600)
-    page.fill('.cp-esc input','7799999999999'); page.press('.cp-esc input','Enter'); page.wait_for_timeout(9000)
+    page.fill('.cp-esc input','7799999999992'); page.press('.cp-esc input','Enter'); page.wait_for_timeout(9000)
     if page.locator('dialog[open] #campo-nombre').count():
       page.fill('#campo-nombre','Chocolate Águila 150 g'); page.click('dialog[open] button[type=submit]'); page.wait_for_timeout(500)
     chk(page.locator('dialog[open] #cp-tipo').count()==1, 'pregunta tipo')

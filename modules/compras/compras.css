@@ -161,6 +161,8 @@
 .cp-esc-estado { position: absolute; bottom: 12px; left: 12px; right: 12px; text-align: center; color: var(--tinta-2); font-size: .82rem; }
 .cp-esc-cont { position: absolute; top: 12px; left: 12px; color: var(--laton); font-size: .9rem; }
 .cp-esc-x { position: absolute; top: 10px; right: 10px; }
+.cp-esc-luz { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); }
+.cp-esc-cam .cp-esc-marco { height: 30%; }
 .cp-esc-pie { display: grid; gap: 8px; padding: 12px; background: var(--superficie); font-size: .86rem; }
 .cp-esc-pie input { flex: 1; }
 

@@ -9,8 +9,23 @@
 
 import { adivinar, hoyISO, leerContenido, tipoDesdeNombre } from './modelo.js';
 
-const FORMATOS = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128'];
+// Solo códigos de producto (los de los envases). El code_128 de etiquetas
+// internas y cajas hacía que tomara cualquier número.
+const FORMATOS = ['ean_13', 'ean_8', 'upc_a', 'upc_e'];
 const ZXING = 'https://cdn.jsdelivr.net/npm/@zxing/browser@0.1.5/+esm';
+// Cuántas lecturas iguales seguidas hacen falta para aceptar un código.
+const CONFIRMAR = 2;
+
+// ¿Es un código de producto válido? Revisa el largo y el dígito de control
+// (el último), que se calcula con los demás: un número mal leído casi nunca lo cumple.
+export function codigoValido(codigo) {
+  const c = String(codigo || '');
+  if (!/^\d+$/.test(c) || ![8, 12, 13, 14].includes(c.length)) return false;
+  const digitos = c.split('').map(Number);
+  const control = digitos.pop();
+  const suma = digitos.reverse().reduce((a, n, i) => a + n * (i % 2 === 0 ? 3 : 1), 0);
+  return (10 - (suma % 10)) % 10 === control;
+}
 
 // Abre la cámara a pantalla completa.
 //  · continuo = false: devuelve el primer código leído (o null si cerraste).
@@ -20,14 +35,16 @@ export function escanear(ctx, { titulo = 'Apuntá al código de barras', continu
   const { h } = ctx;
   return new Promise((resolver) => {
     const video = h('video', { playsinline: true, muted: true, autoplay: true });
+    const marco = h('div', { class: 'cp-esc-marco' }, h('div', { class: 'cp-esc-laser' }));
     const estado = h('small', { class: 'cp-esc-estado' }, 'Abriendo la cámara…');
     const contador = h('b', { class: 'cp-esc-cont' });
+    const linterna = h('button', { type: 'button', class: 'cp-bt ch cp-esc-luz', hidden: true }, '🔦 Linterna');
     const manual = h('input', { type: 'text', inputmode: 'numeric', placeholder: 'O escribí el código', autocomplete: 'off' });
     let leidos = 0, ultimo = '', ultimoT = 0, terminado = false, parar = () => {};
+    let candidato = '', veces = 0;
 
-    const leer = (codigo) => {
-      codigo = String(codigo || '').replace(/\D/g, '');
-      if (!codigo || terminado) return;
+    const aceptar = (codigo) => {
+      if (terminado) return;
       const t = Date.now();
       if (codigo === ultimo && t - ultimoT < 1500) return;   // el mismo código sigue frente a la cámara
       ultimo = codigo; ultimoT = t;
@@ -35,6 +52,23 @@ export function escanear(ctx, { titulo = 'Apuntá al código de barras', continu
       if (!continuo) { cerrar(codigo); return; }
       leidos++; contador.textContent = `${leidos} leídos`;
       alLeer?.(codigo);
+    };
+    // Lo que ve la cámara: tiene que ser válido y repetirse antes de tomarlo.
+    const deCamara = (codigo) => {
+      codigo = String(codigo || '').replace(/\D/g, '');
+      if (codigo.length === 12) codigo = '0' + codigo;   // UPC-A = EAN-13 con un 0 adelante
+      if (!codigoValido(codigo)) return;
+      if (codigo === candidato) veces++; else { candidato = codigo; veces = 1; }
+      if (veces >= CONFIRMAR) { veces = 0; candidato = ''; aceptar(codigo); }
+    };
+    const aMano = (codigo) => {
+      codigo = String(codigo || '').replace(/\D/g, '');
+      if (!codigo) return;
+      if (!codigoValido(codigo) && !(codigo.length === 12 && codigoValido('0' + codigo))) {
+        estado.textContent = `"${codigo}" no parece un código de producto: revisá los números.`;
+        return;
+      }
+      aceptar(codigo.length === 12 ? '0' + codigo : codigo);
     };
     const cerrar = (valor = null) => {
       if (terminado) return;
@@ -46,49 +80,94 @@ export function escanear(ctx, { titulo = 'Apuntá al código de barras', continu
     };
 
     const dlg = h('dialog', { class: 'cp-esc' },
-      h('div', { class: 'cp-esc-cam' }, video, h('div', { class: 'cp-esc-marco' }, h('div', { class: 'cp-esc-laser' })), estado, contador,
+      h('div', { class: 'cp-esc-cam' }, video, marco, estado, contador, linterna,
         h('button', { type: 'button', class: 'cp-bt ch cp-esc-x', onclick: () => cerrar(null) }, continuo ? 'Listo' : '✕')),
       h('div', { class: 'cp-esc-pie' }, h('span', {}, titulo),
-        h('form', { class: 'cp-fila', onsubmit: (e) => { e.preventDefault(); leer(manual.value); manual.value = ''; } },
+        h('form', { class: 'cp-fila', onsubmit: (e) => { e.preventDefault(); aMano(manual.value); manual.value = ''; } },
           manual, h('button', { class: 'cp-bt', type: 'submit' }, 'OK'))));
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); cerrar(null); });
     document.body.append(dlg);
     dlg.showModal();
 
-    arrancarCamara(video, leer).then((fn) => {
-      if (terminado) { fn(); return; }
-      parar = fn;
+    arrancarCamara(video, marco, deCamara).then(({ detener, luz }) => {
+      if (terminado) { detener(); return; }
+      parar = detener;
       estado.textContent = '';
+      if (luz) {
+        let prendida = false;
+        linterna.hidden = false;
+        linterna.onclick = async () => { prendida = !prendida; await luz(prendida); linterna.classList.toggle('p', prendida); };
+      }
     }).catch(() => {
       estado.textContent = 'No se pudo abrir la cámara. Escribí el código abajo.';
     });
   });
 }
 
-async function arrancarCamara(video, leer) {
-  const restricciones = { video: { facingMode: 'environment', width: { ideal: 1280 } }, audio: false };
+// Prende la cámara de atrás con enfoque continuo y algo de zoom (así no hace
+// falta acercarse tanto, que es cuando se desenfoca) y lee solo lo que está
+// dentro del recuadro amarillo, unas 6 veces por segundo.
+async function arrancarCamara(video, marco, leer) {
+  const flujo = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false });
+  video.srcObject = flujo;
+  await video.play().catch(() => {});
+  const pista = flujo.getVideoTracks()[0];
+  const puede = pista.getCapabilities?.() || {};
+  const ajustes = {};
+  if (puede.focusMode?.includes('continuous')) ajustes.focusMode = 'continuous';
+  if (puede.zoom?.max > 1) ajustes.zoom = Math.min(2, puede.zoom.max);
+  if (Object.keys(ajustes).length) await pista.applyConstraints({ advanced: [ajustes] }).catch(() => {});
+  const luz = puede.torch ? (on) => pista.applyConstraints({ advanced: [{ torch: on }] }).catch(() => {}) : null;
+
+  const detectar = await crearDetector();
+  const lienzo = document.createElement('canvas');
+  const pincel = lienzo.getContext('2d', { willReadFrequently: true });
+  let vivo = true;
+  const vuelta = async () => {
+    if (!vivo) return;
+    try {
+      const recorte = zonaDelMarco(video, marco);
+      if (recorte) {
+        lienzo.width = recorte.w; lienzo.height = recorte.h;
+        pincel.drawImage(video, recorte.x, recorte.y, recorte.w, recorte.h, 0, 0, recorte.w, recorte.h);
+        const codigo = await detectar(lienzo);
+        if (codigo) leer(codigo);
+      }
+    } catch { /* cuadro sin imagen todavía */ }
+    setTimeout(vuelta, 150);
+  };
+  vuelta();
+  return { detener: () => { vivo = false; flujo.getTracks().forEach(t => t.stop()); }, luz };
+}
+
+// BarcodeDetector (Android) o, si el navegador no lo trae, zxing.
+async function crearDetector() {
   if ('BarcodeDetector' in window) {
     const soporta = await window.BarcodeDetector.getSupportedFormats?.().catch(() => []) || [];
     const formatos = FORMATOS.filter(f => !soporta.length || soporta.includes(f));
     if (formatos.length) {
       const det = new window.BarcodeDetector({ formats: formatos });
-      const flujo = await navigator.mediaDevices.getUserMedia(restricciones);
-      video.srcObject = flujo;
-      await video.play().catch(() => {});
-      let vivo = true;
-      const vuelta = async () => {
-        if (!vivo) return;
-        try { const r = await det.detect(video); if (r[0]) leer(r[0].rawValue); } catch { /* cuadro sin imagen todavía */ }
-        setTimeout(vuelta, 200);
-      };
-      vuelta();
-      return () => { vivo = false; flujo.getTracks().forEach(t => t.stop()); };
+      return async (lienzo) => (await det.detect(lienzo))[0]?.rawValue || null;
     }
   }
   const { BrowserMultiFormatReader } = await import(ZXING);
   const lector = new BrowserMultiFormatReader();
-  const controles = await lector.decodeFromConstraints(restricciones, video, (r) => { if (r) leer(r.getText()); });
-  return () => controles.stop();
+  return (lienzo) => { try { return lector.decodeFromCanvas(lienzo).getText(); } catch { return null; } };
+}
+
+// Qué parte de la imagen de la cámara cae dentro del recuadro de la pantalla
+// (el video se ve recortado para llenar el cuadro, por eso la cuenta).
+function zonaDelMarco(video, marco) {
+  const vw = video.videoWidth, vh = video.videoHeight;
+  if (!vw || !vh) return null;
+  const caja = video.getBoundingClientRect(), m = marco.getBoundingClientRect();
+  const escala = Math.max(caja.width / vw, caja.height / vh);
+  const dx = (caja.width - vw * escala) / 2, dy = (caja.height - vh * escala) / 2;
+  // Un poco de margen alrededor del marco, por si el código no está perfecto adentro.
+  const margen = 12;
+  const x = Math.max(0, (m.left - caja.left - dx - margen) / escala), y = Math.max(0, (m.top - caja.top - dy - margen) / escala);
+  const w = Math.min(vw - x, (m.width + margen * 2) / escala), h = Math.min(vh - y, (m.height + margen * 2) / escala);
+  return w > 20 && h > 20 ? { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) } : null;
 }
 
 // ── Open Food Facts ──

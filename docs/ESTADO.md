@@ -41,5 +41,5 @@ Inicio: un cuadro fijo arriba de todo (`arriba` en `js/core/inicio.js`) que se d
 
 ## Compras (`modules/compras`)
 Todo por **tipo** sin marca ni tamaño ("Leche entera", en L/kg/u.); cada producto tiene tipo y contenido (Sancor 750 ml = 0,75 L). Pestañas Lista (pendientes por tipo, lista del mes/base arriba, sugeridas ✦ por consumo) · Despensa (+ Recuento) · Comidas (programadas, falta ordenado por fecha, recetario; receta a mano o pegada → Gemini) · Informe (mes + resumen Gemini) · ⚙ Ajustes (productos, orden de sectores, súpers).
-Súper: "Empezar la compra" elige dónde y qué parte de la lista (recuerda sectores por súper); escáner BarcodeDetector/zxing, Open Food Facts, Precios Claros (sin probar desde el navegador); lo escaneado suma al tipo de la lista o va "fuera de lista". Guardar: gasto vía `nuevo-gasto` de Finanzas + despensa. Acción: `compras-resumen`.
+Súper: "Empezar la compra" elige dónde y qué parte de la lista (recuerda sectores por súper); escáner BarcodeDetector/zxing (solo EAN/UPC con dígito de control, 2 lecturas iguales, solo dentro del recuadro, enfoque continuo, zoom x2, linterna), Open Food Facts, Precios Claros (sin probar desde el navegador); lo escaneado suma al tipo de la lista o va "fuera de lista". Guardar: gasto vía `nuevo-gasto` de Finanzas + despensa. Acción: `compras-resumen`.
 
