@@ -16,6 +16,7 @@
 
 import { GOOGLE_CLIENT_ID } from '../config.js';
 import { emitir } from './eventos.js';
+import * as android from './android.js';
 
 const ALCANCE_DRIVE = 'https://www.googleapis.com/auth/drive.file';
 const ALCANCE_CALENDARIO = 'https://www.googleapis.com/auth/calendar.readonly';
@@ -54,8 +55,11 @@ export function restaurar() {
     if (g && g.expira > Date.now() + 60_000) { token = g.token; expira = g.expira; alcances = g.alcances || ''; }
   } catch { /* sin sesión guardada */ }
   emitir('sesion', estado());
+  // En la app de Android se reconecta sola, sin ventana ni toque.
+  if (android.esAndroid()) {
+    if (configurado() && leerCuenta() && !conectado()) conectarAndroid(false).catch(() => {});
   // Se deja todo listo para que el toque abra la ventana de Google al instante.
-  if (configurado() && leerCuenta()) cargarScriptGoogle().then(prepararCliente).catch(() => {});
+  } else if (configurado() && leerCuenta()) cargarScriptGoogle().then(prepararCliente).catch(() => {});
   // Si ya estabas conectado de antes, se anota tu cuenta para las próximas veces.
   if (conectado() && !leerCuenta()) recordarCuenta();
 }
@@ -65,7 +69,7 @@ export function restaurar() {
 export function reconectarAlTocar() {
   const alTocar = () => {
     if (autoIntentado || conectado() || !configurado() || !leerCuenta() || !navigator.onLine) return;
-    if (!window.google?.accounts?.oauth2) return;   // todavía cargando: el próximo toque
+    if (!window.google?.accounts?.oauth2 && !android.esAndroid()) return;   // todavía cargando: el próximo toque
     autoIntentado = true;
     conectar().catch(() => { /* queda el botón Reconectar */ });
   };
@@ -99,13 +103,7 @@ function prepararCliente() {
     callback: (r) => {
       const p = esperando; esperando = null;
       if (r.error) { p?.mal(new Error('Google rechazó la conexión: ' + r.error)); return; }
-      token = r.access_token;
-      expira = Date.now() + Number(r.expires_in || 3600) * 1000;
-      alcances = String(r.scope || '');
-      guardarSesion();
-      emitir('sesion', estado());
-      autoIntentado = false;   // la próxima vez que venza, el toque vuelve a reconectar
-      if (!leerCuenta()) recordarCuenta();
+      recibirPermiso(r.access_token, Number(r.expires_in || 3600), r.scope);
       p?.ok();
     },
     error_callback: (e) => {
@@ -113,6 +111,26 @@ function prepararCliente() {
       p?.mal(new Error(e?.type === 'popup_closed' ? 'Cerraste la ventana de Google antes de terminar.' : 'No se pudo abrir la ventana de Google.'));
     },
   });
+}
+
+function recibirPermiso(nuevo, segundos, permisos) {
+  token = nuevo;
+  expira = Date.now() + segundos * 1000;
+  alcances = String(permisos || '');
+  guardarSesion();
+  emitir('sesion', estado());
+  autoIntentado = false;   // la próxima vez que venza, el toque vuelve a reconectar
+  if (!leerCuenta()) recordarCuenta();
+}
+
+// En Android el permiso lo da la cuenta del teléfono (Google no deja usar su
+// ventana web adentro de una app). No dice cuánto dura: se toma 55 minutos.
+async function conectarAndroid(interactivo) {
+  const r = await android.pedirToken(ALCANCE, leerCuenta(), interactivo);
+  if (r.error || !r.token) {
+    throw new Error(r.error === 'cancelado' ? 'Cerraste la ventana de Google antes de terminar.' : 'Google rechazó la conexión: ' + (r.error || 'sin permiso'));
+  }
+  recibirPermiso(r.token, 55 * 60, r.alcances);
 }
 
 // Guarda el correo de la cuenta conectada (Drive lo informa con el mismo permiso).
@@ -127,6 +145,7 @@ async function recordarCuenta() {
 // Debe llamarse desde un toque del usuario (Google abre una ventana).
 export async function conectar() {
   if (!configurado()) throw new Error('Falta configurar GOOGLE_CLIENT_ID en js/config.js');
+  if (android.esAndroid()) return conectarAndroid(true);
   await cargarScriptGoogle();
   prepararCliente();
   if (esperando) return esperando.promesa;   // ya hay una ventana abierta

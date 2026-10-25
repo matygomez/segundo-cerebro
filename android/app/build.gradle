@@ -1,0 +1,50 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'ar.matygomez.segundocerebro'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'ar.matygomez.segundocerebro'
+        minSdk 24
+        targetSdk 35
+        // Subir versionCode en cada cambio de la parte de Android: la app web
+        // lo compara con la última versión publicada para avisar que hay una nueva.
+        versionCode 1
+        versionName '1'
+    }
+
+    // La firma tiene que ser siempre la misma: si cambia, Android no deja
+    // actualizar y Google no reconoce la app al conectar Drive.
+    signingConfigs {
+        release {
+            storeFile file('../firma.p12')
+            storeType 'pkcs12'
+            storePassword System.getenv('CLAVE_FIRMA')
+            keyAlias 'cerebro'
+            keyPassword System.getenv('CLAVE_FIRMA')
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    buildFeatures { buildConfig true }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.activity:activity:1.9.3'
+    implementation 'androidx.core:core:1.13.1'
+    implementation 'com.google.android.gms:play-services-auth:21.2.0'
+}

@@ -5,6 +5,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import * as drive from './drive.js';
+import * as android from './android.js';
 import * as db from './db.js';
 import { sincronizar, estadoSync } from './sincronizacion.js';
 import { escuchar } from './eventos.js';
@@ -145,12 +146,21 @@ export function pantallaAjustes(contenedor) {
       const nuevo = reg.installing;
       if (nuevo) await new Promise((ok) => { const ver = () => { if (nuevo.state === 'installed' || nuevo.state === 'redundant') ok(); }; nuevo.addEventListener('statechange', ver); ver(); });
       if (reg.waiting) { aviso('Instalando la versión nueva…'); reg.waiting.postMessage('actualizar'); return; }   // la app se recarga sola
+      if (await ofrecerAndroidNueva()) return;
       aviso(`Ya tenés la última versión (${VERSION}).`);
     } catch {
       aviso('No se pudo buscar (¿sin internet?). Probá de nuevo en un rato.');
     } finally {
       botonBuscar.disabled = false; botonBuscar.textContent = 'Buscar actualización';
     }
+  }
+  // Los cambios en el widget, botones o avisos vienen en un archivo nuevo de la app de Android.
+  async function ofrecerAndroidNueva() {
+    if (!await android.hayVersionNueva().catch(() => false)) return false;
+    if (await confirmar('Hay una versión nueva de la app de Android. Se baja el archivo y Android te pregunta si la querés instalar. Tus datos no se tocan.', { si: 'Bajar' })) {
+      android.bajarVersionNueva();
+    }
+    return true;
   }
   // Borra la copia guardada de la app y la vuelve a bajar. Los datos no se tocan.
   async function forzarActualizacion() {

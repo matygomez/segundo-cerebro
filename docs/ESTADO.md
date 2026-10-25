@@ -5,6 +5,10 @@ Leé solo la sección que vas a tocar. Al terminar, actualizá sus 1–3 líneas
 Sincronización Drive (cada colección = un JSON), registro de módulos, formularios, editor de texto, búsqueda general (lupa, Ctrl+K, barra del Inicio),
 Ajustes (módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos (en PC va al Inicio); ya no hay engranaje arriba. Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
 
+## App de Android (`android/`, `js/core/android.js`)
+Ventana nativa que abre la app de GitHub Pages (las actualizaciones web llegan igual). Puente `window.CerebroAndroid`: `version`, `pedirToken` (permiso de Google con la cuenta del teléfono; Google bloquea su login web en apps), `abrirAfuera`.
+Se arma sola con `.github/workflows/android.yml` al cambiar `android/` (subir `versionCode`) y se publica en Releases (`android-N`). Firma: `android/firma.p12` + secreto `CLAVE_FIRMA`. "Buscar actualización" avisa si hay APK nuevo.
+
 ## Inicio (`modules/home`)
 Fecha, memento mori (estilos mezcla/barras/contador/años, frase, años de vida elegibles 50–120 (por defecto 100); se puede apagar), botones rápidos, búsqueda, captura "Anotá algo", bloques de módulos.
 Todo configurable en Ajustes › Inicio (`js/core/inicio.js`, `js/core/ajustes-inicio.js`).
