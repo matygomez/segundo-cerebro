@@ -38,6 +38,7 @@ with sync_playwright() as p:
         est['pedidos']+=1; est['prompt']=json.loads(route.request.post_data)['contents'][0]['parts'][0]['text']
         if est['falla']: route.fulfill(status=429, body='{}'); return
         if est.get('malo'): route.fulfill(status=400, body='{"error":"bad"}'); return
+        if est.get('lento'): __import__('time').sleep(1.5)
         x={'nombre':'2026-10 Luz Edenor','carpetaId':ids['luz'],'seguro':True,'alternativas':[],'carpetaNueva':'','que':'Factura de luz','de':'Edenor','fecha':'2026-10-08','vence':'2026-11-03','monto':22910,'contenido':'Edenor consumo 312 kWh total 22910'}
         route.fulfill(status=200, content_type='application/json', body=json.dumps({'candidates':[{'content':{'parts':[{'text':json.dumps(x)}]}}]}))
     page.goto(U); page.wait_for_timeout(800)
@@ -142,6 +143,22 @@ with sync_playwright() as p:
     est['malo']=False; n0=est['pedidos']
     fila.locator('button:has-text("Leer con Gemini")').click(); page.wait_for_timeout(2500)
     chk(est['pedidos']==n0+1 and page.locator('.bt-or-item:has-text("Para confirmar")').count()>=1,'lectura forzada desde la lista')
+    # Leer todo: el primero lee y el resto queda en cola
+    est['lento']=True
+    for nom in ('c1.pdf','c2.pdf','c3.pdf'):
+        page.goto(U+f'#/bitacora/c/{ids["luz"]}'); page.wait_for_timeout(700)
+        page.locator('.bt-nueva').first.click(); page.wait_for_timeout(300)
+        est['malo']=True
+        with page.expect_file_chooser() as fc: page.locator('dialog[open] .bt-menu-op:has-text("Subir archivo acá")').click()
+        fc.value.set_files(files=[{'name':nom,'mimeType':'application/pdf','buffer':pdf('Cola '+nom)}])
+        page.wait_for_timeout(1500)
+    est['malo']=False
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    page.locator('.bt-or-todo').click(); page.wait_for_timeout(1200)
+    chk(page.locator('.bt-or-item:has-text("En cola")').count()>=2,'leer todo deja en cola')
+    page.wait_for_timeout(9000)
+    chk(page.locator('.bt-or-item:has-text("En cola"), .bt-or-item:has-text("Leyendo")').count()==0,'cola termina')
+    est['lento']=False
     # Buscador
     res=page.evaluate("""async () => { const B = await import('/js/core/busqueda.js'); return (await B.buscar('312 kWh')).map(x => x.titulo); }""")
     chk('2026-10 Luz Edenor' in res,'buscador encuentra')

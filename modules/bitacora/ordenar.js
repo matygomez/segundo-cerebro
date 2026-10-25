@@ -196,10 +196,13 @@ async function leerPendiente(ctx, m, id, blob, forzar = false) {
   }
 }
 
+// Cada archivo que espera su turno queda "En cola" (se ve en la lista; si
+// cerrás la app, se retoma al abrirla). Gemini lee de a uno.
 function aLaCola(ctx, m, id, blob = null, forzar = false) {
   if (enCurso.has(id)) return;
   enCurso.add(id);
-  enCola(() => leerPendiente(ctx, m, id, blob, forzar)).finally(() => enCurso.delete(id));
+  const marca = m.col.pendientes.obtener(id).then(p => (p && p.estado !== 'leyendo' ? m.col.pendientes.actualizar(id, { estado: 'cola' }) : null)).catch(() => {});
+  enCola(async () => { await marca; return leerPendiente(ctx, m, id, blob, true); }).finally(() => enCurso.delete(id));
 }
 
 // Mientras la app está abierta, revisa cada medio minuto si hay archivos
@@ -209,14 +212,14 @@ export function reintentarSolo(ctx, m) {
     const ahora = Date.now();
     for (const p of await m.col.pendientes.listar()) {
       const colgado = p.estado === 'leyendo' && ahora - (p.modificado || p.creado) > 180000;
-      if ((p.estado === 'espera' && (p.proximo || 0) <= ahora) || colgado) aLaCola(ctx, m, p.id);
+      if ((p.estado === 'espera' && (p.proximo || 0) <= ahora) || p.estado === 'cola' || colgado) aLaCola(ctx, m, p.id);
     }
     // Los subidos directo a una carpeta que Gemini todavía no pudo leer.
     for (const n of await m.col.notas.listar()) {
       const a = n.archivo;
       if (!a || n.papelera || !a.lectura || a.lectura === 'lista' || a.lectura === 'error') continue;
       const colgado = a.lectura === 'leyendo' && ahora - (n.modificado || n.creado) > 180000;
-      if ((a.lectura === 'espera' && (a.proximo || 0) <= ahora) || colgado) aLaColaNota(ctx, m, n.id);
+      if ((a.lectura === 'espera' && (a.proximo || 0) <= ahora) || a.lectura === 'cola' || colgado) aLaColaNota(ctx, m, n.id);
     }
   };
   setTimeout(revisar, 5000);
@@ -264,9 +267,21 @@ async function leerNota(ctx, m, id, blob, forzar = false) {
 
 export function aLaColaNota(ctx, m, id, blob = null, forzar = false) {
   const k = `nota:${id}`;
-  if (enCurso.has(k)) return;
+  if (enCurso.has(k)) return false;
   enCurso.add(k);
-  enCola(() => leerNota(ctx, m, id, blob, forzar)).finally(() => enCurso.delete(k));
+  const marca = (async () => {
+    const n = (await m.cargar()).nota(id);
+    if (n?.archivo && n.archivo.lectura !== 'leyendo') await m.guardarNota(id, { archivo: { ...n.archivo, lectura: 'cola', error: '' } });
+  })().catch(() => {});
+  enCola(async () => { await marca; return leerNota(ctx, m, id, blob, true); }).finally(() => enCurso.delete(k));
+  return true;
+}
+
+// "Leer todo": los de la lista, en orden; el primero empieza y el resto queda en cola.
+export function leerTodo(ctx, m, d) {
+  const notas = d.notas.filter(n => n.archivo?.lectura && !n.archivo.revisado && n.archivo.lectura !== 'leyendo').sort((a, b) => a.creado - b.creado);
+  const n = notas.filter(x => aLaColaNota(ctx, m, x.id, null, true)).length;
+  ctx.aviso(n ? `Gemini va a leer ${n} archivo${n === 1 ? '' : 's'}, de a uno.` : 'Ya están todos en cola.');
 }
 
 export async function subirACarpeta(ctx, m, lista, carpetaId) {
@@ -282,7 +297,7 @@ export async function subirACarpeta(ctx, m, lista, carpetaId) {
       const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
       ultimo = await m.crearNota({
         titulo: sinExtension(nombre), carpetaId,
-        archivo: { que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '', huella, original: nombre, lectura: 'leyendo' },
+        archivo: { que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '', huella, original: nombre, lectura: 'cola' },
         adjuntos: [{ ...adjunto, nombre, origen: 'subido', principal: true }],
       });
       guardados++;
@@ -340,7 +355,7 @@ export async function recibirArchivos(ctx, m, lista, via) {
       if ((await col.listar()).some(p => p.huella === huella)) { ctx.aviso(`"${nombre}" ya está para revisar`); continue; }
       const repetida = (await m.cargar()).notas.find(n => n.archivo?.huella === huella);
       const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
-      const id = await col.crear({ estado: 'leyendo', original: nombre, tipo, via, adjunto: { ...adjunto, nombre }, huella, repetidoDe: repetida?.id || '', propuesta: null, error: '' });
+      const id = await col.crear({ estado: 'cola', original: nombre, tipo, via, adjunto: { ...adjunto, nombre }, huella, repetidoDe: repetida?.id || '', propuesta: null, error: '' });
       nuevos++;
       aLaCola(ctx, m, id, x.blob);
     } catch (e) {
@@ -365,10 +380,11 @@ function elegirDelDispositivo(ctx, m) {
 }
 
 // ── Pantalla "Para revisar" ──
-const ESTADOS = { leyendo: ['Leyendo…', 'leyendo'], espera: ['En espera', 'leyendo'], error: ['Revisar a mano', 'error'] };
+const ESTADOS = { leyendo: ['Leyendo…', 'leyendo'], cola: ['En cola', 'leyendo'], espera: ['En espera', 'leyendo'], error: ['Revisar a mano', 'error'] };
 const hora = (ms) => new Date(ms).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
 function estadoDe(p) {
   if (p.estado === 'leyendo') return ESTADOS.leyendo;
+  if (p.estado === 'cola') return ESTADOS.cola;
   if (p.estado === 'espera') return ESTADOS.espera;
   if (p.estado === 'error') return ESTADOS.error;
   if (p.repetidoDe) return ['Repetido', 'repetido'];
@@ -404,7 +420,7 @@ export async function pantallaPendientes(ctx, m, d, main) {
       ? h('div', { class: 'bt-or-lista' }, lista.map(p => {
         const [texto, clase] = estadoDe(p);
         const pr = p.propuesta;
-        const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
+        const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : p.estado === 'cola' ? 'En cola: Gemini lo lee cuando termine con los anteriores.' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
         return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => revisar(ctx, m, p) },
           h('span', { class: 'bt-or-ext' }, (extension(p.original).slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, pr?.nombre || p.original), h('small', {}, sub), h('small', {}, `${p.via} · ${haceCuanto(p.creado)}`)),
@@ -414,7 +430,8 @@ export async function pantallaPendientes(ctx, m, d, main) {
       : sinLeer.length ? h('p', { class: 'nota' }, 'Nada para ubicar.') : vacio(ctx, 'No hay nada para revisar', 'Todo ordenado.'),
     // Subidos directo a una carpeta: ya están guardados, falta que los confirmes.
     sinLeer.length ? [
-      h('h2', { class: 'bt-or-sec' }, 'Ya ubicados, falta confirmar', h('span', { class: 'bt-or-num' }, String(sinLeer.length))),
+      h('h2', { class: 'bt-or-sec' }, 'Ya ubicados, falta confirmar', h('span', { class: 'bt-or-num' }, String(sinLeer.length)),
+        h('button', { type: 'button', class: 'boton bt-chico bt-or-todo', onclick: () => leerTodo(ctx, m, d) }, 'Leer todo con Gemini')),
       h('p', { class: 'nota' }, 'Ya están guardados en su carpeta. Gemini completa el nombre, los datos y el texto para el buscador; abrí cada uno, revisalo y tocá "Listo, completado".'),
       h('div', { class: 'bt-or-lista' }, sinLeer.map(n => {
         const a = n.archivo;
@@ -427,7 +444,7 @@ export async function pantallaPendientes(ctx, m, d, main) {
           h('span', { class: 'bt-or-t' }, h('b', {}, n.titulo), h('small', { class: 'bt-or-ruta' }, ic('carpeta'), d.nombreRuta(n.carpetaId)), h('small', {}, sub)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
           // Leer con Gemini en todos (menos mientras lee); después, completar a mano o dar por listo.
-          a.lectura !== 'leyendo' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Gemini lo está leyendo.'); } }, 'Leer con Gemini') : null,
+          a.lectura !== 'leyendo' && a.lectura !== 'cola' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Quedó en cola: Gemini lo lee en cuanto pueda.'); } }, 'Leer con Gemini') : null,
           a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar')
             : a.lectura === 'lista' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async (e) => { e.stopPropagation(); await m.guardarNota(n.id, { archivo: { ...a, revisado: true } }); ctx.aviso('Listo: salió de Para revisar.'); } }, 'Listo') : null);
       })),
@@ -699,6 +716,7 @@ export function fichaArchivo(ctx, m, n) {
 
   // Lectura de Gemini (archivos subidos directo a una carpeta).
   const lectura = a.lectura === 'leyendo' ? h('p', { class: 'bt-or-duda' }, 'Gemini está leyendo el archivo para completar los datos…')
+    : a.lectura === 'cola' ? h('p', { class: 'bt-or-duda' }, 'En cola: Gemini lo lee cuando termine con los anteriores.')
     : a.lectura === 'espera' ? h('p', { class: 'bt-or-duda' }, `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}.`)
       : a.lectura === 'error' ? h('p', { class: 'bt-or-duda' }, `${a.error} Podés completar los datos a mano.`) : null;
 
@@ -723,10 +741,10 @@ export function fichaArchivo(ctx, m, n) {
 
   // Botones de Revisar: leer ahora (aunque ya esté leído) y marcarlo como completado a mano.
   const enRevisar = a.lectura && !a.revisado;
-  const leerAhora = () => { aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Gemini lo está leyendo. Lo que completaste a mano no se pisa.'); };
+  const leerAhora = () => { aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Quedó en cola para Gemini. Lo que completaste a mano no se pisa.'); };
   const completado = async () => { await guardar({ lectura: 'lista', error: '', revisado: true }); ctx.aviso('Listo: salió de Para revisar.'); };
   const acciones = p ? h('div', { class: 'bt-ficha-bot' },
-    h('button', { type: 'button', class: 'boton', disabled: a.lectura === 'leyendo', onclick: leerAhora }, a.lectura === 'leyendo' ? 'Leyendo…' : 'Leer con Gemini'),
+    h('button', { type: 'button', class: 'boton', disabled: a.lectura === 'leyendo' || a.lectura === 'cola', onclick: leerAhora }, a.lectura === 'leyendo' ? 'Leyendo…' : a.lectura === 'cola' ? 'En cola…' : 'Leer con Gemini'),
     enRevisar ? h('button', { type: 'button', class: 'boton principal', onclick: completado }, ic('tilde'), 'Listo, completado')
       : a.revisado ? h('span', { class: 'bt-or-ok' }, '✓ Revisado') : null) : null;
 

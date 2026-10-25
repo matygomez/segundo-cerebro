@@ -588,3 +588,4 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-or-sec .bt-or-num { margin-left: 0; }
 .bt-or-ruta { display: flex; align-items: center; gap: 0.3rem; color: var(--laton) !important; }
 .bt-or-ruta svg { width: 0.85rem; height: 0.85rem; }
+.bt-or-todo { margin-left: auto; font-family: var(--fuente); }
