@@ -383,7 +383,8 @@ export async function pendientesOrdenados(m) {
 export async function pantallaPendientes(ctx, m, d, main) {
   const { h } = ctx;
   const lista = await pendientesOrdenados(m);
-  const sinLeer = d.notas.filter(n => n.archivo?.lectura && n.archivo.lectura !== 'lista').sort((a, b) => a.creado - b.creado);
+  // Subidos directo a una carpeta que todavía no confirmaste (aunque Gemini ya los haya leído).
+  const sinLeer = d.notas.filter(n => n.archivo?.lectura && !n.archivo.revisado).sort((a, b) => a.creado - b.creado);
   const zona = h('div', { class: 'bt-or-zona', onclick: () => elegirDelDispositivo(ctx, m) },
     ic('clip'), h('span', {}, h('b', {}, 'Subir archivos'),
       h('small', {}, 'Tocá para elegir, arrastralos acá o compartilos desde cualquier app con "Compartir › Segundo Cerebro".')));
@@ -411,21 +412,23 @@ export async function pantallaPendientes(ctx, m, d, main) {
           p.estado === 'error' || p.estado === 'espera' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); reintentar(ctx, m, p); } }, 'Reintentar ahora') : null);
       }))
       : sinLeer.length ? h('p', { class: 'nota' }, 'Nada para ubicar.') : vacio(ctx, 'No hay nada para revisar', 'Todo ordenado.'),
-    // Subidos directo a una carpeta: ya están guardados, falta que Gemini los lea.
+    // Subidos directo a una carpeta: ya están guardados, falta que los confirmes.
     sinLeer.length ? [
-      h('h2', { class: 'bt-or-sec' }, 'Ya ubicados, falta que Gemini los lea', h('span', { class: 'bt-or-num' }, String(sinLeer.length))),
-      h('p', { class: 'nota' }, 'Ya están guardados en su carpeta. Cuando Gemini los lea se completan solos el nombre, los datos y el texto para el buscador.'),
+      h('h2', { class: 'bt-or-sec' }, 'Ya ubicados, falta confirmar', h('span', { class: 'bt-or-num' }, String(sinLeer.length))),
+      h('p', { class: 'nota' }, 'Ya están guardados en su carpeta. Gemini completa el nombre, los datos y el texto para el buscador; abrí cada uno, revisalo y tocá "Listo, completado".'),
       h('div', { class: 'bt-or-lista' }, sinLeer.map(n => {
         const a = n.archivo;
-        const [texto, clase] = ESTADOS[a.lectura] || ESTADOS.leyendo;
-        const sub = a.lectura === 'espera' ? `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}.`
+        const [texto, clase] = a.lectura === 'lista' ? ['Para confirmar', 'confirmar'] : ESTADOS[a.lectura] || ESTADOS.leyendo;
+        const sub = a.lectura === 'lista' ? [a.que, a.vence ? `vence ${fechaCorta(a.vence)}` : '', a.monto ? plata(a.monto) : ''].filter(Boolean).join(' · ') || 'Gemini ya lo leyó. Revisá los datos.'
+          : a.lectura === 'espera' ? `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}.`
           : a.lectura === 'error' ? `${a.error || 'No se pudo leer.'} Completalo a mano.` : 'Gemini lo está leyendo…';
         return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => ctx.navegar(`bitacora/n/${n.id}`) },
           h('span', { class: 'bt-or-ext' }, (extension(a.original || '').slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, n.titulo), h('small', { class: 'bt-or-ruta' }, ic('carpeta'), d.nombreRuta(n.carpetaId)), h('small', {}, sub)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
           a.lectura === 'espera' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); aLaColaNota(ctx, m, n.id); } }, 'Reintentar ahora')
-            : a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar') : null);
+            : a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar')
+              : a.lectura === 'lista' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async (e) => { e.stopPropagation(); await m.guardarNota(n.id, { archivo: { ...a, revisado: true } }); ctx.aviso('Listo: salió de Para revisar.'); } }, 'Listo') : null);
       })),
     ] : null);
 }
@@ -718,12 +721,13 @@ export function fichaArchivo(ctx, m, n) {
     h('button', { type: 'button', class: 'bt-link-chico bt-ficha-no', onclick: () => guardar({ sugerir: {} }) }, 'No, gracias')) : null;
 
   // Botones de Revisar: leer ahora (aunque ya esté leído) y marcarlo como completado a mano.
-  const enRevisar = a.lectura && a.lectura !== 'lista';
+  const enRevisar = a.lectura && !a.revisado;
   const leerAhora = () => { aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Gemini lo está leyendo. Lo que completaste a mano no se pisa.'); };
-  const completado = async () => { await guardar({ lectura: 'lista', error: '' }); ctx.aviso('Listo: salió de Para revisar.'); };
+  const completado = async () => { await guardar({ lectura: 'lista', error: '', revisado: true }); ctx.aviso('Listo: salió de Para revisar.'); };
   const acciones = p ? h('div', { class: 'bt-ficha-bot' },
     h('button', { type: 'button', class: 'boton', disabled: a.lectura === 'leyendo', onclick: leerAhora }, a.lectura === 'leyendo' ? 'Leyendo…' : 'Leer con Gemini'),
-    enRevisar ? h('button', { type: 'button', class: 'boton principal', onclick: completado }, ic('tilde'), 'Listo, completado') : null) : null;
+    enRevisar ? h('button', { type: 'button', class: 'boton principal', onclick: completado }, ic('tilde'), 'Listo, completado')
+      : a.revisado ? h('span', { class: 'bt-or-ok' }, '✓ Revisado') : null) : null;
 
   return h('div', { class: 'bt-ficha' },
     p ? portada(ctx, p) : null,

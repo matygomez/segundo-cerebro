@@ -56,6 +56,8 @@ with sync_playwright() as p:
     chk(n['a']['lectura']=='lista' and n['a']['monto']==22910 and n['a']['vence']=='2026-11-03' and 'kWh' in n['a']['contenido'],'datos completados')
     chk('Casa › Luz' in est.get('prompt',''),'Gemini sabe la carpeta')
     chk(page.locator('.bt-fila:has-text("2026-10 Luz Edenor"), .bt-lista a:has-text("2026-10 Luz Edenor")').count()>=1,'aparece en la carpeta')
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor"):has-text("Para confirmar")').count()==1,'leido queda para confirmar')
     # Nota: vista previa y sugerencias
     page.goto(U+f'#/bitacora/n/{n["id"]}'); page.wait_for_timeout(3500)
     chk(page.locator('.bt-portada img').count()==1,'vista previa del pdf')
@@ -73,6 +75,11 @@ with sync_playwright() as p:
     chk(page.evaluate("async () => !!(await (await caches.open('sc-imagenes')).keys()).find(k => k.url.includes('__archivos'))"),'guardado en el dispositivo')
     chk(page.locator('dialog.bt-visor button:has-text("Quitar del dispositivo")').count()==1,'boton quitar')
     page.locator('dialog.bt-visor button[aria-label="Cerrar"]').click(); page.wait_for_timeout(300)
+    page.goto(U+f'#/bitacora/n/{n["id"]}'); page.wait_for_timeout(1200)
+    page.locator('.bt-ficha button:has-text("Listo, completado")').click(); page.wait_for_timeout(800)
+    chk(page.locator('.bt-ficha:has-text("Revisado")').count()==1,'marca revisado')
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor")').count()==0,'confirmado sale de revisar')
     # Repetido: avisa
     page.goto(U+f'#/bitacora/c/{ids["luz"]}'); page.wait_for_timeout(1000)
     page.locator('.bt-nueva').first.click(); page.wait_for_timeout(300)
