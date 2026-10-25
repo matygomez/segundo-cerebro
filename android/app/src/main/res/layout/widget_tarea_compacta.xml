@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android" android:id="@+id/w_fila"
     android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal"
-    android:background="@drawable/fondo_fila" android:paddingTop="5dp" android:paddingBottom="5dp" android:gravity="center_vertical">
+    android:background="@drawable/fondo_fila" android:paddingTop="1dp" android:paddingBottom="1dp" android:gravity="center_vertical">
     <TextView android:id="@+id/w_titulo" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
         android:maxLines="1" android:ellipsize="end" android:textColor="#FFECE9E2" android:textSize="15sp"
         android:shadowColor="#99000000" android:shadowRadius="3" />
