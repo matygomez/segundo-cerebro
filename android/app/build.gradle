@@ -12,8 +12,8 @@ android {
         targetSdk 35
         // Subir versionCode en cada cambio de la parte de Android: la app web
         // lo compara con la última versión publicada para avisar que hay una nueva.
-        versionCode 3
-        versionName '3'
+        versionCode 4
+        versionName '4'
     }
 
     // La firma tiene que ser siempre la misma: si cambia, Android no deja
