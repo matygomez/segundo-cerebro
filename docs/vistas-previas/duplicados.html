@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Vista previa: Comparar duplicados</title>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{--papel:#0B0B0C;--superficie:#1B1C1E;--superficie-2:#242528;--superficie-3:#2c2d31;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--tinta-3:#6B6E72;--linea:#2E3033;--laton:#D3AB5C;--laton-f:#2B2416;--verde:#6FB4A0;--verde-f:#17302A;--rojo:#E2786C;--rojo-f:#3A201D;--azul:#8DB4DC;--azul-f:#1A2633;--titulo:'Barlow Condensed','Barlow',sans-serif;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0;background:#050506;color:var(--tinta);font-family:'Barlow',system-ui,sans-serif}
+button,input,select{font:inherit;color:inherit}
+.ic{width:18px;height:18px;flex:none}
+.control{position:sticky;top:0;z-index:20;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding:10px 16px;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.05rem;letter-spacing:.02em;color:var(--laton)}
+.g{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.g>span{font-size:.8rem;color:var(--tinta-2)}
+.seg{display:inline-flex;flex-wrap:wrap;border:1px solid var(--linea);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--superficie);padding:6px 11px;font-size:.85rem;cursor:pointer;color:var(--tinta-2)}
+.seg button.sel{background:var(--laton);color:#17130a;font-weight:600}
+.nota-prev{max-width:1240px;margin:12px auto 0;padding:0 16px;color:var(--tinta-2);font-size:.86rem;line-height:1.45}
+.escena{padding:16px 16px 50px;display:flex;justify-content:center}
+.app{width:1240px;max-width:100%;background:var(--papel);border:1px solid var(--linea);border-radius:14px;overflow:hidden;display:grid;grid-template-columns:210px 1fr;grid-template-rows:auto 1fr;min-height:780px;position:relative}
+.app.cel{width:390px;grid-template-columns:1fr;border-radius:28px}
+.barra{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;padding:12px 22px;border-bottom:1px solid var(--linea)}
+.marca{display:flex;align-items:center;gap:8px;font-weight:600}.marca i{width:15px;height:15px;border-radius:50%;border:2px solid var(--laton);background:radial-gradient(circle,var(--laton) 0 3px,transparent 3.5px)}
+.chip{border:1px solid var(--linea);background:var(--superficie);border-radius:999px;padding:4px 11px;font-size:.78rem;color:var(--tinta-2)}
+.menu{background:var(--superficie);border-right:1px solid var(--linea);padding:18px 10px;display:flex;flex-direction:column;gap:2px}
+.menu a{display:flex;gap:11px;align-items:center;padding:9px 11px;border-radius:9px;color:var(--tinta-2);font-size:.95rem}
+.menu a.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}.menu a.sel svg{color:var(--laton)}
+.app.cel .menu{position:absolute;bottom:0;left:0;right:0;flex-direction:row;justify-content:space-around;padding:8px 4px 14px;border-right:0;border-top:1px solid var(--linea);z-index:3}
+.app.cel .menu a{flex-direction:column;gap:3px;font-size:.68rem;padding:4px;background:none}
+.contenido{padding:24px 28px 40px;min-width:0}
+.app.cel .contenido{padding:16px 14px 100px}
+.cab{display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.cab h1{font-family:var(--titulo);font-weight:600;font-size:2.2rem;margin:0;line-height:1}
+.cab p{margin:4px 0 0;color:var(--tinta-2);font-size:.92rem}
+.app.cel .cab h1{font-size:1.8rem}
+.pest{display:inline-flex;background:var(--superficie);border:1px solid var(--linea);border-radius:10px;padding:3px;margin-bottom:16px}
+.pest button{border:0;background:none;padding:6px 12px;border-radius:7px;font-size:.88rem;color:var(--tinta-2);cursor:pointer;display:flex;gap:6px;align-items:center}
+.pest button.sel{background:var(--superficie-3);color:var(--tinta);font-weight:600}
+.num{background:var(--laton);color:#17130a;border-radius:999px;font-size:.7rem;font-weight:700;padding:0 6px;min-width:18px;text-align:center}
+.caja{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;padding:14px 16px}
+.subir{border:1.5px dashed var(--linea);border-radius:14px;padding:18px;display:flex;gap:14px;align-items:center;color:var(--tinta-2);margin-bottom:16px;cursor:pointer}
+.subir:hover{border-color:var(--laton);color:var(--tinta)}
+.subir .ic{width:28px;height:28px;color:var(--laton)}.subir b{color:var(--tinta);display:block}
+.lista{display:grid;gap:10px}
+.arch{display:flex;gap:12px;align-items:center;background:var(--superficie);border:1px solid var(--linea);border-radius:12px;padding:12px 14px;cursor:pointer}
+.arch:hover{border-color:#44474b}
+.pdf{width:38px;height:46px;border-radius:6px;background:var(--superficie-3);display:grid;place-items:center;font-size:.62rem;font-weight:700;color:var(--rojo);flex:none}
+.arch .t{flex:1;min-width:0}.arch .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.arch .t small{color:var(--tinta-2);font-size:.8rem;display:block}
+.est{font-size:.72rem;font-weight:600;border-radius:999px;padding:3px 9px;white-space:nowrap}
+.est.confirmar{background:var(--laton-f);color:var(--laton)}.est.duda{background:var(--azul-f);color:var(--azul)}
+.est.repetido{background:var(--rojo-f);color:var(--rojo)}.est.leyendo{background:var(--superficie-3);color:var(--tinta-2)}
+.vacio{color:var(--tinta-3);text-align:center;padding:30px}
+.volver{display:inline-flex;gap:6px;align-items:center;color:var(--tinta-2);cursor:pointer;margin-bottom:12px;font-size:.9rem}
+.rev{display:grid;grid-template-columns:1fr 1fr;gap:14px}.app.cel .rev{grid-template-columns:1fr}
+.rev h3{margin:0 0 10px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.campo{display:grid;grid-template-columns:110px 1fr;gap:8px;align-items:center;margin-bottom:8px;font-size:.92rem}
+.campo span{color:var(--tinta-2)}
+.campo input,select{background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 9px;width:100%;min-width:0}
+.ubic{display:flex;gap:10px;align-items:center;background:var(--superficie-2);border-radius:10px;padding:10px 12px}
+.ubic b{flex:1}.ubic .ic{color:var(--laton)}
+.link{color:var(--laton);cursor:pointer;font-size:.88rem;border:0;background:none;padding:0}
+.opc{display:grid;gap:6px;margin-top:8px}
+.opc button{text-align:left;border:1px solid var(--linea);background:var(--superficie-2);border-radius:9px;padding:8px 11px;cursor:pointer}
+.opc button.sel{border-color:var(--laton);background:var(--laton-f)}
+.aviso{border-radius:10px;padding:11px 13px;font-size:.9rem;line-height:1.4}
+.aviso.duda{background:var(--azul-f);color:var(--azul)}.aviso.rep{background:var(--rojo-f);color:var(--rojo)}
+.sug{border:1px solid var(--linea);border-radius:12px;padding:12px;display:grid;gap:8px}
+.sug .fila{display:flex;gap:10px;align-items:flex-start}
+.sug .fila p{margin:0;flex:1;font-size:.92rem}.sug .fila p small{display:block;color:var(--tinta-2)}
+.tog{width:38px;height:22px;border-radius:999px;background:var(--superficie-3);position:relative;cursor:pointer;flex:none;border:0}
+.tog::after{content:'';position:absolute;top:3px;left:3px;width:16px;height:16px;border-radius:50%;background:var(--tinta-2);transition:.15s}
+.tog.on{background:var(--laton)}.tog.on::after{left:19px;background:#17130a}
+.botones{display:flex;gap:10px;justify-content:flex-end;margin-top:14px;grid-column:1/-1}
+.btn{border:1px solid var(--linea);background:var(--superficie-2);border-radius:10px;padding:9px 16px;cursor:pointer}
+.btn.si{background:var(--laton);border-color:var(--laton);color:#17130a;font-weight:600}
+.btn.peligro{color:var(--rojo)}
+.carpetas{display:grid;grid-template-columns:240px 1fr;gap:14px}.app.cel .carpetas{grid-template-columns:1fr}
+.arbol div{padding:6px 8px;border-radius:7px;color:var(--tinta-2);font-size:.92rem;display:flex;gap:7px;align-items:center}
+.arbol div.sel{background:var(--superficie-2);color:var(--tinta);font-weight:600}
+.ficha{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:12px 0}.app.cel .ficha{grid-template-columns:1fr 1fr}
+.ficha div{background:var(--superficie-2);border-radius:9px;padding:8px 10px}.ficha small{display:block;color:var(--tinta-2);font-size:.72rem}
+.verpdf{display:flex;gap:12px;align-items:center;border:1px solid var(--linea);border-radius:10px;padding:10px}
+.adentro{color:var(--tinta-2);font-size:.88rem;line-height:1.5;margin-top:10px}
+.mes{display:flex;align-items:center;gap:10px;margin-bottom:12px}.mes b{font-size:1.1rem}
+.carga{display:flex;gap:12px;align-items:center;padding:10px 4px;border-bottom:1px solid var(--linea)}
+.carga:last-child{border:0}.carga .t{flex:1}.carga .t small{display:block;color:var(--tinta-2);font-size:.8rem}
+.ok{color:var(--verde);font-weight:600;font-size:.85rem}.falta{color:var(--rojo);font-weight:600;font-size:.85rem}
+.area h2{font-family:var(--titulo);font-size:1.3rem;margin:18px 0 8px;display:flex;gap:8px;align-items:center}
+.area h2 .nuevo{font-size:.6rem;font-weight:700;color:#17130a;background:var(--laton);border-radius:5px;padding:1px 5px;font-family:'Barlow'}
+.area h2.cerr{color:var(--tinta-3)}
+.tar{display:flex;gap:10px;align-items:flex-start;padding:8px 4px;font-size:.92rem}
+.tar .c{width:17px;height:17px;border-radius:5px;border:1.6px solid var(--tinta-2);flex:none;margin-top:2px}
+.tar .tt{flex:1}.tar .tt small{display:block;color:var(--tinta-3);font-size:.78rem}
+.busca{display:flex;gap:10px;align-items:center;background:var(--superficie);border:1px solid var(--laton);border-radius:12px;padding:10px 14px;margin-bottom:14px}
+.busca input{flex:1;background:none;border:0;outline:0;font-size:1rem}
+.grupo{font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2);margin:12px 0 6px}
+.res{display:flex;gap:12px;padding:10px;border-radius:10px;background:var(--superficie);margin-bottom:8px}
+.res .t small{display:block;color:var(--tinta-2);font-size:.8rem}.res .t p{margin:4px 0 0;font-size:.85rem;color:var(--tinta-2)}
+mark{background:var(--laton-f);color:var(--laton);border-radius:3px;padding:0 2px}
+.toast{position:absolute;left:50%;bottom:24px;transform:translateX(-50%);background:var(--superficie-3);border:1px solid var(--linea);border-radius:10px;padding:10px 16px;font-size:.9rem;z-index:30;display:none;white-space:nowrap}
+.app.cel .toast{bottom:90px;white-space:normal;width:86%}
+.toast.ver{display:block}
+.app.cel{grid-template-columns:minmax(0,1fr)}.app.cel .contenido{min-width:0}
+.fondo{position:absolute;inset:0;background:#000b;display:flex;align-items:center;justify-content:center;z-index:10;padding:20px}
+.app.cel .fondo{padding:0;align-items:stretch}
+.comp{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;width:100%;max-width:1000px;max-height:100%;overflow:auto;display:flex;flex-direction:column}
+.app.cel .comp{border-radius:0}
+.comp-cab{display:flex;align-items:center;gap:10px;padding:14px 18px;border-bottom:1px solid var(--linea)}
+.comp-cab h2{margin:0;font-family:var(--titulo);font-size:1.4rem;flex:1}
+.x{border:0;background:none;color:var(--tinta-2);font-size:1.3rem;cursor:pointer}
+.aviso-dup{margin:14px 18px 0;background:var(--rojo-f);color:var(--rojo);border-radius:10px;padding:10px 12px;font-size:.9rem}
+.lados{display:grid;grid-template-columns:1fr 1fr;gap:14px;padding:14px 18px}
+.app.cel .lados{grid-template-columns:1fr 1fr;gap:8px;padding:12px}
+.lado{border:2px solid var(--linea);border-radius:12px;padding:10px;display:grid;gap:8px;cursor:pointer;background:var(--superficie-2)}
+.lado.sel{border-color:var(--laton)}
+.lado.fuera{opacity:.45}
+.lado h3{margin:0;font-size:.75rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.hoja{background:#fff;color:#222;border-radius:6px;aspect-ratio:3/4;padding:14px;font-family:Georgia,serif;font-size:.62rem;line-height:1.5;overflow:hidden;position:relative}
+.hoja{aspect-ratio:auto;height:300px}
+.app.cel .hoja{padding:8px;font-size:.45rem;height:200px}
+.hoja b{display:block;text-align:center;font-size:1.1em;margin:8px 0}
+.hoja .sello{width:34px;height:34px;border-radius:50%;border:2px solid #999;margin:0 auto}
+.hoja .pags{position:absolute;right:6px;bottom:6px;background:#000b;color:#fff;font-family:Barlow;border-radius:999px;padding:1px 7px;font-size:.7rem}
+.lado .nom{font-weight:600;font-size:.92rem;word-break:break-word}
+.lado .det{color:var(--tinta-2);font-size:.8rem;display:grid;gap:2px}
+.lado .det span{display:flex;gap:5px;align-items:center}
+.ver{border:0;background:none;color:var(--laton);font-size:.82rem;padding:0;cursor:pointer;justify-self:start}
+.opciones{padding:0 18px 4px;display:grid;gap:8px}
+.app.cel .opciones{padding:0 12px 4px}
+.opciones h4{margin:4px 0 2px;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.opc-dup{display:flex;gap:10px;align-items:flex-start;border:1px solid var(--linea);border-radius:10px;padding:10px 12px;cursor:pointer;background:var(--superficie-2)}
+.opc-dup.sel{border-color:var(--laton);background:var(--laton-f)}
+.opc-dup i{width:18px;height:18px;border-radius:50%;border:2px solid var(--tinta-2);flex:none;margin-top:2px}
+.opc-dup.sel i{border-color:var(--laton);background:radial-gradient(circle,var(--laton) 0 4px,transparent 5px)}
+.opc-dup span{display:grid}.opc-dup small{color:var(--tinta-2);font-size:.8rem}
+.donde{margin:6px 18px 0;border-top:1px solid var(--linea);padding-top:12px;display:grid;gap:8px}
+.app.cel .donde{margin:6px 12px 0}
+.donde h4{margin:0;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--tinta-2)}
+.fila-donde{display:flex;gap:10px;align-items:center;background:var(--superficie-2);border-radius:10px;padding:9px 12px;flex-wrap:wrap}
+.fila-donde b{flex:1;min-width:160px}.fila-donde small{color:var(--tinta-2);width:100%}
+.pie{display:flex;gap:10px;justify-content:flex-end;padding:14px 18px;border-top:1px solid var(--linea);margin-top:14px}
+.lista-carp{display:grid;gap:4px;margin-top:6px}
+.lista-carp button{text-align:left;border:1px solid var(--linea);background:var(--superficie);color:var(--tinta);border-radius:8px;padding:6px 10px;cursor:pointer;font:inherit;font-size:.88rem}
+</style></head><body>
+<div class="control">
+  <b>VISTA PREVIA</b>
+  <div class="g"><span>Ver en</span><div class="seg" id="disp"><button class="sel" data-v="pc">PC</button><button data-v="cel">Celular</button></div></div>
+</div>
+<p class="nota-prev"><b style="color:var(--laton)">Comparar duplicados.</b> Cuando subís un archivo que ya tenías (en Para revisar dice "Repetido", o al subirlo directo a una carpeta), se abre esta ventana con los dos uno al lado del otro. Elegís qué guardar y dónde. Tocá cada hoja para verla grande. Maqueta con datos de ejemplo, no toca la app.</p>
+<div class="escena"><div class="app" id="app">
+  <div class="barra"><div class="marca"><i></i>Segundo Cerebro</div><span class="chip">Al día</span></div>
+  <nav class="menu" id="menu"></nav>
+  <main class="contenido" id="cont"></main>
+  <div class="fondo" id="fondo"></div>
+  <div class="toast" id="toast"></div>
+</div></div>
+<script>
+const S=(t,c='ic')=>`<svg class="${c}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${t}</svg>`;
+const I={home:'<path d="M4 11 12 4l8 7v9h-5v-6H9v6H4Z"/>',tareas:'<rect x="4" y="4" width="16" height="16" rx="3"/><path d="m8 12 3 3 5-6"/>',fin:'<rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/>',bit:'<path d="M6 3h11a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H6Z"/><path d="M6 3v18M10 8h5M10 12h5"/>',aj:'<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',carp:'<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',clip:'<path d="M15.5 7.5 9 14a2 2 0 0 0 2.8 2.8l7-7a4 4 0 0 0-5.6-5.6l-7.3 7.2a6 6 0 0 0 8.5 8.5L20 14.5"/>',izq:'<path d="m15 6-6 6 6 6"/>',cal:'<rect x="4" y="5" width="16" height="15" rx="2"/><path d="M4 10h16M9 3v4M15 3v4"/>'};
+const CARPETAS=['1 - Documentacion › 1.1 - Personales › 1.1.1 - Matias Gomez','1 - Documentacion › 1.2 - Vehiculos','2 - Finanzas › Servicios','Bandeja'];
+const VIEJO={nom:'2023-12 Union Convivencial.pdf',carp:CARPETAS[0],sub:'Subido el 25 oct',pags:2};
+const NUEVO={nom:'acta_union_convivencial_scan.pdf',carp:'Sin carpeta todavía (lo acabás de subir)',sub:'Compartido desde el celular · hoy',pags:2};
+let cel=false,opc='viejo',donde=CARPETAS[0],eligiendo=false,abierto=true;
+const OPC=[
+ ['viejo','Quedarme con el que ya tengo','El nuevo se descarta (va a la papelera de Drive).'],
+ ['nuevo','Quedarme con el nuevo','Reemplaza al que tenías: el viejo va a la papelera y el nuevo toma su lugar.'],
+ ['ambos','Guardar los dos','El nuevo se guarda como otro archivo; elegís dónde abajo.']];
+function menu(){document.getElementById('menu').innerHTML=[['home','Inicio'],['tareas','Tareas'],['fin','Finanzas'],['bit','Bitácora',1],['aj','Ajustes']].map(([i,n,s])=>`<a class="${s?'sel':''}">${S(I[i])}<span>${n}</span></a>`).join('');}
+const hoja=(x,claro)=>`<div class="hoja"><div class="sello"></div><b>GOBIERNO DE LA PROVINCIA DE BUENOS AIRES</b><b>REGISTRO PROVINCIAL DE LAS PERSONAS</b>Acta de unión convivencial N° 1234. ${claro?'Inscripta el 4 de diciembre de 2023 en La Plata.':'Inscripta el 4 de diciembre de 2023 (copia escaneada, algo torcida).'} Comparecen Matías Gómez y ... <span class="pags">${x.pags} págs.</span></div>`;
+function lado(x,t,clave,claro){const usado=opc==='ambos'||opc===clave;return `<div class="lado ${usado?'sel':'fuera'}" data-lado="${clave}"><h3>${t}</h3>${hoja(x,claro)}<div class="nom">${x.nom}</div><div class="det"><span>${S(I.carp,'ic" style="width:13px;height:13px')}${x.carp}</span><span>${x.sub}</span></div><button class="ver" data-ver="${clave}">Ver en grande ›</button></div>`;}
+function dondeHTML(){
+ if(opc==='viejo')return `<div class="donde"><h4>Dónde queda</h4><div class="fila-donde">${S(I.carp)}<b>${VIEJO.carp}</b><small>El que ya tenés sigue donde estaba.</small></div></div>`;
+ const t=opc==='nuevo'?'Dónde se guarda el nuevo':'Dónde se guarda el nuevo (el que ya tenés no se mueve)';
+ return `<div class="donde"><h4>${t}</h4><div class="fila-donde">${S(I.carp)}<b>${donde}</b><button class="btn chico" id="cambiar">Cambiar</button><small>${donde===VIEJO.carp?'En la misma carpeta que el que ya tenés.':'En otra carpeta.'}${opc==='ambos'&&donde===VIEJO.carp?' Se guarda como "2023-12 Union Convivencial (2)".':''}</small></div>${eligiendo?`<div class="lista-carp">${CARPETAS.map(c=>`<button data-carp="${c}">${c}</button>`).join('')}</div>`:''}</div>`;}
+function pintar(){document.getElementById('app').classList.toggle('cel',cel);menu();
+ document.getElementById('cont').innerHTML=`<span class="volver">${S(I.izq)} Bitácora</span><div class="cab"><div><h1>Para revisar</h1></div></div>
+ <div class="lista"><div class="arch" id="abrir"><span class="pdf">PDF</span><span class="t"><b>acta_union_convivencial_scan.pdf</b><small>Parece que ya lo tenés: 2023-12 Union Convivencial</small><small>Compartido desde el celular · hoy</small></span><span class="est repetido">Repetido</span><button class="btn chico">Comparar</button></div></div>`;
+ const f=document.getElementById('fondo');f.style.display=abierto?'flex':'none';
+ if(!abierto)return;
+ const textoBoton={viejo:'Quedarme con el que tengo',nuevo:'Reemplazar por el nuevo',ambos:'Guardar los dos'}[opc];
+ f.innerHTML=`<div class="comp"><div class="comp-cab"><h2>Comparar archivos</h2><button class="x" id="cerrar">✕</button></div>
+ <div class="aviso-dup">Este archivo es igual a uno que ya tenés guardado. Miralos y elegí qué hacer.</div>
+ <div class="lados">${lado(VIEJO,'El que ya tenés','viejo',true)}${lado(NUEVO,'El nuevo','nuevo',false)}</div>
+ <div class="opciones"><h4>¿Qué guardo?</h4>${OPC.map(([k,t,s])=>`<div class="opc-dup ${opc===k?'sel':''}" data-opc="${k}"><i></i><span>${t}<small>${s}</small></span></div>`).join('')}</div>
+ ${dondeHTML()}
+ <div class="pie"><button class="btn" id="cerrar2">Decidir después</button><button class="btn si" id="ok">${textoBoton}</button></div></div>`;}
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('ver');clearTimeout(toast.h);toast.h=setTimeout(()=>e.classList.remove('ver'),2800);}
+document.getElementById('disp').onclick=e=>{const b=e.target.closest('button');if(!b)return;cel=b.dataset.v==='cel';document.querySelectorAll('#disp button').forEach(x=>x.classList.toggle('sel',x===b));pintar();};
+document.getElementById('app').addEventListener('click',e=>{const t=e.target;
+ if(t.closest('#abrir')){abierto=true;pintar();return;}
+ if(t.closest('#cerrar')||t.closest('#cerrar2')){abierto=false;pintar();toast('Queda en Para revisar como "Repetido".');return;}
+ const v=t.closest('[data-ver]');if(v){e.stopPropagation();toast('Se abre a pantalla completa con todas las páginas.');return;}
+ const l=t.closest('[data-lado]');if(l){opc=l.dataset.lado;eligiendo=false;pintar();return;}
+ const o=t.closest('[data-opc]');if(o){opc=o.dataset.opc;eligiendo=false;pintar();return;}
+ if(t.closest('#cambiar')){eligiendo=!eligiendo;pintar();return;}
+ const c=t.closest('[data-carp]');if(c){donde=c.dataset.carp;eligiendo=false;pintar();return;}
+ if(t.closest('#ok')){abierto=false;pintar();toast({viejo:'Listo: te quedaste con el que tenías. El nuevo fue a la papelera.',nuevo:`Listo: el nuevo reemplazó al viejo, en ${donde}.`,ambos:`Listo: guardaste los dos. El nuevo quedó en ${donde}.`}[opc]);}
+});
+pintar();
+</script></body></html>
