@@ -589,3 +589,16 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-or-ruta { display: flex; align-items: center; gap: 0.3rem; color: var(--laton) !important; }
 .bt-or-ruta svg { width: 0.85rem; height: 0.85rem; }
 .bt-or-todo { margin-left: auto; font-family: var(--fuente); }
+/* ── Comparar repetidos ── */
+.bt-hoja.bt-hoja-comp { width: min(1000px, 96vw); max-width: none; }
+.bt-comp-lados { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+@media (max-width: 600px) { .bt-comp-lados { gap: 0.5rem; } .bt-comp-lados .bt-portada { max-height: 13rem; } }
+.bt-comp-lado { border: 2px solid var(--linea); border-radius: var(--radio-control); padding: 0.6rem; display: grid; gap: 0.35rem; align-content: start; background: var(--superficie-2); cursor: pointer; min-width: 0; opacity: 0.5; }
+.bt-comp-lado.sel { border-color: var(--laton); opacity: 1; }
+.bt-comp-lado h3 { margin: 0; font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--tinta-2); }
+.bt-comp-lado .bt-portada { max-height: 20rem; }
+.bt-comp-nom { word-break: break-word; font-size: 0.92rem; }
+.bt-comp-lado small { color: var(--tinta-2); font-size: 0.78rem; }
+.bt-comp .bt-or-op span { display: grid; }
+.bt-comp .bt-or-op small { color: var(--tinta-2); font-size: 0.8rem; }
+.bt-comp-donde { display: grid; gap: 0.4rem; border-top: 1px solid var(--linea); padding-top: 0.7rem; }

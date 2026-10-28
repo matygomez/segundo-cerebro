@@ -89,9 +89,19 @@ with sync_playwright() as p:
     with page.expect_file_chooser() as fc: page.locator('dialog[open] .bt-menu-op:has-text("Subir archivo acá")').click()
     fc.value.set_files(files=[{'name':'otra.pdf','mimeType':'application/pdf','buffer':pdf('Edenor 22910')}])
     page.wait_for_timeout(1000)
-    chk(page.locator('dialog[open]:has-text("ya lo tenés")').count()==1,'avisa repetido')
-    page.locator('dialog[open] button:has-text("Cancelar"), dialog[open] button:has-text("No")').first.click(); page.wait_for_timeout(500)
-    chk(len(page.evaluate(NOTAS)['notas'])==1,'repetido cancelado')
+    page.wait_for_timeout(1500)
+    chk(page.locator('dialog[open] .bt-comp-lado').count()==2,'repetido abre comparacion')
+    page.locator('dialog[open] button:has-text("Decidir después")').click(); page.wait_for_timeout(500)
+    r=page.evaluate(NOTAS)
+    chk(len(r['notas'])==1 and r['pend']==1,'decidir despues queda en revisar')
+    # Quedarme con el nuevo: reemplaza el archivo de la nota vieja
+    page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
+    page.locator('.bt-or-item button:has-text("Comparar")').click(); page.wait_for_timeout(800)
+    page.locator('dialog[open] .bt-or-op:has-text("Quedarme con el nuevo")').click(); page.wait_for_timeout(200)
+    page.locator('dialog[open] button.principal:has-text("Reemplazar")').click(); page.wait_for_timeout(1000)
+    r=page.evaluate(NOTAS); nn=[x for x in r['notas'] if x['id']==n['id']][0]
+    chk(len(r['notas'])==1 and r['pend']==0 and nn['a']['original']=='otra.pdf' and nn['adj']==[['2026-10 Luz Edenor.pdf',True]],'reemplazar por el nuevo')
+    page.goto(U+f'#/bitacora/c/{ids["luz"]}'); page.wait_for_timeout(1000)
     # Arrastrar a la carpeta abierta, con Gemini en el límite → en espera
     est['falla']=True
     page.evaluate("""async (b64) => { const bytes = Uint8Array.from(atob(b64), c => c.charCodeAt(0));

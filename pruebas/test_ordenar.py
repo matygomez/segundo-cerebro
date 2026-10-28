@@ -79,17 +79,20 @@ with sync_playwright() as p:
     fc.value.set_files(files=[{'name':'otra.pdf','mimeType':'application/pdf','buffer':PDF}])
     page.wait_for_timeout(2000)
     chk(page.locator('.bt-or-est.repetido').count()==1,'repetido')
-    page.locator('.bt-or-item').first.click(); page.wait_for_timeout(600)
-    chk(page.locator('dialog .bt-or-rep').count()==1,'aviso repetido')
-    chk(page.locator('dialog .bt-or-op').count()==2,'opciones de duda')
-    page.locator('dialog button:has-text("Guardar igual")').click(); page.wait_for_timeout(500)
-    chk(page.locator('dialog[open]').count()==1,'sin carpeta no guarda')
-    page.locator('dialog .bt-or-op').nth(1).click(); page.wait_for_timeout(200)
-    page.locator('dialog .aj-switch').nth(1).click()   # sin Finanzas
-    page.locator('dialog button:has-text("Guardar igual")').click(); page.wait_for_timeout(1200)
+    page.locator('.bt-or-item').first.click(); page.wait_for_timeout(1500)
+    chk(page.locator('dialog[open] .bt-comp-lado').count()==2,'comparar lado a lado')
+    chk(page.locator('dialog[open] .bt-comp-lado .bt-portada').count()==2,'vista de los dos')
+    page.screenshot(path=S+f'or_comparar_{w}.png', full_page=True)
+    page.locator('dialog[open] button:has-text("Decidir después")').click(); page.wait_for_timeout(600)
+    chk(page.locator('.bt-or-est.repetido').count()==1,'decidir despues queda en revisar')
+    page.locator('.bt-or-item button:has-text("Comparar")').click(); page.wait_for_timeout(800)
+    page.locator('dialog[open] .bt-or-op:has-text("Guardar los dos")').click(); page.wait_for_timeout(200)
+    page.locator('dialog[open] .bt-comp-donde button:has-text("Cambiar")').click(); page.wait_for_timeout(300)
+    page.locator('dialog[open] .bt-elegir:has-text("Casa")').first.click(); page.wait_for_timeout(300)
+    page.locator('dialog[open] button.principal:has-text("Guardar los dos")').click(); page.wait_for_timeout(1200)
     n2=page.evaluate("""async () => { const R = await import('/js/core/registro.js'); const M = await import('/modules/bitacora/modelo.js');
       const d = await M.crearModelo(R.contexto('bitacora')).cargar(); return d.notas.filter(x => x.archivo).map(x => d.nombreRuta(x.carpetaId)); }""")
-    chk(sorted(n2)==['Casa','Casa › Servicios › Gas'],'guardado en la alternativa elegida')
+    chk(sorted(n2)==['Casa','Casa › Servicios › Gas'],'guardar los dos en otra carpeta')
     # Cargas mensuales: Luz falta → tarea en Sistemas; Gas subido → sin tarea
     t=page.evaluate("""async (ids) => { const R = await import('/js/core/registro.js'); const M = await import('/modules/bitacora/modelo.js'); const O = await import('/modules/bitacora/ordenar.js');
       const ctx = R.contexto('bitacora'); const m = M.crearModelo(ctx);

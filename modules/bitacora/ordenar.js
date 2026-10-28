@@ -19,7 +19,7 @@
 
 import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
-import { portada } from './visor.js';
+import { portada, visor } from './visor.js';
 
 const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
 const MODELOS_BUSCAR = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
@@ -293,8 +293,14 @@ export async function subirACarpeta(ctx, m, lista, carpetaId) {
       const tipo = x.blob.type || '';
       const huella = await huellaDe(x.blob);
       const rep = d.notas.find(z => z.archivo?.huella === huella);
-      if (rep && !await ctx.confirmar(`"${nombre}" ya lo tenés: ${rep.titulo} (${d.nombreRuta(rep.carpetaId)}). ¿Lo subo igual?`, { si: 'Subir igual' })) continue;
       const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
+      if (rep) {
+        // Repetido: va a Para revisar y se abre la comparación (si la cerrás, queda ahí).
+        const id = await m.col.pendientes.crear({ estado: 'listo', original: nombre, tipo, via: `Subido a ${d.nombreRuta(carpetaId)}`, adjunto: { ...adjunto, nombre }, huella, repetidoDe: rep.id,
+          propuesta: { nombre: sinExtension(nombre), carpetaId, seguro: true, alternativas: [], carpetaNueva: '', que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '' }, error: '' });
+        compararRepetido(ctx, m, await m.col.pendientes.obtener(id));
+        continue;
+      }
       ultimo = await m.crearNota({
         titulo: sinExtension(nombre), carpetaId,
         archivo: { que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '', huella, original: nombre, lectura: 'cola' },
@@ -421,10 +427,12 @@ export async function pantallaPendientes(ctx, m, d, main) {
         const [texto, clase] = estadoDe(p);
         const pr = p.propuesta;
         const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : p.estado === 'cola' ? 'En cola: Gemini lo lee cuando termine con los anteriores.' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
-        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => revisar(ctx, m, p) },
+        const conRepetido = p.repetidoDe && d.nota(p.repetidoDe);
+        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => (conRepetido ? compararRepetido(ctx, m, p) : revisar(ctx, m, p)) },
           h('span', { class: 'bt-or-ext' }, (extension(p.original).slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, pr?.nombre || p.original), h('small', {}, sub), h('small', {}, `${p.via} · ${haceCuanto(p.creado)}`)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
+          conRepetido ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); compararRepetido(ctx, m, p); } }, 'Comparar') : null,
           p.estado === 'error' || p.estado === 'espera' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); reintentar(ctx, m, p); } }, 'Reintentar ahora') : null);
       }))
       : sinLeer.length ? h('p', { class: 'nota' }, 'Nada para ubicar.') : vacio(ctx, 'No hay nada para revisar', 'Todo ordenado.'),
@@ -470,6 +478,86 @@ async function crearRuta(m, ruta) {
     padre = ya ? ya.id : await m.crearCarpeta({ nombre, padreId: padre });
   }
   return padre;
+}
+
+// ── Comparar un repetido con el que ya tenés ──
+// Los dos lado a lado; elegís cuál queda (o los dos) y en qué carpeta.
+// "Decidir después" lo deja en Para revisar como Repetido.
+export async function compararRepetido(ctx, m, p) {
+  const { h } = ctx;
+  const d = await m.cargar();
+  const viejo = d.nota(p.repetidoDe);
+  if (!viejo) return revisar(ctx, m, { ...p, repetidoDe: '' });
+  const adjViejo = (viejo.adjuntos || []).find(x => x.principal) || (viejo.adjuntos || [])[0];
+  let opcion = 'viejo', destino = viejo.carpetaId || '';
+  const pr = p.propuesta || {};
+  const lado = (clave, titulo, adj, nombre, carpeta, cuando) => h('div', { class: 'bt-comp-lado', 'data-lado': clave, onclick: (e) => { if (!e.target.closest('button')) { opcion = clave; pintar(); } } },
+    h('h3', {}, titulo),
+    adj ? portada(ctx, adj) : h('p', { class: 'nota' }, 'Sin archivo para mostrar.'),
+    h('b', { class: 'bt-comp-nom' }, nombre),
+    h('small', { class: 'bt-or-ruta' }, ic('carpeta'), carpeta),
+    h('small', {}, cuando),
+    adj ? h('button', { type: 'button', class: 'bt-link-chico bt-ficha-no', onclick: () => visor(ctx, adj) }, 'Ver en grande ›') : null);
+  const lados = h('div', { class: 'bt-comp-lados' },
+    lado('viejo', 'El que ya tenés', adjViejo, viejo.titulo, d.nombreRuta(viejo.carpetaId), `Subido ${haceCuanto(viejo.creado)}`),
+    lado('nuevo', 'El nuevo', p.adjunto, p.original, 'Todavía sin guardar', `${p.via} · ${haceCuanto(p.creado)}`));
+  const OPC = [['viejo', 'Quedarme con el que ya tengo', 'El nuevo se descarta (va a la papelera de Drive).'],
+    ['nuevo', 'Quedarme con el nuevo', 'Reemplaza al que tenías: el viejo va a la papelera de Drive y el nuevo toma su lugar, con sus datos.'],
+    ['ambos', 'Guardar los dos', 'El nuevo se guarda como otro archivo; elegís dónde abajo.']];
+  const opciones = h('div', { class: 'bt-or-ops' });
+  const donde = h('div', { class: 'bt-comp-donde' });
+  const boton = h('button', { type: 'button', class: 'boton principal' });
+  function pintar() {
+    for (const el of lados.children) el.classList.toggle('sel', opcion === 'ambos' || el.dataset.lado === opcion);
+    poner(opciones, OPC.map(([k, t, sub]) => h('button', { type: 'button', class: `bt-or-op${opcion === k ? ' sel' : ''}`, onclick: () => { opcion = k; pintar(); } }, h('span', {}, t, h('small', {}, sub)))));
+    const misma = destino === (viejo.carpetaId || '');
+    poner(donde, opcion === 'viejo'
+      ? [h('span', { class: 'etiqueta-campo' }, 'Dónde queda'), h('div', { class: 'bt-or-elegida' }, ic('carpeta'), h('b', {}, d.nombreRuta(viejo.carpetaId))), h('small', { class: 'nota' }, 'El que ya tenés sigue donde estaba.')]
+      : [h('span', { class: 'etiqueta-campo' }, opcion === 'nuevo' ? 'Dónde se guarda el nuevo' : 'Dónde se guarda el nuevo (el que ya tenés no se mueve)'),
+        h('div', { class: 'bt-or-elegida' }, ic('carpeta'), h('b', {}, d.nombreRuta(destino)),
+          h('button', { type: 'button', class: 'boton bt-elegir-boton', onclick: async () => { const x = await elegirCarpeta(ctx, d, { titulo: 'Guardar en…', actual: destino }); if (x !== null) { destino = x; pintar(); } } }, 'Cambiar')),
+        h('small', { class: 'nota' }, misma ? `En la misma carpeta que el que ya tenés.${opcion === 'ambos' ? ` Se guarda como "${viejo.titulo} (2)".` : ''}` : 'En otra carpeta.')]);
+    boton.textContent = { viejo: 'Quedarme con el que tengo', nuevo: 'Reemplazar por el nuevo', ambos: 'Guardar los dos' }[opcion];
+  }
+  let dlg;
+  boton.onclick = async () => {
+    try {
+      const ext = extension(p.original);
+      if (opcion === 'viejo') {
+        await m.col.pendientes.borrar(p.id);
+        ctx.archivos.borrar(p.adjunto).catch(() => {});
+        ctx.aviso('Listo: te quedaste con el que tenías. El nuevo fue a la papelera.');
+      } else if (opcion === 'nuevo') {
+        // La nota vieja se queda (título, datos, tareas); cambia su archivo por el nuevo.
+        const adjuntos = [...(viejo.adjuntos || []).filter(x => x !== adjViejo), { ...p.adjunto, nombre: viejo.titulo + ext, origen: 'subido', principal: true }];
+        await m.guardarNota(viejo.id, { carpetaId: destino, adjuntos, archivo: { ...(viejo.archivo || {}), huella: p.huella, original: p.original, contenido: pr.contenido || viejo.archivo?.contenido || '' } });
+        await m.col.pendientes.borrar(p.id);
+        if (adjViejo) ctx.archivos.borrar(adjViejo).catch(() => {});
+        ctx.aviso(`Listo: el nuevo reemplazó al viejo, en ${d.nombreRuta(destino)}.`, { accion: 'Abrir', alTocar: () => ctx.navegar(`bitacora/n/${viejo.id}`) });
+      } else {
+        const misma = destino === (viejo.carpetaId || '');
+        const base = pr.nombre && pr.nombre !== sinExtension(p.original) ? pr.nombre : viejo.titulo;
+        const titulo = misma && base === viejo.titulo ? `${viejo.titulo} (2)` : base;
+        const a = viejo.archivo || {};
+        const id = await m.crearNota({ titulo, carpetaId: destino,
+          archivo: { que: pr.que || a.que || '', de: pr.de || a.de || '', fecha: pr.fecha || a.fecha || '', vence: pr.vence || a.vence || '', monto: pr.monto || a.monto || 0, contenido: pr.contenido || a.contenido || '', huella: p.huella, original: p.original },
+          adjuntos: [{ ...p.adjunto, nombre: titulo + ext, origen: 'subido', principal: true }] });
+        await m.col.pendientes.borrar(p.id);
+        ctx.aviso(`Listo: guardaste los dos. El nuevo quedó en ${d.nombreRuta(destino)}.`, { accion: 'Abrir', alTocar: () => ctx.navegar(`bitacora/n/${id}`) });
+      }
+      dlg.close();
+    } catch (e) { ctx.aviso(`No se pudo guardar: ${e.message}`); }
+  };
+  dlg = ventana(ctx, 'Comparar archivos', h('div', { class: 'formulario-campos bt-comp' },
+    h('p', { class: 'bt-or-rep' }, 'Este archivo es igual a uno que ya tenés guardado. Miralos y elegí qué hacer.'),
+    lados,
+    h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, '¿Qué guardo?'), opciones),
+    donde),
+  { clase: 'bt-hoja-comp', botones: [
+    h('button', { type: 'button', class: 'boton', onclick: () => { dlg.close(); ctx.aviso('Queda en Para revisar como Repetido.'); } }, 'Decidir después'),
+    h('span', { class: 'bt-espacio' }),
+    boton] });
+  pintar();
 }
 
 export async function revisar(ctx, m, p) {
