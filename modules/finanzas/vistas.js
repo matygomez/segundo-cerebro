@@ -358,25 +358,53 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       plan.siguiente ? h('span', { class: 'nota' }, `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} faltan ${plata(plan.siguiente.falta)} en el fondo`) : h('span', { class: 'nota' }, 'Todo lo comprometido está cubierto'));
   }
 
+  // El resumen de cada tarjeta que cierra en el mes que se está viendo
+  // (el que se paga con la plata de ese mes, salvo lo que se deje para el siguiente).
   function resumenActual(c) {
-    const lista = d.resumenes(c.id);
-    return lista.find(r => r.pendiente > 0) || lista.find(r => r.mes === mesVista) || null;
+    return d.resumenes(c.id).find(r => r.mes === mesVista) || null;
   }
+
+  // Cómo quedó ese resumen: pagado, lo que falta o lo que se dejó para el mes siguiente.
+  // Lo que se dejó para el mes siguiente se guarda por mes, para todas las tarjetas juntas:
+  // se reparte entre ellas en el orden en que aparecen.
+  function estadoResumen(c, r) {
+    if (r.pendiente <= 0) return { clase: 'ok', texto: 'Pagado', monto: r.total };
+    const mesVence = mesDe(r.vencimiento);
+    let resto = d.repartos()[mesVence] || 0;
+    for (const otra of d.creditosActivos()) {
+      if (otra.id === c.id) break;
+      const ro = d.resumenes(otra.id).find(x => mesDe(x.vencimiento) === mesVence);
+      if (ro) resto = Math.max(0, resto - ro.pendiente);
+    }
+    const dejado = redondear(Math.min(resto, r.pendiente));
+    const falta = redondear(r.pendiente - dejado);
+    const sig = nombreMes(mesVence, false).toLowerCase();
+    if (!falta) return { clase: 'pasado', texto: `Dejaste para pagar con lo de ${sig}`, monto: dejado, dejado, sig };
+    return { clase: 'falta', texto: 'Falta pagar', monto: falta, dejado, sig };
+  }
+
+  function lineaEstado(e) {
+    return h('div', { class: `fz-estado-resumen ${e.clase}` }, h('span', {}, e.texto), h('b', { class: 'num' }, plata(e.monto)));
+  }
+
+  const sinResumen = () => h('div', { class: 'fz-estado-resumen nada' }, h('span', {}, `Sin resumen en ${nombreMes(mesVista, false).toLowerCase()}`));
 
   function tarjetaCredito(c) {
     const r = resumenActual(c);
-    const futuro = d.resumenes(c.id).filter(x => r && x.mes > r.mes).reduce((a, x) => a + x.pendiente, 0);
+    const e = r ? estadoResumen(c, r) : null;
     const det = h('details', { class: 'fz-tarjeta' },
-      h('summary', { title: r ? `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}` : 'Sin compras pendientes' },
+      h('summary', { title: r ? `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}` : 'Sin resumen este mes' },
         h('span', { class: 'fz-tarjeta-nombre' }, h('b', {}, c.nombre), h('span', { class: 'fz-etiqueta-credito' }, 'crédito'),
-          h('span', { class: 'fz-nota-chica' }, r ? `vence ${fechaLarga(r.vencimiento)}` : 'sin compras')),
-        h('b', { class: 'num neg' }, plata(r?.pendiente || 0))),
+          h('span', { class: 'fz-nota-chica' }, r ? `vence ${fechaLarga(r.vencimiento)}` : 'sin resumen')),
+        e ? h('b', { class: `num fz-estado-num ${e.clase}` }, e.clase === 'ok' ? 'Pagado' : plata(e.monto)) : h('span', { class: 'nota' }, '—')),
       h('div', { class: 'fz-tarjeta-cuerpo' },
-        r ? h('p', { class: 'nota' }, `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}`) : null,
-        r ? r.items.map(q => linea(ctx, h('span', {}, q.mov.descripcion || d.nombreCategoria(q.mov.categoriaId), q.total > 1 ? h('span', { class: 'nota' }, ` cuota ${q.numero}/${q.total}`) : null), plata(q.importe))) : null,
-        r && r.pagado ? linea(ctx, 'Ya pagado', `− ${plata(r.pagado)}`, 'nota') : null,
-        futuro ? h('p', { class: 'nota' }, `Comprometido en próximos resúmenes: ${plata(futuro)}`) : null,
-        r ? h('button', { type: 'button', class: 'tr-link fz-link', onclick: () => abrirFechasResumen(ctx, m, d, c, r.mes) }, 'Corregir fechas de este resumen') : null));
+        r ? [h('p', { class: 'nota' }, `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}`), lineaEstado(e),
+          r.items.map(q => linea(ctx, h('span', {}, q.mov.descripcion || d.nombreCategoria(q.mov.categoriaId), q.total > 1 ? h('span', { class: 'nota' }, ` cuota ${q.numero}/${q.total}`) : null), plata(q.importe))),
+          linea(ctx, 'Total del resumen', plata(r.total), 'fz-total'),
+          r.pagado ? linea(ctx, 'Pagado', `− ${plata(r.pagado)}`, 'nota') : null,
+          e.dejado ? linea(ctx, `Pasado a ${e.sig}`, `− ${plata(e.dejado)}`, 'nota') : null,
+          h('button', { type: 'button', class: 'tr-link fz-link', onclick: () => abrirFechasResumen(ctx, m, d, c, r.mes) }, 'Corregir fechas de este resumen')]
+          : sinResumen()));
     return det;
   }
 
@@ -669,17 +697,20 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
             h('p', { class: 'nota' }, 'En verde, los meses que el fondo ya cubre.'))),
         h('div', { class: 'fz-det-grilla' }, d.creditosActivos().map(c => {
           const r = resumenActual(c);
+          const e = r ? estadoResumen(c, r) : null;
           const cab = h('div', { class: 'fz-cab-flex' },
-            h('h2', {}, `${d.nombreCredito(c)}`, r ? h('span', { class: 'nota' }, ` · resumen de ${nombreMes(r.mes, false).toLowerCase()}`) : null),
-            h('button', { type: 'button', class: 'boton fz-ctrl-abrir', onclick: () => abrirControlResumen(ctx, m, d, c, r?.mes || d.mesResumenDe(c, hoy())) }, 'Controlar resumen'));
+            h('h2', {}, `${d.nombreCredito(c)}`, h('span', { class: 'nota' }, ` · resumen de ${nombreMes(mesVista, false).toLowerCase()}`)),
+            h('button', { type: 'button', class: 'boton fz-ctrl-abrir', onclick: () => abrirControlResumen(ctx, m, d, c, r?.mes || mesVista) }, 'Controlar resumen'));
           return tarjeta(cab,
             r ? [h('p', { class: 'nota' }, `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}${r.sugeridas ? ' (sugeridas)' : ''}`),
+              lineaEstado(e),
               r.items.map(q => linea(ctx, h('span', {}, q.mov.descripcion || d.nombreCategoria(q.mov.categoriaId),
                 q.total > 1 ? h('span', { class: 'nota' }, ` cuota ${q.numero}/${q.total}${q.total - q.numero ? ` · quedan ${q.total - q.numero} por ${plata(q.importe * (q.total - q.numero))}` : ''}`) : null), plata(q.importe))),
-              r.pagado ? linea(ctx, 'Ya pagado', `− ${plata(r.pagado)}`) : null,
-              linea(ctx, h('b', {}, 'Total a pagar'), h('b', {}, plata(r.pendiente)), 'fz-total'),
+              linea(ctx, h('b', {}, 'Total del resumen'), h('b', {}, plata(r.total)), 'fz-total'),
+              r.pagado ? linea(ctx, 'Pagado', `− ${plata(r.pagado)}`) : null,
+              e.dejado ? linea(ctx, `Pasado a ${e.sig}`, `− ${plata(e.dejado)}`) : null,
               h('button', { type: 'button', class: 'tr-link fz-link', onclick: () => abrirFechasResumen(ctx, m, d, c, r.mes) }, 'Corregir fechas de este resumen')]
-              : h('p', { class: 'nota' }, 'Sin compras pendientes.'));
+              : sinResumen());
         })),
       ];
     },

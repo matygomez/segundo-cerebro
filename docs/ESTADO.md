@@ -24,6 +24,7 @@ resumen-tareas, resumen-vencidas, sistema-pendientes, sistema-sincronizar`.
 Cuentas, créditos en cuotas, categorías con presupuesto, movimientos, préstamos, disponible, análisis.
 Fechas futuras: el saldo es el de hoy; cada cuenta tiene 2ª línea (a cobrar · a pagar · queda a fin de mes, se abre el detalle) y Disponible suma/resta lo del mes; lo de meses siguientes aparece en ese mes (`porVenir`).
 Tarjeta: el gasto cuenta en el presupuesto del mes de compra (cuota k en mes+k, `mesGasto`), se paga en su resumen. Movimientos usa el selector de mes de arriba (+ casilla "Ver todos los meses"); tocar el mes vuelve al actual. Panel: fijos pagados y excedidos se ocultan juntos (+N ✓ | +N ✕).
+Crédito (detalle y Panel): cada tarjeta muestra el resumen que cierra en el mes elegido, con estado Pagado / Falta pagar / Dejado para el mes siguiente (reparto repartido entre tarjetas en orden).
 Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`; Repartir muestra "Máximo pendiente", guarda `movimientos.controlado` y `creditos.totalBanco`).
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 

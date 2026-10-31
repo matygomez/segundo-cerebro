@@ -662,3 +662,13 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
 .fz-chip-boton .fz-chip-exc { color: var(--rojo); }
 .fz-chip-boton .fz-chip-sep { color: var(--tinta-3, #6B6E72); }
 .fz-mes .fz-mes-centro:hover { background: none; color: var(--laton); }
+
+/* Estado del resumen del mes en cada tarjeta */
+.fz-estado-resumen { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.88rem; padding: 0.4rem 0.6rem; border-radius: 8px; margin: 0.2rem 0; }
+.fz-estado-resumen.ok { background: #17302A; color: #6FB4A0; }
+.fz-estado-resumen.falta { background: #3A201D; color: #E2786C; }
+.fz-estado-resumen.pasado { background: #1B2733; color: #8DB4DC; }
+.fz-estado-resumen.nada { background: var(--superficie-2); color: var(--tinta-2); }
+.fz-estado-num.ok { color: #6FB4A0; }
+.fz-estado-num.falta { color: #E2786C; }
+.fz-estado-num.pasado { color: #8DB4DC; }
