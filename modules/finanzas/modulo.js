@@ -68,8 +68,8 @@ export default {
         for (let mes = desde.slice(0, 7); mes <= fin; mes = sumarMes(mes)) {
           const primero = `${mes}-01`;
           for (const g of d.gastosDelMes(mes)) {
-            // Las cuotas de crédito cuentan en el mes; en una semana, solo si incluye el día 1.
-            if (g.cuota ? !(primero >= desde && primero <= hasta) : (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
+            // La 1ª cuota cuenta el día de la compra; las siguientes, el día 1 de su mes.
+            if (g.cuota?.numero > 1 ? !(primero >= desde && primero <= hasta) : (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
             const imp = Number(g.importe) || 0;
             gastado += imp;
             const cat = d.categoriaPrincipal(g.categoriaId);
@@ -141,7 +141,7 @@ export default {
         if (medida === 'gastado') {
           for (const g of d.gastosDelMes(mes)) {
             if (!esDe(g.categoriaId)) continue;
-            if (!g.cuota && (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
+            if (!(g.cuota?.numero > 1) && (g.mov.fecha < desde || g.mov.fecha > hasta)) continue;
             total += Number(g.importe) || 0;
           }
         } else {

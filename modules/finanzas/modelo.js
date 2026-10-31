@@ -366,7 +366,8 @@ export class Datos {
         const importe = k === n - 1 ? redondear(m.importe - base * (n - 1)) : base;
         const mes = sumarMeses(primero, k);
         const vencida = m.pagadasHasta && this.fechasResumen(cr, mes).vencimiento < m.pagadasHasta;
-        lista.push({ mov: m, creditoId: cr.id, mes, numero: k + 1, total: n, importe, yaPagada: !!vencida || k < (Number(m.cuotasPagadas) || 0) });
+        // mes: resumen donde se paga. mesGasto: mes en que cuenta para el presupuesto (el de la compra, y uno más por cuota).
+        lista.push({ mov: m, creditoId: cr.id, mes, mesGasto: sumarMeses(mesDe(m.fecha), k), numero: k + 1, total: n, importe, yaPagada: !!vencida || k < (Number(m.cuotasPagadas) || 0) });
       }
     }
     return (this._cuotas = lista);
@@ -427,14 +428,15 @@ export class Datos {
 
   // ── Mes ──
 
-  // Gastos que cuentan en el mes: los de cuentas por fecha y las cuotas de crédito por resumen.
+  // Gastos que cuentan en el mes: los de cuentas por fecha y las cuotas de crédito por mes de compra.
   gastosDelMes(mes) {
     const lista = [];
     for (const m of this.movimientos) {
       if (m.tipo === 'gasto' && !m.creditoId && mesDe(m.fecha) === mes) lista.push({ mov: m, importe: m.importe, categoriaId: m.categoriaId });
     }
+    // Con tarjeta cuenta en el mes de la compra, aunque se pague en el resumen siguiente.
     for (const q of this.cuotas()) {
-      if (q.mes === mes) lista.push({ mov: q.mov, importe: q.importe, categoriaId: q.mov.categoriaId, cuota: q });
+      if (q.mesGasto === mes) lista.push({ mov: q.mov, importe: q.importe, categoriaId: q.mov.categoriaId, cuota: q });
     }
     return lista;
   }

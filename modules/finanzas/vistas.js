@@ -82,7 +82,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('h1', {}, 'Finanzas'),
         h('div', { class: 'fz-mes' },
           h('button', { type: 'button', 'aria-label': 'Mes anterior', onclick: () => cambiarMes(-1) }, ic('izquierda')),
-          h('span', {}, nombreMes(mesVista)),
+          // Tocando el nombre se vuelve al mes actual; en otro mes se ve en amarillo.
+          h('button', { type: 'button', class: `fz-mes-centro${mesVista !== mesActual() ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => { mesVista = mesActual(); dibujar(); } }, nombreMes(mesVista)),
           h('button', { type: 'button', 'aria-label': 'Mes siguiente', onclick: () => cambiarMes(1) }, ic('flecha')))),
       h('div', { class: 'fz-acciones' },
         h('button', { type: 'button', class: 'boton principal', onclick: () => abrirMovimiento(ctx, m, d, 'gasto') }, ic('menos'), 'Gasto'),
@@ -112,24 +113,29 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       derecha: (r) => faltaFijos(r.fijos),
       // Botón chico al lado de plegar: muestra u oculta los pagados.
       extra: (r) => {
+        // Se ocultan juntos los pagados (✓) y los excedidos (✕).
         const ocultos = leerPref('fz-fijos-panel-ocultos', true);
-        const pagados = r.fijos.filter(estaPagado).length;
-        return pagados ? h('button', {
-          type: 'button', class: `fz-chip-boton${ocultos ? '' : ' activo'}`, title: ocultos ? `Mostrar los ${pagados} pagados` : 'Ocultar los pagados',
-          'aria-label': ocultos ? `Mostrar los ${pagados} pagados` : 'Ocultar los pagados',
+        const pagados = r.fijos.filter(estaPagado).length, excedidos = r.fijos.filter(f => f.excedido).length;
+        if (!pagados && !excedidos) return null;
+        const signo = ocultos ? '+' : '−';
+        const texto = [pagados ? `${pagados} pagados` : '', excedidos ? `${excedidos} excedidos` : ''].filter(Boolean).join(' y ');
+        return h('button', {
+          type: 'button', class: `fz-chip-boton${ocultos ? '' : ' activo'}`, title: `${ocultos ? 'Mostrar' : 'Ocultar'} ${texto}`, 'aria-label': `${ocultos ? 'Mostrar' : 'Ocultar'} ${texto}`,
           onclick: () => { guardarPref('fz-fijos-panel-ocultos', !ocultos); dibujar(); },
-        }, ocultos ? `+${pagados} ✓` : `− ${pagados} ✓`) : null;
+        }, pagados ? h('span', { class: 'fz-chip-ok' }, `${signo}${pagados} ✓`) : null,
+          pagados && excedidos ? h('span', { class: 'fz-chip-sep' }, ' | ') : null,
+          excedidos ? h('span', { class: 'fz-chip-exc' }, `${signo}${excedidos} ✕`) : null);
       },
       cuerpo: (r) => {
         // En el panel los pagados arrancan ocultos.
         const ocultos = leerPref('fz-fijos-panel-ocultos', true);
         return [
           porGrupoFijo(r.fijos).map(([titulo, lista]) => {
-            const visibles = ocultos ? lista.filter(f => !estaPagado(f)) : lista;
+            const visibles = ocultos ? lista.filter(f => !estaPagado(f) && !f.excedido) : lista;
             return [
               h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, titulo),
                 faltaFijos(lista)),
-              visibles.length ? visibles.map(f => filaFijo(f)) : h('p', { class: 'nota' }, 'Todos pagados.')];
+              visibles.length ? visibles.map(f => filaFijo(f)) : h('p', { class: 'nota' }, lista.some(f => f.excedido) ? 'Todos pagados (hay excedidos).' : 'Todos pagados.')];
           })];
       },
     },
@@ -253,7 +259,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('span', { class: `num${f.excedido ? ' neg' : ''}` }, `${plata(f.gastado)} / ${plata(f.presupuesto)}`)),
       h('div', { class: `fz-barra${f.excedido ? ' excedida' : f.gastado >= f.presupuesto && f.presupuesto ? ' lleno' : ''}` }, h('div', { style: `width:${pct}%` })));
   }
-  // Pagado = llegó justo al presupuesto. Los excedidos no cuentan como pagados: siempre se ven.
+  // Pagado = llegó justo al presupuesto. Los excedidos se cuentan aparte (✕).
   const estaPagado = (f) => f.presupuesto && !f.falta && !f.excedido;
 
   // Lo pendiente del mes anterior y el próximo vencimiento con su reparto.
@@ -696,7 +702,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           tarjeta(h('h2', {}, actual.cat.nombre, ' ', h('span', { class: 'num' }, plata(actual.total))),
             barras(ctx, ultimosMeses(6).map(mes => [mesCorto(mes), d.variablesDelMes(mes).find(x => x.cat.id === actual.cat.id)?.total || 0])),
             h('h3', { class: 'fz-h3' }, 'Movimientos del mes'),
-            actual.gastos.map(g => linea(ctx, `${fechaCorta(g.mov.fecha)} · ${d.origen(g.mov)}${g.mov.descripcion ? ' · ' + g.mov.descripcion : ''}${g.cuota && g.cuota.total > 1 ? ` · cuota ${g.cuota.numero}/${g.cuota.total}` : ''}`, h('span', { class: 'neg' }, `− ${plata(g.importe)}`)))))
+            actual.gastos.map(g => linea(ctx, `${fechaCorta(g.mov.fecha)} · ${d.origen(g.mov)}${g.mov.descripcion ? ' · ' + g.mov.descripcion : ''}${g.cuota && g.cuota.total > 1 ? ` · cuota ${g.cuota.numero}/${g.cuota.total}` : ''}${g.cuota && g.cuota.mes !== mesVista ? ` · se paga en el resumen de ${nombreMes(g.cuota.mes, false).toLowerCase()}` : ''}`, h('span', { class: 'neg' }, `− ${plata(g.importe)}`)))))
           : h('p', { class: 'nota' }, 'Sin gastos variables este mes.'),
       ];
     },

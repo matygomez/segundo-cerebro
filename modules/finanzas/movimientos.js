@@ -9,7 +9,7 @@ import { poner, ic, hoja, campo, inputImporte } from './comun.js';
 import { abrirMovimiento, abrirClasificar } from './formularios.js';
 
 // Se conservan mientras la app está abierta.
-const estado = { texto: '', tipo: '', cuenta: '', mes: null, orden: { campo: 'fecha', desc: true }, elegido: null };
+const estado = { texto: '', tipo: '', cuenta: '', todos: false, orden: { campo: 'fecha', desc: true }, elegido: null };
 
 const TIPOS = {
   gasto: { texto: 'Gasto', clase: 'gasto' },
@@ -22,7 +22,7 @@ const TIPOS = {
 
 export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   const { h } = ctx;
-  if (estado.mes === null) estado.mes = mes;
+  // El mes lo elige el selector de arriba; 'todos' lo ignora.
 
   const tipoDe = (x) => (x.ajuste ? { texto: 'Ajuste', clase: 'ajuste' } : TIPOS[x.tipo] || { texto: x.tipo, clase: '' });
   const cuentaTexto = (x) => (x.tipo === 'transferencia' ? `${x.sinDescontar ? 'Ya hecha' : d.nombreCuenta(x.cuentaId)} → ${d.destino(x)}` : d.origen(x));
@@ -58,7 +58,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
     const q = estado.texto.toLowerCase().trim();
     const [t, id] = estado.cuenta ? [estado.cuenta.slice(0, 1), estado.cuenta.slice(2)] : ['', ''];
     const lista = d.movimientosTodos().filter(x =>
-      (estado.mes === 'todos' || mesDe(x.fecha) === estado.mes) &&
+      (estado.todos || mesDe(x.fecha) === mes) &&
       (!estado.tipo || (estado.tipo === 'ajuste' ? x.ajuste : x.tipo === estado.tipo && !x.ajuste)) &&
       (!t || (t === 'c' ? ((x.cuentaId === id && !x.creditoId) || x.destinoId === id) : (x.creditoId === id || x.destinoCreditoId === id))) &&
       (!q || `${x.descripcion || ''} ${categoriaTexto(x)} ${cuentaTexto(x)}`.toLowerCase().includes(q)));
@@ -128,10 +128,10 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   }
 
   // ── Filtros ──
-  const meses = [...new Set([...d.movimientosTodos().map(x => mesDe(x.fecha)), mes])].sort().reverse();
   const op = (v, t, actual) => h('option', { value: v, selected: v === actual }, t);
   const buscador = h('input', { type: 'search', value: estado.texto, placeholder: 'Buscar por descripción, categoría o cuenta', 'aria-label': 'Buscar movimientos' });
-  const selMes = h('select', { 'aria-label': 'Mes' }, op('todos', 'Todos los meses', estado.mes), meses.map(x => op(x, nombreMes(x), estado.mes)));
+  const todos = h('input', { type: 'checkbox', checked: estado.todos });
+  const filaTodos = h('label', { class: 'fila-campo casilla fz-filtro-todos' }, todos, h('span', { class: 'etiqueta-campo' }, 'Ver todos los meses'));
   const selTipo = h('select', { 'aria-label': 'Tipo' }, op('', 'Todos los tipos', estado.tipo),
     op('gasto', 'Gastos', estado.tipo), op('ingreso', 'Ingresos', estado.tipo), op('transferencia', 'Transferencias', estado.tipo),
     op('ajuste', 'Ajustes', estado.tipo), op('rendimiento', 'Rendimientos', estado.tipo), op('prestamo', 'Préstamos', estado.tipo),
@@ -196,12 +196,12 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   }
 
   buscador.addEventListener('input', () => { estado.texto = buscador.value; estado.elegido = null; pintar(); });
-  selMes.addEventListener('change', () => { estado.mes = selMes.value; estado.elegido = null; pintar(); });
+  todos.addEventListener('change', () => { estado.todos = todos.checked; estado.elegido = null; pintar(); });
   selTipo.addEventListener('change', () => { estado.tipo = selTipo.value; estado.elegido = null; pintar(); });
   selCuenta.addEventListener('change', () => { estado.cuenta = selCuenta.value; pintar(); });
 
   poner(cuerpo,
-    h('div', { class: 'fz-filtros' }, buscador, selMes, selTipo, selCuenta),
+    h('div', { class: 'fz-filtros' }, buscador, selTipo, selCuenta, filaTodos),
     contador,
     h('p', { class: 'nota' }, 'Tocá un movimiento para ver el detalle, editarlo o borrarlo.'),
     h('div', { class: 'fz-hoja-mov' }, zonaTabla, zonaLista, zonaDetalle),
