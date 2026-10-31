@@ -33,11 +33,33 @@ function leerPref(clave, porDefecto) {
 }
 function guardarPref(clave, valor) { try { localStorage.setItem(clave, JSON.stringify(valor)); } catch { /* sin almacenamiento */ } }
 
+// En la segunda línea de una cuenta los montos van completos. Si no entran,
+// se acorta primero el más largo ("$ 1,8 M") y, si hace falta, el otro.
+// Lo que queda a fin de mes siempre va completo.
+const corto = (n) => {
+  const a = Math.abs(n);
+  if (a >= 1e6) return `$\u00A0${(a / 1e6).toLocaleString('es-AR', { maximumFractionDigits: 2 })}\u00A0M`;
+  if (a >= 1e3) return `$\u00A0${Math.round(a / 1e3).toLocaleString('es-AR')}\u00A0mil`;
+  return plata(a);
+};
+function acortarSiNoEntra(linea) {
+  if (!linea.isConnected) return;
+  const montos = [...linea.querySelectorAll('[data-n]')];
+  montos.forEach(x => { x.textContent = `${x.dataset.signo} ${plata(Number(x.dataset.n))}`; });
+  const noEntra = () => linea.scrollWidth > linea.clientWidth + 1;
+  for (const x of montos.sort((a, b) => b.textContent.length - a.textContent.length)) {
+    if (!noEntra()) break;
+    x.textContent = `${x.dataset.signo} ${corto(Number(x.dataset.n))}`;
+  }
+}
+addEventListener('resize', () => document.querySelectorAll('.fz-cta-linea2').forEach(acortarSiNoEntra));
+
 export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h } = ctx;
   const m = crearModelo(ctx);
   let d = await m.cargar();
+  const cuentasAbiertas = new Set();   // cuentas con el detalle de lo que falta abierto
   const vista = sub[0] || 'panel';
   const clave = sub[1] || '';
 
@@ -184,23 +206,41 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   function listaCuentas(conAjustar, seleccion = null) {
     const filas = [];
     const cuentas = [...d.cuentasActivas('cuenta'), ...d.cuentasActivas('reserva')];
-    const sub = (c) => h('div', { class: `fz-subcuenta${seleccion === c.id ? ' sel' : ''}`, 'data-id': c.id },
-      h('b', {}, c.nombre, c.fondoCredito && !d.grupo(c.grupoId) ? h('span', { class: 'fz-nota-chica' }, ' no suma a Disponible') : null),
-      h('span', { class: 'fz-subcuenta-der' }, h('b', { class: 'num' }, plata(d.saldo(c.id, corte()))),
-        conAjustar ? h('button', { type: 'button', class: 'boton chico', onclick: () => abrirAjuste(ctx, m, d, c) }, 'Ajustar') : null));
+    const sub = (c) => {
+      const v = d.porVenir(c.id, mesVista);
+      return h('div', { class: `fz-subcuenta${seleccion === c.id ? ' sel' : ''}`, 'data-id': c.id },
+        h('b', {}, c.nombre, c.fondoCredito && !d.grupo(c.grupoId) ? h('span', { class: 'fz-nota-chica' }, ' no suma a Disponible') : null),
+        h('span', { class: 'fz-subcuenta-der' }, h('b', { class: 'num' }, plata(v.base)),
+          conAjustar ? h('button', { type: 'button', class: 'boton chico', onclick: (e) => { e.stopPropagation(); abrirAjuste(ctx, m, d, c); } }, 'Ajustar') : null),
+        v.movs.length ? porVenirCuenta(c, v) : null);
+    };
     for (const g of d.grupos) {
       const delGrupo = cuentas.filter(c => c.grupoId === g.id);
       if (!delGrupo.length) continue;
       const esFondo = delGrupo.some(c => c.fondoCredito);
       filas.push(h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, g.nombre, esFondo ? h('span', { class: 'fz-nota-chica' }, ' no suma a Disponible') : null),
-        h('span', { class: 'num' }, plata(delGrupo.reduce((a, c) => a + d.saldo(c.id, corte()), 0)))), ...delGrupo.map(sub));
+        h('span', { class: 'num' }, plata(delGrupo.reduce((a, c) => a + d.porVenir(c.id, mesVista).base, 0)))), ...delGrupo.map(sub));
     }
     const sueltas = cuentas.filter(c => !d.grupo(c.grupoId));
     if (sueltas.length) filas.push(...(d.grupos.length ? [h('div', { class: 'fz-linea fz-grupo' }, h('span', {}, 'Sin grupo'))] : []), ...sueltas.map(sub));
     return filas;
   }
 
-  const corte = () => (mesVista === mesActual() ? null : `${mesVista}-31`);
+  // Segunda línea de una cuenta: lo que falta cobrar, lo que falta pagar y lo
+  // que queda a fin de mes. Tocándola se ve cada movimiento, por fecha.
+  function porVenirCuenta(c, v) {
+    const abierta = cuentasAbiertas.has(c.id);
+    const monto = (clase, signo, n) => h('span', { class: `num ${clase}`, 'data-n': String(n), 'data-signo': signo }, `${signo} ${plata(n)}`);
+    const linea2 = h('button', { type: 'button', class: 'fz-cta-linea2', 'aria-expanded': String(abierta), title: abierta ? 'Ocultar el detalle' : 'Ver qué falta cobrar y pagar',
+      onclick: (e) => { e.stopPropagation(); abierta ? cuentasAbiertas.delete(c.id) : cuentasAbiertas.add(c.id); dibujar(); } },
+      v.entra ? monto('pos', '+', v.entra) : h('span'),
+      v.sale ? monto('neg', '−', v.sale) : h('span'),
+      h('span', { class: 'fz-cta-queda num' }, plata(v.fin), h('span', { class: 'fz-cta-flecha', 'aria-hidden': 'true' }, abierta ? ' ▴' : ' ▾')));
+    requestAnimationFrame(() => acortarSiNoEntra(linea2));
+    return [linea2, abierta ? h('div', { class: 'fz-cta-detalle' }, v.movs.map(x => h('div', { class: 'fz-cta-mov' },
+      h('span', {}, `${fechaCorta(x.mov.fecha)} · ${x.mov.descripcion || d.nombreCategoria(x.mov.categoriaId) || 'Transferencia'}`),
+      h('span', { class: `num ${x.importe > 0 ? 'pos' : 'neg'}` }, x.importe > 0 ? `+ ${plata(x.importe)}` : plata(x.importe))))) : null];
+  }
 
   function filaFijo(f) {
     const pct = f.presupuesto ? Math.min(100, Math.round(f.gastado / f.presupuesto * 100)) : (f.gastado ? 100 : 0);
@@ -459,6 +499,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         r.cuentas.length ? r.cuentas.map(x => linea(ctx, x.c.nombre, plata(x.saldo))) : h('p', { class: 'nota' }, 'Sin cuentas.'),
         fondo ? linea(ctx, `${fondo.nombre} (no se cuenta: es reserva)`, plata(d.saldo(fondo.id)), 'fz-sub2') : null,
         total('Subtotal', plata(r.enCuentas))),
+      r.aCobrar || r.aPagar ? bloque('Cargado para más adelante en el mes',
+        r.aCobrar ? linea(ctx, 'A cobrar', `+ ${plata(r.aCobrar)}`) : null,
+        r.aPagar ? linea(ctx, 'A pagar', `− ${plata(r.aPagar)}`) : null,
+        h('p', { class: 'nota' }, 'Movimientos con fecha que todavía no llegó. Lo de meses siguientes se ve en ese mes.')) : null,
       bloque('Menos gastos fijos que faltan pagar',
         r.fijos.filter(f => f.falta > 0).map(f => linea(ctx, f.gastado ? `${f.cat.nombre}: presupuesto ${plata(f.presupuesto)}, gastado ${plata(f.gastado)}` : f.cat.nombre, `− ${plata(f.falta)}`)),
         r.fijos.filter(f => !f.falta).map(f => linea(ctx, `${f.cat.nombre} (ya pagado)`, plata(0), 'fz-sub2')),

@@ -300,11 +300,33 @@ export class Datos {
     return e;
   }
 
+  // Saldo hasta una fecha. Sin fecha, el de hoy: lo cargado con fecha
+  // futura recién mueve el saldo cuando llega ese día.
   saldo(cuentaId, hasta = null) {
     const c = this.cuenta(cuentaId);
+    const tope = hasta || hoy();
     let s = Number(c?.saldoInicial) || 0;
-    for (const m of this.movimientos) if (!hasta || m.fecha <= hasta) s += this.efecto(m, cuentaId);
+    for (const m of this.movimientos) if (m.fecha <= tope) s += this.efecto(m, cuentaId);
     return redondear(s);
+  }
+
+  // Una cuenta en "mes": el saldo de arranque y lo que todavía falta que pase.
+  //  - mes actual: saldo de hoy + lo cargado para más adelante en el mes
+  //  - mes futuro: saldo a fin del mes anterior + lo cargado para ese mes
+  //  - mes pasado: saldo a fin de ese mes, sin nada por venir
+  porVenir(cuentaId, mes) {
+    const actual = mesActual();
+    const desde = mes === actual ? hoy() : mes > actual ? finDeMes(sumarMeses(mes, -1)) : finDeMes(mes);
+    const hasta = mes < actual ? desde : finDeMes(mes);
+    const base = this.saldo(cuentaId, desde);
+    const movs = this.movimientos
+      .filter(m => m.fecha > desde && m.fecha <= hasta)
+      .map(m => ({ mov: m, importe: redondear(this.efecto(m, cuentaId)) }))
+      .filter(x => x.importe)
+      .sort((a, b) => a.mov.fecha.localeCompare(b.mov.fecha));
+    const entra = redondear(movs.filter(x => x.importe > 0).reduce((a, x) => a + x.importe, 0));
+    const sale = redondear(-movs.filter(x => x.importe < 0).reduce((a, x) => a + x.importe, 0));
+    return { base, movs, entra, sale, fin: redondear(base + entra - sale) };
   }
 
   // ── Crédito: resúmenes y cuotas ──
@@ -498,9 +520,11 @@ export class Datos {
   resumenMes(mes) {
     const totalGastos = redondear(this.gastosDelMes(mes).reduce((a, g) => a + g.importe, 0));
     const totalIngresos = redondear(this.ingresosDelMes(mes).reduce((a, m) => a + m.importe, 0));
-    const corte = mes === mesActual() ? null : finDeMes(mes);
-    const cuentas = this.cuentasActivas('cuenta').map(c => ({ c, saldo: this.saldo(c.id, corte) }));
+    const cuentas = this.cuentasActivas('cuenta').map(c => { const v = this.porVenir(c.id, mes); return { c, saldo: v.base, ...v }; });
     const enCuentas = redondear(cuentas.reduce((a, x) => a + x.saldo, 0));
+    // Lo cargado con fecha futura dentro del mes: suma o resta al Disponible, no al saldo.
+    const aCobrar = redondear(cuentas.reduce((a, x) => a + x.entra, 0));
+    const aPagar = redondear(cuentas.reduce((a, x) => a + x.sale, 0));
     const fijos = this.fijosDelMes(mes);
     const fijosPendientes = redondear(fijos.reduce((a, f) => a + f.falta, 0));
     const plan = this.planCredito();
@@ -509,8 +533,8 @@ export class Datos {
     const faltanteCredito = credito.total;
     return {
       totalGastos, totalIngresos, diferencia: redondear(totalIngresos - totalGastos),
-      cuentas, enCuentas, fijos, fijosPendientes, plan, proximo, credito, faltanteCredito,
-      disponible: redondear(enCuentas - fijosPendientes - faltanteCredito),
+      cuentas, enCuentas, aCobrar, aPagar, fijos, fijosPendientes, plan, proximo, credito, faltanteCredito,
+      disponible: redondear(enCuentas + aCobrar - aPagar - fijosPendientes - faltanteCredito),
     };
   }
 

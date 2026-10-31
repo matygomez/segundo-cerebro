@@ -639,3 +639,16 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
 .fz-tipos { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; background: var(--papel); border-radius: 10px; padding: 3px; }
 .fz-tipos button { background: none; border: 0; color: var(--tinta-2); padding: 0.5rem 0.25rem; border-radius: 8px; font: inherit; font-weight: 500; cursor: pointer; }
 .fz-tipos button[aria-pressed="true"] { background: var(--superficie-2); color: var(--laton); }
+
+/* Cuentas: segunda línea con lo que falta cobrar y pagar en el mes */
+.fz-subcuenta { flex-wrap: wrap; }
+.fz-cta-linea2 { flex-basis: 100%; display: grid; grid-template-columns: auto auto minmax(0, 1fr); gap: 0.75rem; align-items: baseline; border: 0; background: none; padding: 0; margin: 0; color: inherit; font: inherit; font-size: 0.8rem; text-align: left; white-space: nowrap; overflow: hidden; cursor: pointer; }
+.fz-cta-linea2:focus-visible { outline: 2px solid var(--laton); outline-offset: 2px; border-radius: 4px; }
+.fz-cta-linea2 .pos { color: var(--verde, #6FB4A0); }
+.fz-cta-linea2 .neg { color: var(--rojo, #E2786C); }
+.fz-cta-queda { justify-self: end; font-size: 0.85rem; }
+.fz-cta-flecha { color: var(--tinta-3, #6B6E72); font-size: 0.7rem; }
+.fz-cta-detalle { flex-basis: 100%; display: grid; gap: 0.2rem; padding: 0.35rem 0 0.15rem; border-top: 1px dashed var(--linea); margin-top: 0.15rem; }
+.fz-cta-mov { display: flex; justify-content: space-between; gap: 0.5rem; font-size: 0.8rem; color: var(--tinta-2, #9A9C9F); }
+.fz-cta-mov .pos { color: var(--verde, #6FB4A0); }
+.fz-cta-mov .neg { color: var(--rojo, #E2786C); }

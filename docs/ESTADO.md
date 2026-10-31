@@ -22,6 +22,7 @@ resumen-tareas, resumen-vencidas, sistema-pendientes, sistema-sincronizar`.
 
 ## Finanzas (`modules/finanzas`)
 Cuentas, créditos en cuotas, categorías con presupuesto, movimientos, préstamos, disponible, análisis.
+Fechas futuras: el saldo es el de hoy; cada cuenta tiene 2ª línea (a cobrar · a pagar · queda a fin de mes, se abre el detalle) y Disponible suma/resta lo del mes; lo de meses siguientes aparece en ese mes (`porVenir`).
 Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`; Repartir muestra "Máximo pendiente", guarda `movimientos.controlado` y `creditos.totalBanco`).
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 
