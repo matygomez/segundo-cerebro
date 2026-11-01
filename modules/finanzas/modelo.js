@@ -8,7 +8,8 @@
 //   creditos    { nombre, diaCierre, diaVencimiento, fechas: { 'AAAA-MM': { cierre, vencimiento } },
 //                 archivado, orden }
 //   categorias  { nombre, tipo: 'fijo' | 'variable' | 'ingreso', padreId,
-//                 dia, automatico, presupuestos: [{ desde: 'AAAA-MM', monto }], archivada, orden }
+//                 dia, automatico, presupuestos: [{ desde: 'AAAA-MM', monto }], archivada, orden,
+//                 cambiosPresupuesto: [{ fecha, antes, despues, desde }] }  (historial de cambios)
 //   movimientos { tipo, fecha, importe, cuentaId, creditoId, cuotas, cuotasPagadas, destinoId,
 //                 destinoCreditoId, categoriaId, descripcion, ajuste, prestamoId, sinDescontar }
 //     sinDescontar: gasto o ingreso cargado después, que ya estaba reflejado en el
@@ -133,10 +134,14 @@ export function crearModelo(ctx) {
     },
 
     // Nuevo presupuesto para un gasto fijo: queda en el historial.
+    // Cambia el presupuesto desde un mes y anota el cambio en el historial
+    // (varios cambios en el mismo mes quedan todos anotados, no se pisan).
     async cambiarPresupuesto(cat, monto, desde) {
-      const otros = (cat.presupuestos || []).filter(p => p.desde !== desde);
-      const presupuestos = [...otros, { desde, monto: redondear(monto) }].sort((a, b) => a.desde.localeCompare(b.desde));
-      return col.categorias.actualizar(cat.id, { presupuestos });
+      const lista = [...(cat.presupuestos || [])].sort((a, b) => a.desde.localeCompare(b.desde));
+      const antes = lista.filter(p => p.desde <= desde).pop()?.monto || 0;
+      const presupuestos = [...lista.filter(p => p.desde !== desde), { desde, monto: redondear(monto) }].sort((a, b) => a.desde.localeCompare(b.desde));
+      const cambiosPresupuesto = [...(cat.cambiosPresupuesto || []), { fecha: hoy(), antes, despues: redondear(monto), desde }];
+      return col.categorias.actualizar(cat.id, { presupuestos, cambiosPresupuesto });
     },
 
     // Ajuste de saldo: crea el movimiento por la diferencia.

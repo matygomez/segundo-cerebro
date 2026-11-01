@@ -5,6 +5,7 @@ Falta probar con datos reales: Precios Claros desde el navegador (si CORS lo blo
 
 ## Finanzas: para sumar al próximo cambio grande (aprobado, no hacer solo)
 - Selector de mes: que las flechas solo recorran meses con algo cargado (no infinito para atrás).
+- En vista previa: presupuesto "Solo este mes" (opción A con monto o B con botón "No lo uso este mes"), esperando que elija.
 
 ## Pensándolo él (no empezar sin que lo pida)
 - **App de Android:** tanda 2 hecha en 0.27.0 (botones, avisos, widget, compartir). Probar en el celular.

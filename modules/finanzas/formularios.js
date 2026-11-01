@@ -2,7 +2,7 @@
 // Finanzas: formularios.
 // ─────────────────────────────────────────────────────────────
 
-import { hoy, plata, redondear, AJUSTE, mesActual, sumarMeses, nombreMes, mesDe } from './modelo.js';
+import { hoy, plata, redondear, AJUSTE, mesActual, sumarMeses, nombreMes, mesDe, fechaCorta } from './modelo.js';
 import { hoja, campo, inputImporte, selectCuentas, selectorCategoria, poner } from './comun.js';
 
 const leerImporte = (input) => redondear(Number(String(input.value).replace(',', '.')));   // input.value ya viene calculado
@@ -177,6 +177,7 @@ export function abrirPresupuesto(ctx, m, d, cat, mesVista) {
   const f = d.fijosDelMes(mesVista || actual).find(x => x.cat.id === cat.id);
   const fila = (a, b, clase = '') => h('div', { class: `fz-linea ${clase}` }, h('span', {}, a), h('span', { class: 'num' }, b));
   const historial = [...(cat.presupuestos || [])].sort((a, b) => b.desde.localeCompare(a.desde));
+  const cambios = [...(cat.cambiosPresupuesto || [])].reverse();
   return hoja(ctx, {
     titulo: cat.nombre,
     cuerpo: [
@@ -187,7 +188,10 @@ export function abrirPresupuesto(ctx, m, d, cat, mesVista) {
         campo(ctx, 'Nuevo presupuesto mensual', monto), campo(ctx, 'Aplica desde', desde),
         h('p', { class: 'nota' }, 'Si lo bajás, la diferencia vuelve al Disponible. Los meses anteriores conservan su valor.')),
       h('div', { class: 'fz-bloque fz-historial' }, h('h3', {}, 'Historial del presupuesto'),
-        historial.length ? historial.map(p => fila(`Desde ${nombreMes(p.desde).toLowerCase()}`, plata(p.monto), 'fz-sub2')) : h('p', { class: 'nota' }, 'Sin presupuesto cargado.')),
+        // Cada cambio con su fecha; los anteriores a que existiera el historial, por mes.
+        cambios.length ? cambios.map(c => fila(`${fechaCorta(c.fecha)}: ${plata(c.antes)} → ${plata(c.despues)}`, `desde ${nombreMes(c.desde, false).toLowerCase()}`, 'fz-sub2')) : null,
+        historial.length && !cambios.length ? historial.map(p => fila(`Desde ${nombreMes(p.desde).toLowerCase()}`, plata(p.monto), 'fz-sub2')) : null,
+        !historial.length && !cambios.length ? h('p', { class: 'nota' }, 'Sin presupuesto cargado.') : null),
     ],
     alGuardar: async () => {
       if (monto.validity?.badInput) return 'Escribí solo números, sin puntos de miles (ej. 150000 o 150000,50).';
