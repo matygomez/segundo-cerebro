@@ -3,6 +3,9 @@
 ## Compras (0.25.0, recién construido)
 Falta probar con datos reales: Precios Claros desde el navegador (si CORS lo bloquea, queda el último precio) y links de recetas (casi todas las webs bloquean leerlas: se pega el texto).
 
+## Finanzas: para sumar al próximo cambio (aprobado, no hacer solo)
+- Crédito: si el fondo supera todo lo que hay que pagar, mostrar cuánto sobra (como hoy muestra lo que falta).
+
 ## Pensándolo él (no empezar sin que lo pida)
 - **App de Android:** tanda 2 hecha en 0.27.0 (botones, avisos, widget, compartir). Probar en el celular.
 
