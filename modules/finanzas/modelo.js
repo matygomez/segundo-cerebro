@@ -409,7 +409,10 @@ export class Datos {
   }
 
   // Lo que falta pagar de crédito, agrupado por mes de vencimiento.
-  planCredito() {
+  // hasta: fecha con la que se mira el saldo del fondo (sin fecha, hoy). Para el
+  // Disponible de un mes se usa el fin de ese mes, así las transferencias al fondo
+  // ya cargadas para ese mes lo cubren y no se descuentan dos veces.
+  planCredito(hasta = null) {
     const porMes = new Map();
     for (const cr of this.creditosActivos()) {
       for (const r of this.resumenes(cr.id)) {
@@ -422,7 +425,7 @@ export class Datos {
       }
     }
     const fondo = this.fondo();
-    let resto = fondo ? Math.max(0, this.saldo(fondo.id)) : 0;
+    let resto = fondo ? Math.max(0, this.saldo(fondo.id, hasta)) : 0;
     const meses = [...porMes.values()].sort((a, b) => a.mes.localeCompare(b.mes)).map(x => {
       const cubierto = Math.min(resto, x.total);
       resto = redondear(resto - cubierto);
@@ -433,7 +436,7 @@ export class Datos {
     for (const x of meses) { if (x.falta > 0) break; pagadoHasta = x.mes; }
     const siguiente = meses.find(x => x.falta > 0) || null;
     return {
-      fondo, saldoFondo: fondo ? this.saldo(fondo.id) : 0, meses,
+      fondo, saldoFondo: fondo ? this.saldo(fondo.id, hasta) : 0, meses,
       totalTodo: redondear(meses.reduce((a, x) => a + x.total, 0)),
       faltaTodo: redondear(meses.reduce((a, x) => a + x.falta, 0)),
       pagadoHasta,
@@ -549,7 +552,7 @@ export class Datos {
     const aPagar = redondear(cuentas.reduce((a, x) => a + x.sale, 0));
     const fijos = this.fijosDelMes(mes);
     const fijosPendientes = redondear(fijos.reduce((a, f) => a + f.falta, 0));
-    const plan = this.planCredito();
+    const plan = this.planCredito(finDeMes(mes));
     const credito = this.creditoDelMes(mes, plan);
     const proximo = credito.proximo;
     const faltanteCredito = credito.total;
