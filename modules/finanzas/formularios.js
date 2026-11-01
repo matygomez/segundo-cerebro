@@ -178,18 +178,34 @@ export function abrirPresupuesto(ctx, m, d, cat, mesVista) {
   const fila = (a, b, clase = '') => h('div', { class: `fz-linea ${clase}` }, h('span', {}, a), h('span', { class: 'num' }, b));
   const historial = [...(cat.presupuestos || [])].sort((a, b) => b.desde.localeCompare(a.desde));
   const cambios = [...(cat.cambiosPresupuesto || [])].reverse();
+  // "No lo uso más este mes": libera lo que falta de ese mes (solo este mes o los que vienen).
+  const mesF = mesVista || actual;
+  const botonNoLoUso = (f) => {
+    if (mesF < actual) return null;
+    const accion = async (e, cerrar) => {
+      await m.cerrarPresupuestoMes(d, cat, mesF, cerrar);
+      e.target.closest('dialog').close();
+      ctx.aviso(cerrar ? `${plata(f.falta)} vuelven al Disponible` : `${cat.nombre} vuelve a ${plata(f.normal)} en ${nombreMes(mesF, false).toLowerCase()}`);
+    };
+    if (f.cerrado) return h('div', { class: 'fz-no-lo-uso' }, h('p', { class: 'nota' }, `Marcado "No lo uso más este mes". Normalmente es ${plata(f.normal)}.`),
+      h('button', { type: 'button', class: 'boton', onclick: (e) => accion(e, false) }, 'Deshacer'));
+    if (!f.falta) return null;
+    return h('div', { class: 'fz-no-lo-uso' }, h('button', { type: 'button', class: 'boton', onclick: (e) => accion(e, true) }, 'No lo uso más este mes'),
+      h('p', { class: 'nota' }, `Libera ${plata(f.falta)} al Disponible solo en ${nombreMes(mesF, false).toLowerCase()}. El mes que viene vuelve a ${plata(f.normal)}.`));
+  };
   return hoja(ctx, {
     titulo: cat.nombre,
     cuerpo: [
       f ? h('div', { class: 'fz-bloque' }, h('h3', {}, nombreMes(mesVista || actual)),
         fila('Presupuesto', plata(f.presupuesto)), fila('Pagado', plata(f.gastado)),
-        f.excedido ? fila('Excedido', h('span', { class: 'neg' }, plata(f.excedido))) : fila('Falta pagar', h('span', { class: f.falta ? 'neg' : 'pos' }, f.falta ? plata(f.falta) : 'Nada'), 'fz-total')) : null,
+        f.excedido ? fila('Excedido', h('span', { class: 'neg' }, plata(f.excedido))) : fila('Falta pagar', h('span', { class: f.falta ? 'neg' : 'pos' }, f.falta ? plata(f.falta) : 'Nada'), 'fz-total'),
+        botonNoLoUso(f)) : null,
       h('div', { class: 'fz-bloque' }, h('h3', {}, 'Cambiar presupuesto'),
         campo(ctx, 'Nuevo presupuesto mensual', monto), campo(ctx, 'Aplica desde', desde),
         h('p', { class: 'nota' }, 'Si lo bajás, la diferencia vuelve al Disponible. Los meses anteriores conservan su valor.')),
       h('div', { class: 'fz-bloque fz-historial' }, h('h3', {}, 'Historial del presupuesto'),
         // Cada cambio con su fecha; los anteriores a que existiera el historial, por mes.
-        cambios.length ? cambios.map(c => fila(`${fechaCorta(c.fecha)}: ${plata(c.antes)} → ${plata(c.despues)}`, `desde ${nombreMes(c.desde, false).toLowerCase()}`, 'fz-sub2')) : null,
+        cambios.length ? cambios.map(c => fila(`${fechaCorta(c.fecha)}: ${plata(c.antes)} → ${plata(c.despues)}`, `${c.solo ? 'solo' : 'desde'} ${nombreMes(c.desde, false).toLowerCase()}`, 'fz-sub2')) : null,
         historial.length && !cambios.length ? historial.map(p => fila(`Desde ${nombreMes(p.desde).toLowerCase()}`, plata(p.monto), 'fz-sub2')) : null,
         !historial.length && !cambios.length ? h('p', { class: 'nota' }, 'Sin presupuesto cargado.') : null),
     ],

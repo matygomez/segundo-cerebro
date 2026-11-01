@@ -26,6 +26,7 @@ Fechas futuras: el saldo es el de hoy; cada cuenta tiene 2ª línea (a cobrar ·
 Tarjeta: el gasto cuenta en el presupuesto del mes de compra (cuota k en mes+k, `mesGasto`), se paga en su resumen. Movimientos usa el selector de mes de arriba (+ casilla "Ver todos los meses"); tocar el mes vuelve al actual. Panel: fijos pagados y excedidos se ocultan juntos (+N ✓ | +N ✕).
 Crédito (detalle y Panel): cada tarjeta muestra el resumen que cierra en el mes elegido, con estado Pagado / Falta pagar / Dejado para el mes siguiente (reparto repartido entre tarjetas en orden).
 Presupuesto: cada cambio queda en el historial con fecha (`cambiosPresupuesto`), aunque sean varios en el mismo mes.
+Fijos: botón "No lo uso más este mes" (cat.cerrados): el presupuesto del mes queda en lo gastado y el resto vuelve a Disponible; se deshace. Flechas del mes: solo entre el primer y el último mes con datos (o el actual).
 Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`; Repartir muestra "Máximo pendiente", guarda `movimientos.controlado` y `creditos.totalBanco`).
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 

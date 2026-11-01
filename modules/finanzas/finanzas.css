@@ -672,3 +672,6 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
 .fz-estado-num.ok { color: #6FB4A0; }
 .fz-estado-num.falta { color: #E2786C; }
 .fz-estado-num.pasado { color: #8DB4DC; }
+.fz-chip-cerrado { font-size: 0.7rem; background: #1B2733; color: #8DB4DC; border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.35rem; white-space: nowrap; }
+.fz-no-lo-uso { display: grid; gap: 0.3rem; margin-top: 0.4rem; justify-items: start; }
+.fz-mes button:disabled { opacity: 0.3; cursor: default; background: none; }

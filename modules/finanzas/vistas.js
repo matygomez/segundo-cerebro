@@ -75,16 +75,24 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     if (enPanel) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
   }
 
+  // Las flechas recorren solo desde el primer mes con algo cargado hasta el último
+  // (o el actual, si es más adelante): compras, cuotas y sus vencimientos.
+  function limitesMes() {
+    const meses = [mesActual(), ...d.movimientos.map(x => mesDe(x.fecha)), ...d.cuotas().flatMap(q => [q.mesGasto, sumarMeses(q.mes, 1)])].sort();
+    return { min: meses[0], max: meses.at(-1) };
+  }
+
   function piezasCabecera() {
+    const lim = limitesMes();
     const cambiarMes = (n) => { mesVista = sumarMeses(mesVista, n); dibujar(); };
     return [
       h('div', { class: 'fz-titulo' },
         h('h1', {}, 'Finanzas'),
         h('div', { class: 'fz-mes' },
-          h('button', { type: 'button', 'aria-label': 'Mes anterior', onclick: () => cambiarMes(-1) }, ic('izquierda')),
+          h('button', { type: 'button', 'aria-label': 'Mes anterior', disabled: mesVista <= lim.min, title: mesVista <= lim.min ? 'No hay nada cargado antes' : null, onclick: () => cambiarMes(-1) }, ic('izquierda')),
           // Tocando el nombre se vuelve al mes actual; en otro mes se ve en amarillo.
           h('button', { type: 'button', class: `fz-mes-centro${mesVista !== mesActual() ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => { mesVista = mesActual(); dibujar(); } }, nombreMes(mesVista)),
-          h('button', { type: 'button', 'aria-label': 'Mes siguiente', onclick: () => cambiarMes(1) }, ic('flecha')))),
+          h('button', { type: 'button', 'aria-label': 'Mes siguiente', disabled: mesVista >= lim.max, title: mesVista >= lim.max ? 'No hay nada cargado después' : null, onclick: () => cambiarMes(1) }, ic('flecha')))),
       h('div', { class: 'fz-acciones' },
         h('button', { type: 'button', class: 'boton principal', onclick: () => abrirMovimiento(ctx, m, d, 'gasto') }, ic('menos'), 'Gasto'),
         h('button', { type: 'button', class: 'boton', onclick: () => abrirMovimiento(ctx, m, d, 'ingreso') }, ic('mas'), 'Ingreso'),
@@ -255,12 +263,14 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       h('div', { class: 'fz-linea' },
         h('span', {}, h('span', { class: `fz-auto ${f.cat.automatico ? 'si' : 'no'}`, title: f.cat.automatico ? 'Se paga automático' : 'Se paga a mano' }, f.cat.automatico ? '✓' : '✗'),
           f.cat.nombre, f.cat.dia && !f.excedido ? h('span', { class: 'nota' }, ` día ${f.cat.dia}`) : null,
-          f.excedido ? h('span', { class: 'fz-chip-excedido' }, `Excedido ${plata(f.excedido)}`) : null),
+          f.excedido ? h('span', { class: 'fz-chip-excedido' }, `Excedido ${plata(f.excedido)}`) : null,
+          f.cerrado && !f.excedido ? h('span', { class: 'fz-chip-cerrado' }, 'No lo uso este mes') : null),
         h('span', { class: `num${f.excedido ? ' neg' : ''}` }, `${plata(f.gastado)} / ${plata(f.presupuesto)}`)),
-      h('div', { class: `fz-barra${f.excedido ? ' excedida' : f.gastado >= f.presupuesto && f.presupuesto ? ' lleno' : ''}` }, h('div', { style: `width:${pct}%` })));
+      h('div', { class: `fz-barra${f.excedido ? ' excedida' : f.cerrado || (f.gastado >= f.presupuesto && f.presupuesto) ? ' lleno' : ''}` }, h('div', { style: `width:${f.cerrado ? 100 : pct}%` })));
   }
   // Pagado = llegó justo al presupuesto. Los excedidos se cuentan aparte (✕).
-  const estaPagado = (f) => f.presupuesto && !f.falta && !f.excedido;
+  // Los marcados "No lo uso más este mes" cuentan como pagados.
+  const estaPagado = (f) => (f.presupuesto || f.cerrado) && !f.falta && !f.excedido;
 
   // Lo pendiente del mes anterior y el próximo vencimiento con su reparto.
   function bloqueCreditoMes(cr, compacto = false) {

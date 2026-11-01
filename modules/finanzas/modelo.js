@@ -9,7 +9,8 @@
 //                 archivado, orden }
 //   categorias  { nombre, tipo: 'fijo' | 'variable' | 'ingreso', padreId,
 //                 dia, automatico, presupuestos: [{ desde: 'AAAA-MM', monto }], archivada, orden,
-//                 cambiosPresupuesto: [{ fecha, antes, despues, desde }] }  (historial de cambios)
+//                 cambiosPresupuesto: [{ fecha, antes, despues, desde, solo }] }  (historial de cambios)
+//                 cerrados: ['AAAA-MM']  meses marcados "No lo uso más este mes" (solo fijos)
 //   movimientos { tipo, fecha, importe, cuentaId, creditoId, cuotas, cuotasPagadas, destinoId,
 //                 destinoCreditoId, categoriaId, descripcion, ajuste, prestamoId, sinDescontar }
 //     sinDescontar: gasto o ingreso cargado después, que ya estaba reflejado en el
@@ -142,6 +143,15 @@ export function crearModelo(ctx) {
       const presupuestos = [...lista.filter(p => p.desde !== desde), { desde, monto: redondear(monto) }].sort((a, b) => a.desde.localeCompare(b.desde));
       const cambiosPresupuesto = [...(cat.cambiosPresupuesto || []), { fecha: hoy(), antes, despues: redondear(monto), desde }];
       return col.categorias.actualizar(cat.id, { presupuestos, cambiosPresupuesto });
+    },
+
+    // "No lo uso más este mes" (o deshacerlo) en un gasto fijo. Queda en el historial.
+    async cerrarPresupuestoMes(d, cat, mes, cerrar) {
+      const f = d.fijosDelMes(mes).find(x => x.cat.id === cat.id);
+      const cerrados = cerrar ? [...new Set([...(cat.cerrados || []), mes])] : (cat.cerrados || []).filter(x => x !== mes);
+      const cambio = cerrar ? { antes: f.normal, despues: Math.min(f.normal, f.gastado) } : { antes: f.presupuesto, despues: f.normal };
+      const cambiosPresupuesto = [...(cat.cambiosPresupuesto || []), { fecha: hoy(), ...cambio, desde: mes, solo: true }];
+      return col.categorias.actualizar(cat.id, { cerrados, cambiosPresupuesto });
     },
 
     // Ajuste de saldo: crea el movimiento por la diferencia.
@@ -455,15 +465,20 @@ export class Datos {
     return p ? p.monto : 0;
   }
 
+  // cerrado: el mes se marcó "No lo uso más este mes". El presupuesto de ese mes
+  // queda en lo gastado (no reserva más) y lo que sobraba vuelve al Disponible.
+  // El excedido se sigue midiendo contra el presupuesto normal.
   fijosDelMes(mes) {
     const gastos = this.gastosDelMes(mes);
     return this.categoriasDe('fijo').map(cat => {
       const gastado = redondear(gastos.filter(g => g.categoriaId === cat.id).reduce((a, g) => a + g.importe, 0));
-      const presupuesto = this.presupuesto(cat, mes);
+      const normal = this.presupuesto(cat, mes);
+      const cerrado = (cat.cerrados || []).includes(mes);
+      const presupuesto = cerrado ? Math.min(normal, gastado) : normal;
       return {
-        cat, grupo: cat.grupoFijo === 'personal' ? 'personal' : 'familia', presupuesto, gastado,
+        cat, grupo: cat.grupoFijo === 'personal' ? 'personal' : 'familia', presupuesto, normal, cerrado, gastado,
         falta: redondear(Math.max(0, presupuesto - gastado)),
-        excedido: presupuesto > 0 && gastado > presupuesto ? redondear(gastado - presupuesto) : 0,
+        excedido: normal > 0 && gastado > normal ? redondear(gastado - normal) : 0,
       };
     });
   }
