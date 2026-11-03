@@ -439,6 +439,8 @@ export class Datos {
       fondo, saldoFondo: fondo ? this.saldo(fondo.id, hasta) : 0, meses,
       totalTodo: redondear(meses.reduce((a, x) => a + x.total, 0)),
       faltaTodo: redondear(meses.reduce((a, x) => a + x.falta, 0)),
+      // Lo que queda en el fondo después de cubrir todo lo que hay que pagar.
+      sobra: redondear(resto),
       pagadoHasta,
       siguiente,
     };

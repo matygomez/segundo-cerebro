@@ -28,6 +28,7 @@ Crédito (detalle y Panel): cada tarjeta muestra el resumen que cierra en el mes
 Presupuesto: cada cambio queda en el historial con fecha (`cambiosPresupuesto`), aunque sean varios en el mismo mes.
 Fijos: botón "No lo uso más este mes" (cat.cerrados): el presupuesto del mes queda en lo gastado y el resto vuelve a Disponible; se deshace. Flechas del mes: solo entre el primer y el último mes con datos (o el actual).
 Disponible de un mes: el fondo para crédito se mira a fin de ese mes (`planCredito(hasta)`), así una transferencia al fondo ya cargada no se descuenta dos veces.
+Crédito: si el fondo cubre todo, dice cuánto sobra (`plan.sobra`).
 Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco, agregar faltante; `control.js`; Repartir muestra "Máximo pendiente", guarda `movimientos.controlado` y `creditos.totalBanco`).
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 

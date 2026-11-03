@@ -365,7 +365,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     if (!plan.fondo) return h('p', { class: 'nota' }, 'Elegí una cuenta como fondo para crédito en Configurar Finanzas para ver hasta qué mes tenés pagado.');
     return h('div', { class: plan.pagadoHasta ? 'fz-aviso-fondo ok' : 'fz-aviso-fondo' },
       h('b', {}, plan.pagadoHasta ? `Pagado hasta ${nombreMes(plan.pagadoHasta, false).toLowerCase()}` : 'El fondo no cubre el próximo vencimiento'),
-      plan.siguiente ? h('span', { class: 'nota' }, `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} faltan ${plata(plan.siguiente.falta)} en el fondo`) : h('span', { class: 'nota' }, 'Todo lo comprometido está cubierto'));
+      plan.siguiente ? h('span', { class: 'nota' }, `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} faltan ${plata(plan.siguiente.falta)} en el fondo`) : h('span', { class: 'nota' }, plan.sobra > 0 ? `Todo lo comprometido está cubierto y sobran ${plata(plan.sobra)}` : 'Todo lo comprometido está cubierto'));
   }
 
   // El resumen de cada tarjeta que cierra en el mes que se está viendo
@@ -692,7 +692,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       return [
         metricas(
           ['Fondo para crédito', plan.fondo ? plata(plan.saldoFondo) : 'Sin elegir', '', plan.fondo ? plan.fondo.nombre : 'Elegilo en Configurar Finanzas'],
-          ['Total para pagar todo', plata(plan.totalTodo), '', plan.faltaTodo ? `Faltan ${plata(plan.faltaTodo)} en el fondo` : 'El fondo cubre todo'],
+          ['Total para pagar todo', plata(plan.totalTodo), '', plan.faltaTodo ? `Faltan ${plata(plan.faltaTodo)} en el fondo` : plan.sobra > 0 ? `Sobran ${plata(plan.sobra)} en el fondo` : 'El fondo cubre todo'],
           ['Pagado hasta', plan.pagadoHasta ? nombreMes(plan.pagadoHasta) : '—', plan.pagadoHasta ? 'pos' : ''],
           [plan.siguiente ? `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} poné` : 'Para cubrir lo que viene', plata(plan.siguiente?.falta || 0), plan.siguiente ? 'neg' : '']),
         (() => { const rm = d.resumenMes(mesVista); const t = transferirFondo(rm); const b = bloqueCreditoMes(rm.credito); return t || b ? tarjeta(h('h2', {}, `Pago de ${nombreMes(mesVista, false).toLowerCase()}`), t, b) : null; })(),
