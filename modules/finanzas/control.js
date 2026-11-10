@@ -54,7 +54,7 @@ export function abrirControlResumen(ctx, m, d, credito, mesInicial) {
     poner(meses, todos.map(x => h('button', {
       type: 'button', role: 'tab', class: x === mes ? 'sel' : '', 'aria-selected': String(x === mes),
       onclick: () => { mes = x; dibujar(); },
-    }, nombreMes(x, false))));
+    }, nombreMes(d.mesNombreResumen(cr, x), false))));
     meses.querySelector('.sel')?.scrollIntoView({ block: 'nearest', inline: 'center' });
     const f = d.fechasResumen(cr, mes);
     fechas.textContent = `Cierra el ${fechaCorta(f.cierre)} · vence el ${fechaCorta(f.vencimiento)}`;
@@ -128,7 +128,7 @@ export function abrirControlResumen(ctx, m, d, credito, mesInicial) {
         nuevo.controlado = [mes];
         await m.actualizar('movimientos', nuevo.id, { controlado: [mes] });
       } else {
-        ctx.aviso(`Quedó en el resumen de ${nombreMes(destino, false).toLowerCase()}, por su fecha.`);
+        ctx.aviso(`Quedó en el resumen de ${nombreMes(d.mesNombreResumen(cr, destino), false).toLowerCase()}, por su fecha.`);
       }
     }
     dibujar();

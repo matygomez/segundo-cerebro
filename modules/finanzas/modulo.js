@@ -15,6 +15,21 @@ import { abrirMovimiento } from './formularios.js';
 import { cargarEstilos } from './comun.js';
 import { sincronizarRecordatorios, estadoRecordatorio, pagarRecordatorio } from './recordatorios.js';
 
+// Formulario de movimiento nuevo con pestañas arriba para cambiar el tipo
+// (se lleva el importe escrito). Devuelve true si se guardó algo.
+async function conPestanas(ctx, tipo) {
+  cargarEstilos();
+  const m = crearModelo(ctx);
+  let siguiente = tipo, importe = '';
+  while (siguiente) {
+    const actual = siguiente;
+    siguiente = null;
+    const alCambiarTipo = (t, imp) => { siguiente = t; importe = imp; };
+    if (await abrirMovimiento(ctx, m, await m.cargar(), actual, null, { importe, alCambiarTipo })) return true;
+  }
+  return false;
+}
+
 export default {
   id: 'finanzas',
   nombre: 'Finanzas',
@@ -109,18 +124,7 @@ export default {
 
     // Botón Finanzas de la app de Android: abre en gasto y deja cambiar el tipo.
     // Devuelve true si se guardó algo.
-    async 'movimiento-rapido'({ tipo = 'gasto' } = {}, ctx) {
-      cargarEstilos();
-      const m = crearModelo(ctx);
-      let siguiente = tipo, importe = '';
-      while (siguiente) {
-        const actual = siguiente;
-        siguiente = null;
-        const alCambiarTipo = (t, imp) => { siguiente = t; importe = imp; };
-        if (await abrirMovimiento(ctx, m, await m.cargar(), actual, null, { importe, alCambiarTipo })) return true;
-      }
-      return false;
-    },
+    'movimiento-rapido': ({ tipo = 'gasto' } = {}, ctx) => conPestanas(ctx, tipo),
 
     // Para las metas de Hábitos: cuentas y categorías que se pueden elegir.
     async 'metas-cuentas'(_, ctx) {
@@ -153,11 +157,8 @@ export default {
   },
 
   botonesInicio(ctx) {
-    const abrir = (tipo) => async () => {
-      cargarEstilos();
-      const m = crearModelo(ctx);
-      abrirMovimiento(ctx, m, await m.cargar(), tipo);
-    };
+    // Con las pestañas Gasto / Ingreso / Transferencia arriba, para cambiar sin salir.
+    const abrir = (tipo) => () => conPestanas(ctx, tipo);
     return [
       { id: 'gasto', texto: 'Gasto', icono: 'mas', alTocar: abrir('gasto') },
       { id: 'ingreso', texto: 'Ingreso', icono: 'mas', alTocar: abrir('ingreso'), defecto: false },

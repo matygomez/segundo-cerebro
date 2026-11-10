@@ -368,10 +368,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
       plan.siguiente ? h('span', { class: 'nota' }, `Para cubrir ${nombreMes(plan.siguiente.mes, false).toLowerCase()} faltan ${plata(plan.siguiente.falta)} en el fondo`) : h('span', { class: 'nota' }, plan.sobra > 0 ? `Todo lo comprometido está cubierto y sobran ${plata(plan.sobra)}` : 'Todo lo comprometido está cubierto'));
   }
 
-  // El resumen de cada tarjeta que cierra en el mes que se está viendo
+  // El resumen de cada tarjeta que lleva el nombre del mes que se está viendo (ver mesNombreResumen)
   // (el que se paga con la plata de ese mes, salvo lo que se deje para el siguiente).
   function resumenActual(c) {
-    return d.resumenes(c.id).find(r => r.mes === mesVista) || null;
+    return d.resumenes(c.id).find(r => r.mes === d.mesClaveResumen(c, mesVista)) || null;
   }
 
   // Cómo quedó ese resumen: pagado, lo que falta o lo que se dejó para el mes siguiente.
@@ -710,7 +710,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           const e = r ? estadoResumen(c, r) : null;
           const cab = h('div', { class: 'fz-cab-flex' },
             h('h2', {}, `${d.nombreCredito(c)}`, h('span', { class: 'nota' }, ` · resumen de ${nombreMes(mesVista, false).toLowerCase()}`)),
-            h('button', { type: 'button', class: 'boton fz-ctrl-abrir', onclick: () => abrirControlResumen(ctx, m, d, c, r?.mes || mesVista) }, 'Controlar resumen'));
+            h('button', { type: 'button', class: 'boton fz-ctrl-abrir', onclick: () => abrirControlResumen(ctx, m, d, c, r?.mes || d.mesClaveResumen(c, mesVista)) }, 'Controlar resumen'));
           return tarjeta(cab,
             r ? [h('p', { class: 'nota' }, `Cierre ${fechaLarga(r.cierre)} · vence ${fechaLarga(r.vencimiento)}${r.sugeridas ? ' (sugeridas)' : ''}`),
               lineaEstado(e),
@@ -743,7 +743,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
           tarjeta(h('h2', {}, actual.cat.nombre, ' ', h('span', { class: 'num' }, plata(actual.total))),
             barras(ctx, ultimosMeses(6).map(mes => [mesCorto(mes), d.variablesDelMes(mes).find(x => x.cat.id === actual.cat.id)?.total || 0])),
             h('h3', { class: 'fz-h3' }, 'Movimientos del mes'),
-            actual.gastos.map(g => linea(ctx, `${fechaCorta(g.mov.fecha)} · ${d.origen(g.mov)}${g.mov.descripcion ? ' · ' + g.mov.descripcion : ''}${g.cuota && g.cuota.total > 1 ? ` · cuota ${g.cuota.numero}/${g.cuota.total}` : ''}${g.cuota && g.cuota.mes !== mesVista ? ` · se paga en el resumen de ${nombreMes(g.cuota.mes, false).toLowerCase()}` : ''}`, h('span', { class: 'neg' }, `− ${plata(g.importe)}`)))))
+            actual.gastos.map(g => linea(ctx, `${fechaCorta(g.mov.fecha)} · ${d.origen(g.mov)}${g.mov.descripcion ? ' · ' + g.mov.descripcion : ''}${g.cuota && g.cuota.total > 1 ? ` · cuota ${g.cuota.numero}/${g.cuota.total}` : ''}${g.cuota && d.mesNombreResumen(d.credito(g.cuota.creditoId), g.cuota.mes) !== mesVista ? ` · va en el resumen de ${nombreMes(d.mesNombreResumen(d.credito(g.cuota.creditoId), g.cuota.mes), false).toLowerCase()}` : ''}`, h('span', { class: 'neg' }, `− ${plata(g.importe)}`)))))
           : h('p', { class: 'nota' }, 'Sin gastos variables este mes.'),
       ];
     },

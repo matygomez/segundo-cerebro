@@ -366,6 +366,20 @@ export class Datos {
     return mes;
   }
 
+  // Nombre del resumen. Internamente cada resumen se guarda por el mes en que
+  // cierra; pero si la tarjeta cierra del 1 al 15, el resumen junta casi todo
+  // compras del mes anterior, y así lo llama Matías (cierra el 4/12 → "noviembre").
+  mesNombreResumen(credito, mes) {
+    const dia = Number(this.fechasResumen(credito, mes).cierre.slice(8, 10));
+    return dia <= 15 ? sumarMeses(mes, -1) : mes;
+  }
+
+  // Al revés: el mes en que cierra el resumen que se llama "mes".
+  mesClaveResumen(credito, mes) {
+    const sig = sumarMeses(mes, 1);
+    return this.mesNombreResumen(credito, sig) === mes ? sig : mes;
+  }
+
   // Cada compra con crédito se parte en cuotas, cada una en su resumen.
   cuotas() {
     if (this._cuotas) return this._cuotas;

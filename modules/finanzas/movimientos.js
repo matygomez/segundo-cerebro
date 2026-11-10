@@ -78,7 +78,7 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
     let cuotas = null;
     if (x.creditoId && x.cuotas > 1) {
       const lista = d.cuotas().filter(q => q.mov.id === x.id);
-      cuotas = ['Cuotas', `${x.cuotas} de ${plata(lista[0]?.importe || 0)}, de ${nombreMes(lista[0].mes, false).toLowerCase()} a ${nombreMes(lista.at(-1).mes).toLowerCase()}`];
+      cuotas = ['Cuotas', `${x.cuotas} de ${plata(lista[0]?.importe || 0)}, de ${nombreMes(d.mesNombreResumen(d.credito(x.creditoId), lista[0].mes), false).toLowerCase()} a ${nombreMes(d.mesNombreResumen(d.credito(x.creditoId), lista.at(-1).mes)).toLowerCase()}`];
     }
     if (x.tipo === 'inicial') {
       const cuenta = d.cuenta(x.cuentaId);

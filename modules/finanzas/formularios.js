@@ -3,7 +3,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { hoy, plata, redondear, AJUSTE, mesActual, sumarMeses, nombreMes, mesDe, fechaCorta } from './modelo.js';
-import { hoja, campo, inputImporte, selectCuentas, selectorCategoria, poner } from './comun.js';
+import { hoja, campo, inputImporte, selectCuentas, selectorCategoria, poner, evaluarCuenta, textoImporte } from './comun.js';
 
 const leerImporte = (input) => redondear(Number(String(input.value).replace(',', '.')));   // input.value ya viene calculado
 const separar = (v) => (v ? { tipo: v.slice(0, 1), id: v.slice(2) } : { tipo: '', id: '' });
@@ -34,9 +34,12 @@ export function abrirMovimiento(ctx, m, d, tipo, mov = null, base = {}) {
     const valorMedio = v.creditoId ? `t:${v.creditoId}` : v.sinDescontar ? 'y:' : v.cuentaId ? `c:${v.cuentaId}` : '';
     const medio = selectCuentas(ctx, d, { tipos: ['cuenta', 'reserva'], creditos: true, valor: valorMedio, yaHecho: esAjuste ? null : 'Ya pagado' });
     const cuotas = h('input', { type: 'number', min: 1, max: 60, step: 1, inputmode: 'numeric', value: v.cuotas || 1 });
-    const ayudaCuotas = h('span', { class: 'nota' });
+    // Valor por cuota: se puede escribir la cuota y el Importe de arriba pasa a ser cuota × cantidad.
+    const valorCuota = h('input', { type: 'text', inputmode: 'decimal', autocomplete: 'off', placeholder: '$ 0', 'aria-label': 'Valor por cuota' });
+    let desdeCuota = false;   // true si lo último que se escribió fue la cuota (y no el total)
     const ayudaResumen = h('p', { class: 'nota' });
-    const filaCuotas = h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Cuotas'), cuotas, ayudaCuotas);
+    const filaCuotas = h('div', { class: 'fz-dos' }, campo(ctx, 'Cuotas', cuotas), campo(ctx, 'Valor por cuota', valorCuota));
+    const notaYaPagado = h('p', { class: 'nota' }, '"Ya pagado" es para gastos que hiciste antes: suman al mes pero no tocan ninguna cuenta.');
     // Compra con tarjeta cargada después: las cuotas que ya vencieron se toman como pagadas.
     const vencidas = h('input', { type: 'checkbox', checked: !!v.pagadasHasta || !!v.cuotasPagadas });
     const filaVencidas = h('label', { class: 'fila-campo casilla' }, vencidas,
@@ -52,14 +55,29 @@ export function abrirMovimiento(ctx, m, d, tipo, mov = null, base = {}) {
         vieja = cr && d.mesResumenDe(cr, fecha.value) < d.mesResumenDe(cr, hoy());
       }
       filaVencidas.hidden = !vieja;
-      const n = Math.max(1, Number(cuotas.value) || 1), imp = leerImporte(importe);
-      ayudaCuotas.textContent = credito && n > 1 && imp > 0 ? `${n} cuotas de ${plata(imp / n)}, desde el resumen donde cae la compra` : '';
+      notaYaPagado.hidden = medio.value !== 'y:';
+      sincronizarCuota();
       // A qué resumen va, para cargar compras viejas en el mes correcto.
       const cr = credito && fecha.value ? d.credito(medio.value.slice(2)) : null;
-      ayudaResumen.textContent = cr ? `Entra en el resumen de ${nombreMes(d.mesResumenDe(cr, fecha.value), false).toLowerCase()}.` : '';
+      ayudaResumen.textContent = cr ? `Entra en el resumen de ${nombreMes(d.mesNombreResumen(cr, d.mesResumenDe(cr, fecha.value)), false).toLowerCase()}.` : '';
     };
+    // Cuota y total se recalculan entre sí; con 1 cuota el valor por cuota queda apagado.
+    function sincronizarCuota() {
+      const n = Math.max(1, Number(cuotas.value) || 1);
+      valorCuota.disabled = n === 1;
+      if (n === 1) { valorCuota.value = ''; desdeCuota = false; return; }
+      const vc = evaluarCuenta(valorCuota.value);
+      if (desdeCuota) { if (vc > 0) importe.value = redondear(vc * n); }
+      else {
+        const imp = leerImporte(importe);
+        valorCuota.value = imp > 0 ? textoImporte(redondear(imp / n)) : '';
+      }
+    }
+    valorCuota.addEventListener('input', () => { desdeCuota = true; sincronizarCuota(); });
+    valorCuota.addEventListener('blur', () => { const vc = evaluarCuenta(valorCuota.value); if (vc > 0) valorCuota.value = textoImporte(vc); });
+    importe.addEventListener('input', () => { desdeCuota = false; });
     [medio, cuotas, importe, fecha].forEach(x => x.addEventListener('input', actualizar));
-    filas.push(campo(ctx, 'Pagado con', medio, esAjuste ? null : '"Ya pagado" (al final de la lista) es para gastos que hiciste antes: suman al mes pero no tocan ninguna cuenta.'),
+    filas.push(campo(ctx, 'Pagado con', medio), ...(esAjuste ? [] : [notaYaPagado]),
       filaCuotas, filaVencidas, ayudaResumen,
       esAjuste ? h('p', { class: 'nota' }, 'Categoría: Ajuste sin detalle') : h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Categoría'), cat.elemento));
     setTimeout(actualizar);
@@ -288,7 +306,7 @@ export function abrirFechasResumen(ctx, m, d, credito, mes) {
   const cierre = h('input', { type: 'date', value: f.cierre });
   const vencimiento = h('input', { type: 'date', value: f.vencimiento });
   return hoja(ctx, {
-    titulo: `${d.nombreCredito(credito)}: resumen de ${nombreMes(mes, false).toLowerCase()}`,
+    titulo: `${d.nombreCredito(credito)}: resumen de ${nombreMes(d.mesNombreResumen(credito, mes), false).toLowerCase()}`,
     cuerpo: [h('div', { class: 'fz-dos' }, campo(ctx, 'Cierre', cierre), campo(ctx, 'Vencimiento', vencimiento)),
       h('p', { class: 'nota' }, f.sugeridas ? 'Son fechas sugeridas. Al corregirlas, los meses siguientes se sugieren a partir de estas.' : 'Fechas corregidas por vos.')],
     alGuardar: async () => {
@@ -302,7 +320,8 @@ export function abrirFechasResumen(ctx, m, d, credito, mes) {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Clasificar un ajuste: repartir su importe en líneas con categoría.
+// Clasificar un ajuste: repartir su importe en líneas con categoría,
+// o en transferencias a/desde otra cuenta (no siempre fue un gasto).
 // Cada línea se vuelve un movimiento normal de la misma cuenta y el
 // ajuste se achica en la misma cantidad (el saldo no cambia). Si llega
 // a cero, el ajuste desaparece.
@@ -324,6 +343,15 @@ export function abrirClasificar(ctx, m, d, ajuste) {
   const fecha = h('input', { type: 'date', value: ajuste.fecha });
   const descripcion = h('input', { type: 'text', placeholder: 'Opcional', autocomplete: 'off' });
   const cat = selectorCategoria(ctx, d, tipo === 'ingreso' ? ['ingreso'] : ['fijo', 'variable'], '');
+  // Si la plata fue (o vino) de otra cuenta, la línea es una transferencia y no lleva categoría.
+  let esTransf = false;
+  const otra = selectCuentas(ctx, d, tipo === 'gasto' ? { creditos: true, pagarCredito: true } : {});
+  const filaCat = h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Categoría'), cat.elemento);
+  const filaOtra = campo(ctx, tipo === 'gasto' ? '¿A qué cuenta fue?' : '¿De qué cuenta vino?', otra);
+  const botonesTipo = [[false, tipo === 'gasto' ? 'Gasto' : 'Ingreso'], [true, 'Transferencia']].map(([t, texto]) =>
+    h('button', { type: 'button', 'aria-pressed': String(t === esTransf), onclick: () => elegirTipo(t) }, texto));
+  const selectorTipo = h('div', { class: 'fz-tipos', role: 'group', 'aria-label': 'Qué fue', style: 'grid-template-columns: repeat(2, 1fr)' }, botonesTipo);
+  const zonaSug = h('div', {});
   const error = h('p', { class: 'formulario-error' });
   const zonaLineas = h('div', {});
   const zonaCarga = h('div', { class: 'formulario-campos' });
@@ -334,15 +362,30 @@ export function abrirClasificar(ctx, m, d, ajuste) {
   const chip = (id, detalle = null) => h('button', { type: 'button', class: 'fz-chip', onclick: () => { cat.fijar(id); error.textContent = ''; importe.focus(); } },
     h('b', {}, d.nombreCategoria(id)), detalle ? [h('br'), h('span', { class: 'nota' }, detalle)] : null);
 
-  poner(zonaCarga,
+  poner(zonaSug,
     sug.bajos.length ? [h('p', { class: 'nota' }, 'Para revisar: este mes llevan menos de lo normal'),
       h('div', { class: 'fz-chips' }, sug.bajos.map(b => chip(b.id, `este mes ${plata(b.actual)}, normalmente ${plata(b.promedio)}`)))] : null,
-    sug.usadas.length ? [h('p', { class: 'nota' }, tipo === 'ingreso' ? 'Tus categorías de ingreso' : 'Las que más usás'), h('div', { class: 'fz-chips' }, sug.usadas.map(id => chip(id)))] : null,
+    sug.usadas.length ? [h('p', { class: 'nota' }, tipo === 'ingreso' ? 'Tus categorías de ingreso' : 'Las que más usás'), h('div', { class: 'fz-chips' }, sug.usadas.map(id => chip(id)))] : null);
+  poner(zonaCarga,
+    selectorTipo, zonaSug,
     campo(ctx, 'Importe', importe),
-    h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Categoría'), cat.elemento),
+    filaCat, filaOtra,
     h('div', { class: 'fz-dos' }, campo(ctx, 'Fecha', fecha), campo(ctx, 'Descripción', descripcion)),
     error,
     h('button', { type: 'button', class: 'boton principal', onclick: agregar }, 'Agregar línea'));
+
+  function elegirTipo(t) {
+    esTransf = t;
+    botonesTipo.forEach((b, i) => b.setAttribute('aria-pressed', String((i === 1) === t)));
+    zonaSug.hidden = t; filaCat.hidden = t; filaOtra.hidden = !t;
+    error.textContent = '';
+  }
+  elegirTipo(false);
+
+  // Texto de cada línea ya agregada.
+  const nombreLinea = (l) => l.tipo !== 'transferencia' ? d.nombreCategoria(l.categoriaId)
+    : l.destinoCreditoId ? `Pago de ${d.nombreCredito(d.credito(l.destinoCreditoId))}`
+    : tipo === 'gasto' ? `Transferencia a ${d.nombreCuenta(l.destinoId)}` : `Transferencia desde ${d.nombreCuenta(l.cuentaId)}`;
 
   function pintar() {
     const hecho = redondear(total - queda);
@@ -354,7 +397,7 @@ export function abrirClasificar(ctx, m, d, ajuste) {
     listo.hidden = queda > 0;
     resto.textContent = queda > 0 && lineas.length ? `Si cerrás ahora, los ${plata(queda)} que faltan siguen como "Ajuste sin detalle".` : '';
     poner(zonaLineas, lineas.length ? lineas.map((l, i) => h('div', { class: 'fz-linea' },
-      h('span', {}, d.nombreCategoria(l.categoriaId), l.descripcion ? h('span', { class: 'nota' }, ` · ${l.descripcion}`) : null, h('br'), h('span', { class: 'nota' }, `${l.fecha.slice(8, 10)}/${l.fecha.slice(5, 7)}`)),
+      h('span', {}, nombreLinea(l), l.descripcion ? h('span', { class: 'nota' }, ` · ${l.descripcion}`) : null, h('br'), h('span', { class: 'nota' }, `${l.fecha.slice(8, 10)}/${l.fecha.slice(5, 7)}`)),
       h('span', { class: 'fz-subcuenta-der' }, h('b', { class: `num ${tipo === 'gasto' ? 'neg' : 'pos'}` }, `${tipo === 'gasto' ? '−' : '+'} ${plata(l.importe)}`),
         h('button', { type: 'button', class: 'boton chico', 'aria-label': 'Quitar línea', onclick: () => quitar(i) }, '✕'))))
       : h('p', { class: 'nota' }, 'Todavía ninguna.'));
@@ -364,15 +407,22 @@ export function abrirClasificar(ctx, m, d, ajuste) {
     const imp = leerImporte(importe);
     if (!(imp > 0)) { error.textContent = 'Escribí un importe.'; return; }
     if (imp > queda) { error.textContent = `No puede ser más de lo que queda (${plata(queda)}).`; return; }
-    if (!cat.valor()) { error.textContent = 'Elegí una categoría (o tocá una sugerencia).'; return; }
+    if (!esTransf && !cat.valor()) { error.textContent = 'Elegí una categoría (o tocá una sugerencia).'; return; }
+    const o = separar(otra.value);
+    if (esTransf && !o.id) { error.textContent = 'Elegí la otra cuenta.'; return; }
+    if (esTransf && o.id === ajuste.cuentaId) { error.textContent = 'Elegí una cuenta distinta de la del ajuste.'; return; }
     if (!fecha.value) { error.textContent = 'Elegí una fecha.'; return; }
-    const linea = { tipo, fecha: fecha.value, importe: imp, cuentaId: ajuste.cuentaId, categoriaId: cat.valor(), descripcion: descripcion.value.trim() };
+    const base = { fecha: fecha.value, importe: imp, descripcion: descripcion.value.trim() };
+    const linea = !esTransf ? { ...base, tipo, cuentaId: ajuste.cuentaId, categoriaId: cat.valor() }
+      // Salió plata de esta cuenta: va a otra cuenta o paga una tarjeta. Entró: vino de otra cuenta.
+      : tipo === 'gasto' ? { ...base, tipo: 'transferencia', cuentaId: ajuste.cuentaId, destinoId: o.tipo === 'c' ? o.id : '', destinoCreditoId: o.tipo === 't' ? o.id : '' }
+      : { ...base, tipo: 'transferencia', cuentaId: o.id, destinoId: ajuste.cuentaId };
     linea.id = await m.col.movimientos.crear(linea);
     queda = redondear(queda - imp);
     if (queda > 0) await m.actualizar('movimientos', ajusteId, { importe: queda });
     else { await m.borrar('movimientos', ajusteId); ajusteId = ''; }
     lineas.push(linea);
-    importe.value = ''; descripcion.value = ''; cat.fijar(''); fecha.value = ajuste.fecha; error.textContent = '';
+    importe.value = ''; descripcion.value = ''; cat.fijar(''); otra.value = ''; fecha.value = ajuste.fecha; error.textContent = '';
     pintar();
   }
 
