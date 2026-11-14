@@ -2,12 +2,12 @@
 Leé solo la sección que vas a tocar. Al terminar, actualizá sus 1–3 líneas.
 
 ## Núcleo (`js/core/`, `js/app.js`, `sw.js`)
-Sincronización Drive (cada colección = un JSON), registro de módulos, formularios, editor de texto, búsqueda general (lupa, Ctrl+K, barra del Inicio),
+Sincronización Drive (cada colección = un JSON; trae todos los .json en un pedido, baja/sube de a 4, "al día" antes del espejo .md), registro de módulos, formularios, editor de texto, búsqueda general (lupa, Ctrl+K, barra del Inicio),
 Ajustes (módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos (en PC va al Inicio); ya no hay engranaje arriba. Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
 
 ## App de Android (`android/`, `js/core/android.js`, `js/core/android-app.js`)
 App "Cerebro": ventana nativa que abre la app de Pages (lo web llega igual). Login de Google nativo. Puente `window.CerebroAndroid` (lista en `android.js`).
-Botones del panel (Finanzas → `movimiento-rapido`, Nueva tarea → `nueva-tarea-ventana`, Anotar → captura) abren `VentanaActivity` (web transparente, solo el formulario). Widget de tareas (`TareasWidget`, por área, Hoy/7 días/Todas/área, compacto/ampliado; tocar = `abrir-tarea`, ↻ = sincroniza y vuelve). Avisos (`Avisos.java`): diario, por tarea (hora o recordatorio), prueba y fija; la web manda `tareas-android` al cambiar Tareas. Compartir → Bitácora como la PWA. Ajustes › App de Android.
+Botones del panel (Finanzas → `movimiento-rapido`, Nueva tarea → `nueva-tarea-ventana`, Anotar → captura) abren `VentanaActivity` (web transparente, solo el formulario). Widget de tareas (`TareasWidget`, por área, Hoy/7 días/Todas/área, compacto/ampliado; tocar = ventanita `ver-tarea:<id>` → acción `tarea-ventana`: Completar / Pasar a mañana / Abrir en la app (`abrirEnApp`); ↻ = sincroniza y vuelve). Avisos (`Avisos.java`): diario, por tarea (hora o recordatorio), prueba y fija; la web manda `tareas-android` al cambiar Tareas. Compartir → Bitácora como la PWA. Ajustes › App de Android.
 Se arma con `.github/workflows/android.yml` al cambiar `android/` (subir `versionCode`), Releases `android-N`. Firma: `android/firma.p12` + secreto `CLAVE_FIRMA`. "Buscar actualización" avisa si hay APK nuevo.
 ## Inicio (`modules/home`)
 Fecha, memento mori (estilos mezcla/barras/contador/años, frase, años de vida elegibles 50–120 (por defecto 100); se puede apagar), botones rápidos, búsqueda, captura "Anotá algo", bloques de módulos.
@@ -34,7 +34,7 @@ Crédito: "Controlar resumen" por tarjeta (tildar gastos/cuotas, total del banco
 Acciones: `recordatorio-estado, recordatorio-pagar, nuevo-gasto, metas-cuentas, metas-valor, resumen-finanzas`.
 
 ## Bitácora (`modules/bitacora`)
-Carpetas y bases (campos tipo Notion), notas Markdown, plantillas, recordatorios, espejo .md en Drive, Filmoteca (TMDB).
+Carpetas y bases (campos tipo Notion), notas Markdown, plantillas, recordatorios, espejo .md en Drive (todos en `Bitácora/Lecturas/<carpetas>`; afuera solo los archivos subidos), Filmoteca (TMDB).
 Archivos para revisar (`ordenar.js`, `#/bitacora/pendientes`): subir/arrastrar/Compartir → Gemini (clave en Configurar) propone nombre, carpeta y datos → confirmás; nota con `archivo` + PDF al lado en Drive; tarea por vencimiento, gasto en Finanzas (`nuevo-gasto`), repetidos por huella (ventana "Comparar": quedarme con uno, reemplazar o guardar los dos, y dónde; "Decidir después" lo deja en Para revisar). En cada carpeta, "+ Nueva › Subir archivo acá" (o arrastrar): se guarda directo y Gemini completa datos de fondo (`archivo.lectura`, `sugerir` tarea/gasto en la ficha); quedan en Para revisar › "Ya ubicados, falta confirmar" hasta "Listo, completado" (`archivo.revisado`). Vista previa PDF/foto en la nota (`visor.js`, PDF.js en `js/vendor/pdfjs`): online, se guarda en el dispositivo solo si lo pedís. Cargas mensuales en Configurar → tareas `bitacora-mes:` en Sistemas › Bitácora.
 Acciones: `abrir-nota, metas-carpetas, metas-contar, resumen-bitacora, gemini-preguntar, gemini-hay-clave`.
 

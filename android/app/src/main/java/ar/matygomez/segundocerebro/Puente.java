@@ -80,6 +80,16 @@ public class Puente {
         return r[0];
     }
 
+    // Desde la ventanita: abre la app completa con un pedido (ej. 'abrir-tarea:<id>') y la cierra.
+    @JavascriptInterface
+    public void abrirEnApp(String accion) {
+        if (!permitido()) return;
+        act.runOnUiThread(() -> {
+            act.startActivity(MainActivity.intentAccion(act, accion == null ? "" : accion));
+            act.cerrarVentana(false);
+        });
+    }
+
     @JavascriptInterface
     public void volver() {
         if (permitido()) act.runOnUiThread(act::volver);

@@ -28,7 +28,8 @@ class FakeDrive:
         if path=='/drive/v3/files' and m=='GET':
             qq=q.get('q',[''])[0]
             name=re.search(r"name = '((?:[^'\\]|\\.)*)'", qq); par=re.search(r"'([^']+)' in parents", qq)
-            res=[f for f in self.vivos() if (not par or par.group(1) in f['parents'] or (par.group(1)=='root' and not f['parents'])) and (not name or f['name']==name.group(1).replace("\\'","'")) and ('folder' not in qq or f['mimeType'].endswith('folder'))]
+            pars=re.findall(r"'([^']+)' in parents", qq); cont=re.search(r"name contains '([^']+)'", qq)
+            res=[f for f in self.vivos() if (not pars or any(x in f['parents'] or (x=='root' and not f['parents']) for x in pars)) and (not name or f['name']==name.group(1).replace("\\'","'")) and (not cont or cont.group(1) in f['name']) and ('folder' not in qq or f['mimeType'].endswith('folder'))]
             return ok({'files':[pub(f) for f in res]})
         if path=='/drive/v3/files' and m=='POST':
             meta=json.loads(req.post_data or '{}'); f=self.nuevo(meta['name'], [p for p in meta.get('parents',[]) if p!='root'], meta.get('mimeType',''))

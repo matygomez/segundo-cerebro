@@ -114,7 +114,7 @@ public class WidgetServicio extends RemoteViewsService {
                 v.setTextViewText(R.id.w_sub, f.sub);
                 v.setViewVisibility(R.id.w_sub, f.sub.isEmpty() ? View.GONE : View.VISIBLE);
             }
-            v.setOnClickFillInIntent(R.id.w_fila, new Intent().putExtra(MainActivity.EXTRA_ACCION, "abrir-tarea:" + f.id));
+            v.setOnClickFillInIntent(R.id.w_fila, new Intent().putExtra(VentanaActivity.EXTRA_VENTANA, "ver-tarea:" + f.id));
             return v;
         }
 

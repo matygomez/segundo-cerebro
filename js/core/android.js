@@ -62,6 +62,8 @@ export const cerrarVentana = (guardado) => llamar('cerrarVentana', !!guardado);
 // Pedido que llegó desde el widget o una notificación ('abrir-tarea:<id>', 'actualizar', …).
 export const tomarAccion = () => llamar('tomarAccion') || '';
 export const volver = () => llamar('volver');
+// Desde la ventanita: abre la app completa con un pedido y cierra la ventanita.
+export const abrirEnApp = (accion) => llamar('abrirEnApp', accion);
 export const guardarTareas = (datos) => llamar('guardarTareas', JSON.stringify(datos));
 export const ajustesAvisos = () => json(llamar('ajustesAvisos'), null);
 export const guardarAjustesAvisos = (datos) => llamar('guardarAjustesAvisos', JSON.stringify(datos));

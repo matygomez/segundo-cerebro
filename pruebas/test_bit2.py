@@ -123,8 +123,8 @@ with sync_playwright() as p:
   nombres=[a['nombre'] for a in e['archivos']]; print(nombres)
   luc=[a for a in e['archivos'] if a['nombre']=='Lucía Fernández.md'][0]
   print(luc['contenido'])
-  chk(luc['ruta']==['Tiro','Alumnos'], 'ruta md')
+  chk(luc['ruta']==['Lecturas','Tiro','Alumnos'], 'ruta md')
   chk('Estado MiRenar: "Rindió"' in luc['contenido'] and 'Pagó: true' in luc['contenido'] and 'Importe: 45000' in luc['contenido'], 'frontmatter')
-  chk(['Bandeja'] in e['carpetas'] and ['Tiro','Curso CLU'] in e['carpetas'], 'carpetas md')
+  chk(['Lecturas','Bandeja'] in e['carpetas'] and ['Lecturas','Tiro','Curso CLU'] in e['carpetas'], 'carpetas md')
   print('errores', err[:5])
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)

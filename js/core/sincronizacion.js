@@ -85,37 +85,58 @@ async function ciclo() {
   }
 }
 
+// Varias tareas a la vez, pero no más de "cuantas" juntas (Drive se queja si son muchas).
+async function enParalelo(lista, cuantas, tarea) {
+  let i = 0;
+  const trabajador = async () => { while (i < lista.length) { const x = lista[i++]; await tarea(x); } };
+  await Promise.all(Array.from({ length: Math.min(cuantas, lista.length) }, trabajador));
+}
+
 async function pasada() {
   let mapa = (await db.leerMeta('drive:mapa')) || { raiz: '', carpetas: {}, archivos: {} };
 
   // Si la carpeta principal se borró en Drive, se rehace y se vuelve a subir todo lo local.
-  if (mapa.raiz && !(await drive.existe(mapa.raiz))) {
-    mapa = { raiz: '', carpetas: {}, archivos: {} };
-    await marcarTodoPendiente();
+  // (Se revisa a la vez que se listan sus carpetas, para no esperar dos veces.)
+  let enRaiz = [];
+  if (mapa.raiz) {
+    const [sigue, hijos] = await Promise.all([drive.existe(mapa.raiz), drive.hijos(mapa.raiz)]);
+    if (sigue) enRaiz = hijos;
+    else { mapa = { raiz: '', carpetas: {}, archivos: {} }; await marcarTodoPendiente(); }
   }
-  if (!mapa.raiz) mapa.raiz = await drive.carpeta(CARPETA_DRIVE);
+  if (!mapa.raiz) { mapa.raiz = await drive.carpeta(CARPETA_DRIVE); enRaiz = await drive.hijos(mapa.raiz); }
 
   // ── 1. Traer ──
-  const enRaiz = await drive.hijos(mapa.raiz);
-  for (const c of enRaiz.filter(x => x.mimeType === 'application/vnd.google-apps.folder')) {
-    mapa.carpetas[c.name] = c.id;
-    const archivos = await drive.hijos(c.id);
-    for (const a of archivos.filter(x => x.name.endsWith('.json'))) {
-      const grupo = `${c.name}/${a.name.slice(0, -5)}`;
-      const conocido = mapa.archivos[grupo];
-      if (conocido && conocido.id === a.id && conocido.modificado === a.modifiedTime) continue;
-      const remotos = deArchivo(await drive.leerJSON(a.id));
-      await aplicarRemoto(grupo, remotos, fusionar, sonIguales);
-      mapa.archivos[grupo] = { id: a.id, modificado: a.modifiedTime };
-    }
+  // Todos los .json de todos los módulos en un solo pedido (antes era uno por módulo, en fila).
+  const carpetas = enRaiz.filter(x => x.mimeType === 'application/vnd.google-apps.folder');
+  const nombrePorId = new Map(carpetas.map(c => [c.id, c.name]));
+  for (const c of carpetas) mapa.carpetas[c.name] = c.id;
+  const archivos = carpetas.length ? await drive.jsonDeCarpetas(carpetas.map(c => c.id)) : [];
+  const cambiados = [];
+  for (const a of archivos) {
+    const modulo = (a.parents || []).map(id => nombrePorId.get(id)).find(Boolean);
+    if (!modulo) continue;
+    const grupo = `${modulo}/${a.name.slice(0, -5)}`;
+    const conocido = mapa.archivos[grupo];
+    if (conocido && conocido.id === a.id && conocido.modificado === a.modifiedTime) continue;
+    cambiados.push({ grupo, a });
   }
+  // Se bajan a la vez; la fusión con lo local va igual de a una (pasa por la cola de datos).
+  await enParalelo(cambiados, 4, async ({ grupo, a }) => {
+    const remotos = deArchivo(await drive.leerJSON(a.id));
+    await aplicarRemoto(grupo, remotos, fusionar, sonIguales);
+    mapa.archivos[grupo] = { id: a.id, modificado: a.modifiedTime };
+  });
   await db.escribirMeta('drive:mapa', mapa);
 
   // ── 2. Subir ──
   const pendientes = await db.leerMeta('pendientes', []);
+  // Las carpetas de módulos nuevos se crean antes, para no crearlas dos veces.
   for (const grupo of pendientes) {
-    const [modulo, coleccion] = grupo.split('/');
+    const modulo = grupo.split('/')[0];
     if (!mapa.carpetas[modulo]) mapa.carpetas[modulo] = await drive.carpeta(modulo, mapa.raiz);
+  }
+  await enParalelo(pendientes, 4, async (grupo) => {
+    const [modulo, coleccion] = grupo.split('/');
     const locales = await db.registrosDeGrupo(grupo);
     const contenido = aArchivo(grupo, locales);
     const existente = mapa.archivos[grupo];
@@ -125,18 +146,19 @@ async function pasada() {
     mapa.archivos[grupo] = { id: r.id, modificado: r.modifiedTime };
     await db.escribirMeta('drive:mapa', mapa);
     await quitarPendienteSiNoCambio(grupo, locales, sonIguales);
-  }
+  });
 
   // ── 3. Adjuntos que quedaron en espera ──
   await subirPendientes();
   est.archivos = await cantidadPendientes();
 
-  // ── 4. Copia legible (notas .md de la Bitácora) ──
-  if (await espejar()) programar(2000);   // quedó trabajo: sigue en un ratito
-
+  // Tus datos ya están al día: se avisa ya, sin esperar la copia de los .md.
   est.ultima = Date.now();
   await db.escribirMeta('ultimaSync', est.ultima);
   fase('al-dia');
+
+  // ── 4. Copia legible (notas .md de la Bitácora), por detrás ──
+  if (await espejar()) programar(2000);   // quedó trabajo: sigue en un ratito
 }
 
 // ── Disparadores automáticos ────────────────────────────────

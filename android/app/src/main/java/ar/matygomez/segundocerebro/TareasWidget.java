@@ -12,7 +12,7 @@ import android.widget.RemoteViews;
 
 // Widget de tareas, como el de Todoist: sin fondo, agrupado por área, la fecha a la derecha.
 // Arriba: la lista elegida (toca para cambiarla), actualizar y nueva tarea.
-// Tocar una tarea abre su detalle en la app, y ahí se tacha.
+// Tocar una tarea abre una ventanita con su detalle y el botón Completar.
 public class TareasWidget extends AppWidgetProvider {
 
     // Listas: 'hoy' (hoy y vencidas), 'semana', 'todas' o 'area:<nombre>'. Modo: 'ampliado' o 'compacto'.
@@ -69,8 +69,8 @@ public class TareasWidget extends AppWidgetProvider {
         v.setRemoteAdapter(R.id.w_tareas, servicio);
         v.setEmptyView(R.id.w_tareas, R.id.w_vacio);
 
-        // Cada fila completa este pedido con 'abrir-tarea:<id>'.
-        Intent abrir = new Intent(ctx, MainActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+        // Cada fila completa este pedido con la ventanita 'ver-tarea:<id>'.
+        Intent abrir = new Intent(ctx, VentanaActivity.class).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
         v.setPendingIntentTemplate(R.id.w_tareas, PendingIntent.getActivity(ctx, 5000 + id, abrir,
                 PendingIntent.FLAG_MUTABLE | PendingIntent.FLAG_UPDATE_CURRENT));
 

@@ -196,13 +196,13 @@ export async function pedirJSON(url) {
 
 const comillas = (t) => String(t).replace(/\\/g, '\\\\').replace(/'/g, "\\'");
 
-async function buscar(q) {
+async function buscar(q, campos = 'id, name, mimeType, modifiedTime') {
   const archivos = [];
   let pagina = '';
   do {
     const p = new URLSearchParams({
       q, spaces: 'drive', pageSize: '1000',
-      fields: 'nextPageToken, files(id, name, mimeType, modifiedTime)',
+      fields: `nextPageToken, files(${campos})`,
     });
     if (pagina) p.set('pageToken', pagina);
     const r = await (await pedir(`${API}/files?${p}`)).json();
@@ -240,6 +240,17 @@ export async function existe(id) {
 
 export async function hijos(padreId) {
   return buscar(`'${padreId}' in parents and trashed = false`);
+}
+
+// Los .json de varias carpetas en un solo pedido (de a 40 carpetas, por el largo de la búsqueda).
+// Cada archivo trae "parents" para saber de qué carpeta es.
+export async function jsonDeCarpetas(ids) {
+  const tandas = [];
+  for (let i = 0; i < ids.length; i += 40) tandas.push(ids.slice(i, i + 40));
+  const res = await Promise.all(tandas.map(t => buscar(
+    `(${t.map(id => `'${id}' in parents`).join(' or ')}) and name contains '.json' and trashed = false`,
+    'id, name, mimeType, modifiedTime, parents')));
+  return res.flat();
 }
 
 export async function leerJSON(id) {

@@ -8,7 +8,7 @@
 //   - Resumen para el widget (a futuro)
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, hecha, vencida, deHoy, ordenar, siguienteFecha, textoRepeticion } from './modelo.js';
+import { crearModelo, hecha, vencida, deHoy, ordenar, siguienteFecha, textoRepeticion, hoy, sumarDias, textoFecha } from './modelo.js';
 import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha } from './vistas.js';
 import { abrirEditor } from './editor.js';
 import { sincronizarCalendario } from './calendario.js';
@@ -264,6 +264,47 @@ export default {
       const m = crearModelo(ctx);
       const d = await m.cargar();
       return new Promise((listo) => abrirEditor(ctx, m, d, null, {}, { alCerrar: () => listo(true) }));
+    },
+    // App de Android: tocar una tarea en el widget. Ventanita con su detalle y
+    // Completar / Pasar a mañana / Abrir en la app. Devuelve qué se hizo:
+    // 'completada', 'manana', 'abrir' o '' (cerrada sin cambios).
+    async 'tarea-ventana'({ id } = {}, ctx) {
+      cargarEstilos();
+      const m = crearModelo(ctx);
+      const d = await m.cargar();
+      const t = d.tarea(id);
+      if (!t) throw new Error('Esa tarea ya no existe.');
+      const { h } = ctx;
+      const lugar = [d.area(t.areaId)?.nombre, d.proyecto(t.proyectoId)?.nombre].filter(Boolean);
+      const cuando = t.fecha ? textoFecha(t.fecha) + (t.hora ? ` · ${t.hora}` : '') : '';
+      const elegido = await new Promise((listo) => {
+        const boton = (clase, texto, valor, extra = {}) => h('button', { class: clase, onclick: () => dlg.close(valor), ...extra }, texto);
+        const dlg = h('dialog', { class: 'hoja ventana-tarea' },
+          h('div', { class: 'hoja-cabecera' },
+            h('h2', {}, t.titulo),
+            h('button', { class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close('') }, ctx.icono('cerrar'))),
+          h('div', { class: 'ventana-tarea-datos' },
+            ...lugar.map(x => h('span', {}, x)),
+            cuando ? h('span', { class: vencida(t) ? 'fecha vencida' : 'fecha' }, cuando) : null),
+          t.notas ? h('p', { class: 'ventana-tarea-notas' }, t.notas) : null,
+          h('div', { class: 'ventana-tarea-botones' },
+            boton('boton principal completar', '✓ Completar', 'completar', { autofocus: true }),
+            boton('boton', 'Pasar a mañana', 'manana'),
+            boton('boton', 'Abrir en la app', 'abrir')),
+        );
+        // Tocar afuera de la hoja la cierra sin cambios.
+        dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(''); });
+        dlg.addEventListener('close', () => { listo(dlg.returnValue || ''); dlg.remove(); });
+        document.body.append(dlg);
+        dlg.showModal();
+      });
+      if (elegido === 'completar') return (await alternarHecha(ctx, m, d, t)) === false ? '' : 'completada';
+      if (elegido === 'manana') {
+        await m.cambiarFecha(t, sumarDias(hoy(), 1));
+        ctx.aviso('Pasada a mañana');
+        return 'manana';
+      }
+      return elegido;
     },
     // App de Android: tareas pendientes para el widget y los avisos (sin las ocultas ni los eventos).
     async 'tareas-android'(_, ctx) {

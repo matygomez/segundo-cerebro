@@ -21,7 +21,7 @@ async function subirADrive(maximo) {
   await Promise.race([sincronizar(), esperar(maximo)]).catch(() => {});
 }
 
-// ── Ventanitas del panel (Finanzas, Nueva tarea, Anotar) ──
+// ── Ventanitas del panel (Finanzas, Nueva tarea, Anotar) y de las tareas del widget ──
 // Se abren encima de lo que estés haciendo: la página queda transparente
 // y solo se ve el formulario. Al cerrarlo, Android cierra la ventanita.
 export async function abrirVentana(cual) {
@@ -32,6 +32,13 @@ export async function abrirVentana(cual) {
   try {
     if (cual === 'finanzas') guardado = await pedir('movimiento-rapido', { tipo: 'gasto' });
     else if (cual === 'tarea') guardado = await pedir('nueva-tarea-ventana');
+    else if (cual.startsWith('ver-tarea:')) {
+      // Tocaste una tarea en el widget.
+      const id = cual.slice('ver-tarea:'.length);
+      const hecho = await pedir('tarea-ventana', { id });
+      if (hecho === 'abrir') { android.abrirEnApp(`abrir-tarea:${id}`); return; }
+      guardado = !!hecho;
+    }
     else if (cual === 'anotar') {
       const r = await abrirFormulario({ titulo: 'Anotar', textoGuardar: 'Guardar', campos: [{ id: 'texto', etiqueta: 'Anotá algo', tipo: 'parrafo', requerido: true }] });
       const texto = String(r?.texto || '').trim();

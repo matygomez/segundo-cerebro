@@ -24,9 +24,9 @@ with sync_playwright() as p:
       page.wait_for_timeout(2500); st=page.evaluate(SYNC)
   md={fd.ruta(f['id']):f for f in fd.vivos() if f['name'].endswith('.md')}
   print(sorted(md))
-  chk('Segundo Cerebro/Bitácora/Tiro/Alumnos/Lucía Fernández.md' in md, 'md lucia')
-  chk('Segundo Cerebro/Bitácora/Bandeja/Idea- checklist de cierre.md' in md, 'md bandeja')
-  chk(b'Estado MiRenar: "Rindi' in md['Segundo Cerebro/Bitácora/Tiro/Alumnos/Lucía Fernández.md']['content'], 'contenido md')
+  chk('Segundo Cerebro/Bitácora/Lecturas/Tiro/Alumnos/Lucía Fernández.md' in md, 'md lucia')
+  chk('Segundo Cerebro/Bitácora/Lecturas/Bandeja/Idea- checklist de cierre.md' in md, 'md bandeja')
+  chk(b'Estado MiRenar: "Rindi' in md['Segundo Cerebro/Bitácora/Lecturas/Tiro/Alumnos/Lucía Fernández.md']['content'], 'contenido md')
   chk(any(fd.ruta(f['id'])=='Segundo Cerebro/bitacora/espejo.json' for f in fd.vivos()), 'espejo.json')
   # renombrar + mover carpeta + borrar nota
   ev(f"await m.renombrar('{ids['clase']}', 'Clase básica CLU')")
@@ -36,11 +36,13 @@ with sync_playwright() as p:
       page.wait_for_timeout(2500); st=page.evaluate(SYNC)
   md={fd.ruta(f['id']):f for f in fd.vivos() if f['name'].endswith('.md')}
   print(sorted(md))
-  chk('Segundo Cerebro/Bitácora/Tiro/Curso CLU 2026/Clase básica CLU.md' in md, 'renombrar y mover')
+  chk('Segundo Cerebro/Bitácora/Lecturas/Tiro/Curso CLU 2026/Clase básica CLU.md' in md, 'renombrar y mover')
   chk(not any('PG-LOG' in k for k in md), 'papelera saca md')
-  chk(b'[[Clase b\xc3\xa1sica CLU]]' in md['Segundo Cerebro/Bitácora/Tiro/Alumnos/Lucía Fernández.md']['content'], 'enlace actualizado en md')
+  chk(b'[[Clase b\xc3\xa1sica CLU]]' in md['Segundo Cerebro/Bitácora/Lecturas/Tiro/Alumnos/Lucía Fernández.md']['content'], 'enlace actualizado en md')
   vacias=[fd.ruta(f['id']) for f in fd.vivos() if f['mimeType'].endswith('folder') and f['name']=='Curso CLU']
   chk(not vacias, 'carpeta vieja vacia a papelera %s'%vacias)
+  afuera=[fd.ruta(f['id']) for f in fd.vivos() if f['mimeType'].endswith('folder') and fd.ruta(f['id']) in ('Segundo Cerebro/Bitácora/Bandeja','Segundo Cerebro/Bitácora/Tiro')]
+  chk(not afuera, 'sin carpetas de solo .md afuera de Lecturas %s'%afuera)
   n_md=len(md)
   # Segundo dispositivo: misma Drive, no duplica
   page2,err2=armar(b, fd)

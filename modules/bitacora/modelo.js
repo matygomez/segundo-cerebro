@@ -497,10 +497,13 @@ export function crearModelo(ctx) {
   };
 }
 
-// Lo que va a Drive como copia legible: carpetas y un .md por nota (+ imágenes subidas).
+// Lo que va a Drive como copia legible: un .md por nota en Lecturas (+ archivos subidos en sus carpetas).
 export function espejoDe(d) {
   const rutaNombres = (carpetaId) => (carpetaId ? d.ruta(carpetaId).map(c => nombreArchivo(c.nombre)) : ['Bandeja']);
-  const carpetas = [['Bandeja'], ...d.carpetas.map(c => rutaNombres(c.id))];
+  // Los .md van todos juntos en "Lecturas" (repitiendo las carpetas adentro),
+  // así las carpetas de afuera quedan solo con los archivos subidos.
+  const LECTURAS = 'Lecturas';
+  const carpetas = [[LECTURAS], [LECTURAS, 'Bandeja'], ...d.carpetas.map(c => [LECTURAS, ...rutaNombres(c.id)])];
   const archivos = [];
   const usados = new Set();
   const unico = (ruta, nombre, ext) => {
@@ -511,7 +514,8 @@ export function espejoDe(d) {
   };
   for (const n of [...d.notas].sort((a, b) => a.creado - b.creado)) {
     const ruta = rutaNombres(n.carpetaId);
-    archivos.push({ clave: `nota:${n.id}`, ruta, nombre: unico(ruta, nombreArchivo(n.titulo), '.md'), contenido: aMarkdown(n, d) });
+    const rutaMd = [LECTURAS, ...ruta];
+    archivos.push({ clave: `nota:${n.id}`, ruta: rutaMd, nombre: unico(rutaMd, nombreArchivo(n.titulo), '.md'), contenido: aMarkdown(n, d) });
     for (const a of n.adjuntos || []) {
       if (a.origen !== 'subido' || !a.driveId) continue;
       const clave = `adj:${a.driveId}`;

@@ -680,3 +680,13 @@ dialog.tr-hoja-editor { scroll-padding-bottom: 6rem; }
 .tr-cfg-vacia { flex-basis: 100%; display: flex; align-items: center; gap: 0.5rem; padding: 0 0 0.15rem 1.6rem; font-size: 0.78rem; color: var(--tinta-2); }
 .tr-cfg-hoja.proyecto .tr-cfg-vacia { padding-left: 2.6rem; }
 .tr-switch.chico { transform: scale(0.8); transform-origin: left center; }
+
+/* Ventanita del widget (app de Android): detalle corto de una tarea */
+.ventana-tarea .hoja-cabecera h2 { font-family: var(--fuente); font-size: 1.15rem; font-weight: 600; }
+.ventana-tarea-datos { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.ventana-tarea-datos span { background: var(--superficie-2); border: 1px solid var(--linea); border-radius: 999px; padding: 0.1rem 0.65rem; font-size: 0.85rem; color: var(--tinta-2); }
+.ventana-tarea-datos .fecha { color: var(--laton); }
+.ventana-tarea-datos .fecha.vencida { color: var(--rojo); }
+.ventana-tarea-notas { margin-top: 0.75rem; padding: 0.5rem 0.7rem; border-radius: 10px; background: var(--superficie-2); color: var(--tinta-2); font-size: 0.92rem; white-space: pre-wrap; max-height: 9rem; overflow: auto; }
+.ventana-tarea-botones { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 1rem; }
+.ventana-tarea-botones .completar { grid-column: 1 / -1; padding-block: 0.8rem; font-size: 1.05rem; background: var(--laton); border-color: var(--laton); color: #1A1408; }
