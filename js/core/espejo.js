@@ -14,6 +14,9 @@
 // El módulo entrega una función que devuelve:
 //   { carpetas: [['Tiro'], ['Tiro', 'Curso CLU']],
 //     archivos: [{ clave, ruta: ['Tiro', 'Curso CLU'], nombre: 'X.md', contenido }] }
+// Un archivo subido puede venir con "original: <id de Drive>": en vez de
+// copiarlo se mueve ese mismo archivo a su carpeta (así no queda dos veces).
+// Si después deja de estar en la lista, vuelve a la carpeta de donde salió.
 // Qué archivo de Drive es cada cosa se anota en la colección
 // "<modulo>/espejo", que se sincroniza: todos tus dispositivos usan los
 // mismos archivos y no se duplican.
@@ -108,11 +111,18 @@ async function espejarModulo(modulo, p) {
 
   for (const x of archivos) {
     if (pedidos >= LIMITE) return true;
-    const version = x.copiaDe ? `copia:${x.copiaDe}:${x.ruta.join('/')}/${x.nombre}` : huella(`${x.ruta.join('/')}\n${x.nombre}\n${x.contenido}`);
+    const version = x.original ? `mover:${x.original}:${x.ruta.join('/')}/${x.nombre}`
+      : x.copiaDe ? `copia:${x.copiaDe}:${x.ruta.join('/')}/${x.nombre}` : huella(`${x.ruta.join('/')}\n${x.nombre}\n${x.contenido}`);
     const r = porClave.get(x.clave);
     if (r && r.version === version) continue;
     let padre = await carpeta(x.ruta);
     let id = r?.archivoId || '';
+    if (x.original) {
+      const res = await moverOriginal(x, r, padre);
+      pedidos += res.pedidos;
+      await anotar(x.clave, { archivoId: res.id, padreId: padre, nombre: x.nombre, version, fuente: x.original, origen: res.origen });
+      continue;
+    }
     if (x.copiaDe) {
       // Archivo copiado (una imagen): si es la misma, solo se mueve o renombra.
       try {
@@ -151,7 +161,12 @@ async function espejarModulo(modulo, p) {
   for (const r of [...porClave.values()]) {
     if (r.clave.startsWith('dir:') || siguen.has(r.clave)) continue;
     if (pedidos >= LIMITE) return true;
-    if (r.archivoId) { try { await drive.aPapelera(r.archivoId); } catch (e) { if (e.estado !== 404) throw e; } }
+    // Un original movido no se borra (es el archivo de la app): vuelve a su carpeta de antes.
+    const movido = r.archivoId && r.archivoId === r.fuente && r.origen;
+    try {
+      if (movido) await drive.cambiarArchivo(r.archivoId, { padreNuevo: r.origen, padreViejo: r.padreId });
+      else if (r.archivoId) await drive.aPapelera(r.archivoId);
+    } catch (e) { if (e.estado !== 404) throw e; }
     pedidos++;
     await col.borrar(r.id);
     porClave.delete(r.clave);
@@ -172,4 +187,30 @@ async function espejarModulo(modulo, p) {
     porClave.delete(r.clave);
   }
   return false;
+}
+
+// Mueve el archivo original a su carpeta. Si antes había una copia (versiones
+// viejas copiaban), la copia va a la papelera de Drive. Devuelve
+// { id, origen, pedidos }: origen es la carpeta de donde salió, para devolverlo.
+async function moverOriginal(x, r, padre) {
+  let pedidos = 0;
+  try {
+    if (r?.archivoId && r.archivoId !== x.original) {
+      try { await drive.aPapelera(r.archivoId); } catch (e) { if (e.estado !== 404) throw e; }
+      pedidos++;
+    }
+    let desde = r?.archivoId === x.original ? r.padreId : '';
+    let origen = r?.origen || '';
+    if (!desde) {
+      const info = await drive.datosArchivo(x.original); pedidos++;
+      if (!info) return { id: '', origen, pedidos };   // el original ya no existe
+      desde = info.parents?.[0] || '';
+      origen = origen || desde;
+    }
+    await drive.cambiarArchivo(x.original, { nombre: x.nombre, padreNuevo: padre, padreViejo: desde }); pedidos++;
+    return { id: x.original, origen, pedidos };
+  } catch (e) {
+    if (e.estado !== 404) throw e;
+    return { id: '', origen: r?.origen || '', pedidos };
+  }
 }

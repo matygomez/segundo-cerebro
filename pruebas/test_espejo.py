@@ -43,6 +43,20 @@ with sync_playwright() as p:
   chk(not vacias, 'carpeta vieja vacia a papelera %s'%vacias)
   afuera=[fd.ruta(f['id']) for f in fd.vivos() if f['mimeType'].endswith('folder') and fd.ruta(f['id']) in ('Segundo Cerebro/Bitácora/Bandeja','Segundo Cerebro/Bitácora/Tiro')]
   chk(not afuera, 'sin carpetas de solo .md afuera de Lecturas %s'%afuera)
+  # Archivo subido: se mueve el original a su carpeta (no se copia) y vuelve a adjuntos si la nota va a la papelera.
+  bit=[f for f in fd.vivos() if fd.ruta(f['id'])=='Segundo Cerebro/bitacora'][0]
+  adjc=fd.nuevo('adjuntos',[bit['id']],'application/vnd.google-apps.folder')
+  orig=fd.nuevo('factura.pdf',[adjc['id']],'application/pdf',b'%PDF')
+  ev(f"const n=await m.crearNota({{titulo:'Factura gas', carpetaId:'{ids['clu']}', adjuntos:[{{origen:'subido', principal:true, driveId:'{orig['id']}', nombre:'factura.pdf', tipo:'application/pdf'}}]}}); window.__notaFac=n;")
+  for i in range(3):
+      page.wait_for_timeout(2500); page.evaluate(SYNC)
+  print(fd.ruta(orig['id']))
+  chk(fd.ruta(orig['id'])=='Segundo Cerebro/Bitácora/Tiro/Curso CLU 2026/Factura gas.pdf' and not orig['trashed'], 'original movido a su carpeta')
+  chk(len([f for f in fd.vivos() if f['name'].endswith('.pdf')])==1, 'sin copia repetida')
+  ev("const n=d.notas.find(x=>x.titulo==='Factura gas'); await m.aPapelera(n.id)")
+  for i in range(3):
+      page.wait_for_timeout(2500); page.evaluate(SYNC)
+  chk(fd.ruta(orig['id']).startswith('Segundo Cerebro/bitacora/adjuntos/') and not orig['trashed'], 'papelera devuelve el original a adjuntos '+fd.ruta(orig['id']))
   n_md=len(md)
   # Segundo dispositivo: misma Drive, no duplica
   page2,err2=armar(b, fd)

@@ -62,7 +62,7 @@ with sync_playwright() as p:
     page.locator('dialog button:has-text("Confirmar")').click(); page.wait_for_timeout(1500)
     r=page.evaluate("""async () => { const R = await import('/js/core/registro.js'); const M = await import('/modules/bitacora/modelo.js');
       const d = await M.crearModelo(R.contexto('bitacora')).cargar(); const n = d.notas.find(x => x.archivo);
-      const esp = M.espejoDe(d).archivos.filter(x => x.copiaDe || x.clave.startsWith('nota:'+n?.id));
+      const esp = M.espejoDe(d).archivos.filter(x => x.original || x.clave.startsWith('nota:'+n?.id));
       return { titulo: n?.titulo, carpeta: n && d.nombreRuta(n.carpetaId), monto: n?.archivo.monto, adj: n?.adjuntos?.[0]?.nombre, pend: d.pendientes.length, rec: d.recordatorios.map(x => [x.titulo, x.fecha]), esp: esp.map(x => x.ruta.join('/') + '/' + x.nombre), id: n?.id }; }""")
     print(r)
     chk(r['titulo']=='2026-10 Gas Metrogas' and r['carpeta']=='Casa › Servicios › Gas','nota creada en carpeta')

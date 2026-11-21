@@ -523,10 +523,11 @@ export function espejoDe(d) {
       // El documento de una nota "archivo" va al lado de la nota, con su mismo nombre.
       const r = a.principal ? ruta : ['adjuntos'];
       const base = a.principal ? nombreArchivo(n.titulo) : a.nombre.replace(/\.[^.]+$/, '');
-      archivos.push({ clave, ruta: r, nombre: unico(r, base, (a.nombre.match(/\.[^.]+$/) || [''])[0]), copiaDe: a.driveId });
+      // Se mueve el original (no se copia): así no queda repetido en Drive.
+      archivos.push({ clave, ruta: r, nombre: unico(r, base, (a.nombre.match(/\.[^.]+$/) || [''])[0]), original: a.driveId });
     }
   }
-  if (archivos.some(x => x.copiaDe && x.ruta.join('/') === 'adjuntos')) carpetas.push(['adjuntos']);
+  if (archivos.some(x => x.original && x.ruta.join('/') === 'adjuntos')) carpetas.push(['adjuntos']);
   return { carpetas, archivos };
 }
 
