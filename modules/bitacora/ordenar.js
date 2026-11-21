@@ -19,7 +19,7 @@
 
 import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
-import { portada, visor } from './visor.js';
+import { portada, visor, visorEnLinea } from './visor.js';
 
 // Primero los rápidos y menos saturados; los "latest" (los más nuevos) van de respaldo.
 const MODELOS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
@@ -305,6 +305,7 @@ export function leerTodo(ctx, m, d) {
 export async function subirACarpeta(ctx, m, lista, carpetaId) {
   const d = await m.cargar();
   let guardados = 0, ultimo = '';
+  const errores = [];
   for (const x of lista) {
     const nombre = x.nombre || x.blob.name || 'archivo';
     try {
@@ -326,9 +327,10 @@ export async function subirACarpeta(ctx, m, lista, carpetaId) {
       });
       guardados++;
       aLaColaNota(ctx, m, ultimo, x.blob);
-    } catch (e) { ctx.aviso(`No se pudo subir ${nombre}: ${e.message}`); }
+    } catch (e) { errores.push([nombre, e.message || 'error']); }
   }
-  if (guardados) ctx.aviso(`${guardados === 1 ? 'Guardado' : `${guardados} archivos guardados`} en ${d.nombreRuta(carpetaId)}. Gemini completa los datos.`,
+  if (errores.length) resumenSubida(ctx, { total: lista.length, listos: guardados, donde: `guardados en ${d.nombreRuta(carpetaId)}`, fallados: errores });
+  else if (guardados) ctx.aviso(`${guardados === 1 ? 'Guardado' : `${guardados} archivos guardados`} en ${d.nombreRuta(carpetaId)}. Gemini completa los datos.`,
     guardados === 1 ? { accion: 'Abrir', alTocar: () => ctx.navegar(`bitacora/n/${ultimo}`) } : {});
 }
 
@@ -375,6 +377,7 @@ export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
   d = await m.cargar();
   const huellas = new Set(d.notas.map(n => n.archivo?.huella).filter(Boolean));
   let hechos = 0, guardados = 0, salteados = 0, fallados = 0;
+  const yaEstaban = [], errores = [];
   // De a 3 a la vez: más rápido, sin saturar a Drive.
   const cola = [...lista];
   const trabajar = async () => {
@@ -382,7 +385,7 @@ export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
       const nombre = x.nombre || x.blob.name || 'archivo';
       try {
         const huella = await huellaDe(x.blob);
-        if (huellas.has(huella)) { salteados++; continue; }
+        if (huellas.has(huella)) { salteados++; yaEstaban.push(nombre); continue; }
         huellas.add(huella);
         const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: x.blob.type || '' }));
         await m.crearNota({
@@ -391,7 +394,7 @@ export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
           adjuntos: [{ ...adjunto, nombre, origen: 'subido', principal: true }],
         });
         guardados++;
-      } catch { fallados++; } finally {
+      } catch (e) { fallados++; errores.push([nombre, e.message || 'error']); } finally {
         hechos++;
         texto.textContent = `Subiendo ${hechos} de ${total}…`;
       }
@@ -399,10 +402,7 @@ export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
   };
   await Promise.all([trabajar(), trabajar(), trabajar()]);
   aviso.remove();
-  const partes = [`${guardados} guardado${guardados === 1 ? '' : 's'} en ${d.nombreRuta(carpetaId)}`];
-  if (salteados) partes.push(`${salteados} ya estaba${salteados === 1 ? '' : 'n'}`);
-  if (fallados) partes.push(`${fallados} no se pudo subir (probá de nuevo: los ya subidos se saltean)`);
-  ctx.aviso(partes.join(' · ') + '.', { duracion: 8000 });
+  resumenSubida(ctx, { total, listos: guardados, donde: `guardados en ${d.nombreRuta(carpetaId)}`, yaEstaban, fallados: errores });
 }
 
 // "+ Nueva › Subir sin analizar" (archivos) o "Subir carpeta sin analizar" (PC).
@@ -443,24 +443,47 @@ export function soltarEnCarpeta(ctx, m, main) {
 }
 
 // Recibe archivos: [{ blob, nombre }]. Devuelve cuántos quedaron para revisar.
+// Al subir varios juntos, un solo aviso al final que dice qué pasó con cada
+// uno que no entró (los avisos de a uno se pisaban y no se llegaban a leer).
+// Si hubo problemas, queda a la vista hasta que lo cerrás.
+function resumenSubida(ctx, { total, listos, donde, yaEstaban = [], fallados = [] }) {
+  const nombres = (l) => (l.length > 4 ? `${l.slice(0, 4).join(', ')} y ${l.length - 4} más` : l.join(', '));
+  const partes = [`${listos} de ${total} ${donde}.`];
+  if (yaEstaban.length) partes.push(`Ya estaba${yaEstaban.length === 1 ? '' : 'n'} (no se repite${yaEstaban.length === 1 ? '' : 'n'}): ${nombres(yaEstaban)}.`);
+  if (fallados.length) partes.push(`${fallados.length === 1 ? 'No se pudo' : 'No se pudieron'} subir: ${nombres(fallados.map(([n, e]) => `${n} (${e})`))}. Probá de nuevo con ese${fallados.length === 1 ? '' : 's'}.`);
+  const problemas = yaEstaban.length || fallados.length;
+  return ctx.aviso(partes.join(' '), problemas ? { duracion: 0, accion: 'Cerrar' } : { duracion: 6000 });
+}
+const progreso = (ctx, total) => {
+  if (total < 3) return { paso() {}, fin() {} };
+  const el = ctx.aviso(`Subiendo 0 de ${total}…`, { duracion: 0 });
+  const t = el.querySelector('span') || el;
+  let n = 0;
+  return { paso() { t.textContent = `Subiendo ${++n} de ${total}…`; }, fin() { el.remove(); } };
+};
+
 export async function recibirArchivos(ctx, m, lista, via) {
   const col = m.col.pendientes;
   let nuevos = 0;
+  const yaEstaban = [], fallados = [];
+  const barra = progreso(ctx, lista.length);
   for (const x of lista) {
     try {
       const nombre = x.nombre || x.blob.name || 'archivo';
       const tipo = x.blob.type || x.tipo || '';
       const huella = await huellaDe(x.blob);
-      if ((await col.listar()).some(p => p.huella === huella)) { ctx.aviso(`"${nombre}" ya está para revisar`); continue; }
+      if ((await col.listar()).some(p => p.huella === huella)) { yaEstaban.push(nombre); continue; }
       const repetida = (await m.cargar()).notas.find(n => n.archivo?.huella === huella);
       const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: tipo }));
       const id = await col.crear({ estado: 'cola', original: nombre, tipo, via, adjunto: { ...adjunto, nombre }, huella, repetidoDe: repetida?.id || '', propuesta: null, error: '' });
       nuevos++;
       aLaCola(ctx, m, id, x.blob);
     } catch (e) {
-      ctx.aviso(`No se pudo recibir ${x.nombre || 'un archivo'}: ${e.message}`);
-    }
+      fallados.push([x.nombre || x.blob?.name || 'un archivo', e.message || 'error']);
+    } finally { barra.paso(); }
   }
+  barra.fin();
+  if (lista.length > 1 || yaEstaban.length || fallados.length) resumenSubida(ctx, { total: lista.length, listos: nuevos, donde: 'quedaron para revisar', yaEstaban, fallados });
   return nuevos;
 }
 
@@ -674,7 +697,7 @@ async function revisarNota(ctx, m, n, { panel, posicion, siguiente, anterior, ce
   };
 
   const flecha = (txt, fn, etiqueta) => h('button', { type: 'button', class: 'boton-icono', 'aria-label': etiqueta, title: etiqueta, onclick: fn }, txt);
-  const vista = principal ? portada(ctx, principal) : null;
+  const vista = principal ? (visorEnLinea(ctx, principal) || portada(ctx, principal)) : null;
   poner(panel,
     h('div', { class: 'bt-rev-cab' }, h('b', {}, n.titulo),
       posicion ? h('span', { class: 'bt-rev-avance' }, `${posicion[0]} de ${posicion[1]}`) : null,
@@ -902,7 +925,7 @@ export async function revisar(ctx, m, p, { panel = null, posicion = null, siguie
     const cab = h('div', { class: 'bt-rev-cab' }, h('b', {}, p.original),
       posicion ? h('span', { class: 'bt-rev-avance' }, `${posicion[0]} de ${posicion[1]}`) : null,
       flecha('‹', anterior, 'Anterior'), flecha('›', siguiente, 'Siguiente'), flecha('✕', cerrar, 'Cerrar'));
-    const vista = p.adjunto ? portada(ctx, p.adjunto) : null;
+    const vista = p.adjunto ? (visorEnLinea(ctx, p.adjunto) || portada(ctx, p.adjunto)) : null;
     // En el panel, "Confirmar" pasa a ser "Listo, siguiente" y se suma "Saltar".
     const principal = botones[botones.length - 1];
     principal.textContent = repetida ? 'Guardar igual' : 'Listo, siguiente →';

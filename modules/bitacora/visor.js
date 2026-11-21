@@ -57,10 +57,12 @@ async function lectorPDF() {
   return pdfjs;
 }
 
-async function dibujarPagina(pdf, n, ancho) {
+// exacto: "ancho" ya son píxeles del dibujo (el visor con zoom elige la resolución).
+// Sin tope de escala: hay escáneres que guardan la hoja con un tamaño diminuto.
+async function dibujarPagina(pdf, n, ancho, exacto = false) {
   const pagina = await pdf.getPage(n);
   const base = pagina.getViewport({ scale: 1 });
-  const escala = Math.min(3, (ancho * (window.devicePixelRatio || 1)) / base.width);
+  const escala = (exacto ? ancho : ancho * (window.devicePixelRatio || 1)) / base.width;
   const vista = pagina.getViewport({ scale: escala });
   const lienzo = document.createElement('canvas');
   lienzo.width = Math.floor(vista.width);
@@ -105,10 +107,66 @@ export function portada(ctx, a) {
   return caja;
 }
 
-// Visor a pantalla completa: todas las páginas, una abajo de la otra.
+// ── Visor con zoom ──
+// Todas las páginas una abajo de la otra, ajustadas al ancho, con − / + / Ajustar
+// (y Ctrl + ruedita o pellizco en el panel táctil). Se dibujan con buena
+// resolución una sola vez; el zoom solo cambia el tamaño en pantalla.
+const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3, 4];
+export function visorEnLinea(ctx, a, { pantallaCompleta = true } = {}) {
+  const { h } = ctx;
+  if (!esPDF(a) && !esFoto(a)) return null;
+  let zoom = 1, base = 0;
+  const area = h('div', { class: 'bt-vis-area' }, h('p', { class: 'nota' }, 'Cargando…'));
+  const pct = h('span', { class: 'bt-vis-pct' }, '100%');
+  const aplicar = () => {
+    pct.textContent = `${Math.round(zoom * 100)}%`;
+    for (const pag of area.querySelectorAll('.bt-visor-pag')) pag.style.width = `${Math.round(base * zoom)}px`;
+  };
+  const cambiar = (paso) => {
+    const i = ZOOMS.findIndex(z => z >= zoom - 0.001);
+    zoom = ZOOMS[Math.min(ZOOMS.length - 1, Math.max(0, (i < 0 ? ZOOMS.length - 1 : i) + paso))];
+    aplicar();
+  };
+  const boton = (txt, etiqueta, fn) => h('button', { type: 'button', class: 'boton-icono bt-vis-b', 'aria-label': etiqueta, title: etiqueta, onclick: fn }, txt);
+  const barra = h('div', { class: 'bt-vis-barra' },
+    boton('−', 'Alejar', () => cambiar(-1)), pct, boton('+', 'Acercar', () => cambiar(1)),
+    h('button', { type: 'button', class: 'boton bt-chico', onclick: () => { zoom = 1; aplicar(); } }, 'Ajustar'),
+    pantallaCompleta ? h('button', { type: 'button', class: 'boton bt-chico', onclick: () => visor(ctx, a) }, 'Pantalla completa') : null);
+  // Ctrl + ruedita (y el pellizco del panel táctil, que llega igual): zoom suave.
+  area.addEventListener('wheel', (e) => {
+    if (!e.ctrlKey) return;
+    e.preventDefault();
+    zoom = Math.min(4, Math.max(0.5, zoom * (e.deltaY < 0 ? 1.1 : 0.9)));
+    aplicar();
+  }, { passive: false });
+  const caja = h('div', { class: 'bt-vis' }, barra, area);
+  (async () => {
+    try {
+      const blob = await contenido(ctx, a);
+      // Espera a que el visor tenga ancho (recién agregado a la pantalla).
+      for (let i = 0; i < 40 && !area.clientWidth; i++) await new Promise(r => setTimeout(r, 50));
+      base = Math.max(200, (area.clientWidth || 600) - 24);
+      if (esFoto(a)) {
+        area.replaceChildren(h('img', { src: URL.createObjectURL(blob), alt: a.nombre, class: 'bt-visor-pag' }));
+      } else {
+        const pdf = await abrirPDF(blob);
+        area.replaceChildren();
+        // Resolución para verse nítido hasta un zoom de ~2,5x.
+        const res = Math.min(3000, base * 2.5);
+        for (let i = 1; i <= pdf.numPages && caja.isConnected; i++) area.append(await dibujarPagina(pdf, i, res, true));
+        pdf.destroy();
+      }
+      aplicar();
+    } catch (e) {
+      area.replaceChildren(h('p', { class: 'nota' }, navigator.onLine ? `No se pudo abrir: ${e.message || e}` : 'Sin internet no se puede mostrar. Guardalo en este dispositivo para verlo sin conexión.'));
+    }
+  })();
+  return caja;
+}
+
+// Visor a pantalla completa: el mismo visor con zoom, ocupando toda la pantalla.
 export function visor(ctx, a) {
   const { h, icono } = ctx;
-  const hojas = h('div', { class: 'bt-visor-hojas' }, h('p', { class: 'nota' }, 'Cargando…'));
   const botonGuardar = h('button', { type: 'button', class: 'boton' }, 'Guardar en este dispositivo');
   const pintarGuardar = async () => {
     const ya = await estaGuardado(a);
@@ -127,22 +185,10 @@ export function visor(ctx, a) {
       h('b', {}, a.nombre),
       botonGuardar,
       a.url ? h('a', { href: a.url, target: '_blank', rel: 'noopener', class: 'boton' }, ic('drive'), 'Drive') : null,
-      h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))),
-    hojas);
+      h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Cerrar', onclick: () => dlg.close() }, icono('cerrar'))));
   dlg.addEventListener('close', () => dlg.remove());
   document.body.append(dlg);
   dlg.showModal();
-  (async () => {
-    try {
-      const blob = await contenido(ctx, a);
-      if (esFoto(a)) { hojas.replaceChildren(h('img', { src: URL.createObjectURL(blob), alt: a.nombre, class: 'bt-visor-pag' })); return; }
-      const pdf = await abrirPDF(blob);
-      const ancho = Math.min(hojas.clientWidth || window.innerWidth, 1000);
-      hojas.replaceChildren();
-      for (let i = 1; i <= pdf.numPages && dlg.open; i++) hojas.append(await dibujarPagina(pdf, i, ancho));
-      pdf.destroy();
-    } catch (e) {
-      hojas.replaceChildren(h('p', { class: 'nota' }, navigator.onLine ? `No se pudo abrir: ${e.message || e}` : 'Sin internet no se puede mostrar. Guardalo en este dispositivo para verlo sin conexión.'));
-    }
-  })();
+  const v = visorEnLinea(ctx, a, { pantallaCompleta: false });
+  dlg.append(v || h('p', { class: 'nota' }, 'Este tipo de archivo no se puede mostrar acá.'));
 }
