@@ -33,6 +33,16 @@ with sync_playwright() as p:
       page.screenshot(path=S+'revisar_lateral_1366.png')
       page.locator('.bt-rev-cab button[aria-label=Cerrar]').click(); page.wait_for_timeout(600)
       chk(page.locator('.bt-rev-panel').count()==0, 'cerrar')
+      # Ya ubicados (subidos a una carpeta, Gemini sin cupo): también al costado.
+      page.evaluate("""(async()=>{const R=await import('/js/core/registro.js');const M=await import('/modules/bitacora/modelo.js');const ctx=R.contexto('bitacora');const m=M.crearModelo(ctx);const d=await m.cargar();const c=d.carpetas.find(x=>x.nombre==='Curso CLU');
+        for (const t of ['Ubicado 1','Ubicado 2']) await m.crearNota({titulo:t, carpetaId:c.id, archivo:{lectura:'espera', error:'Gemini llegó al límite gratis.', proximo:Date.now()+3600e3, original:t+'.pdf'}, adjuntos:[{origen:'subido',principal:true,pendiente:'x',nombre:t+'.pdf',tipo:'application/pdf'}]});})()"""); page.wait_for_timeout(1200)
+      page.locator('.bt-or-item', has_text='Ubicado 1').click(); page.wait_for_timeout(1000)
+      chk(page.locator('.bt-rev-panel').count()==1 and 'Ubicado 1' in page.locator('.bt-rev-cab').inner_text(), 'ya ubicado abre al costado')
+      page.locator('.bt-rev-panel input[type=text]').nth(1).fill('Factura')
+      page.locator('.bt-rev-panel button', has_text='Listo, siguiente').click(); page.wait_for_timeout(1500)
+      chk('Ubicado 2' in page.locator('.bt-rev-cab').inner_text(), 'ya ubicado: pasa al siguiente')
+      st=page.evaluate("(async()=>{const M=await import('/modules/bitacora/modelo.js');const R=await import('/js/core/registro.js');const d=await M.crearModelo(R.contexto('bitacora')).cargar();const n=d.notas.find(n=>n.titulo==='Ubicado 1');return [n.archivo.revisado, n.archivo.lectura, n.archivo.que]})()")
+      chk(st==[True,'lista','Factura'], 'ya ubicado guardado y fuera de Para revisar %s'%st)
     else:
       chk(page.locator('dialog[open]').count()==1 and page.locator('.bt-rev-panel').count()==0, 'celular: ventana como antes')
     print(w,'errores',err); cx.close()

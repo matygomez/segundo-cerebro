@@ -522,7 +522,7 @@ export async function pantallaPendientes(ctx, m, d, main) {
         const pr = p.propuesta;
         const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : p.estado === 'cola' ? 'En cola: Gemini lo lee cuando termine con los anteriores.' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
         const conRepetido = p.repetidoDe && d.nota(p.repetidoDe);
-        return h('div', { class: `bt-or-item${panelRev?.id === p.id ? ' sel' : ''}`, role: 'button', tabindex: 0, onclick: () => (conRepetido ? compararRepetido(ctx, m, p) : abrirRevision(ctx, m, p)) },
+        return h('div', { class: `bt-or-item${panelRev?.id === 'p:' + p.id ? ' sel' : ''}`, role: 'button', tabindex: 0, onclick: () => (conRepetido ? compararRepetido(ctx, m, p) : abrirRevision(ctx, m, p)) },
           h('span', { class: 'bt-or-ext' }, (extension(p.original).slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, pr?.nombre || p.original), h('small', {}, sub), h('small', {}, `${p.via} · ${haceCuanto(p.creado)}`)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
@@ -541,7 +541,7 @@ export async function pantallaPendientes(ctx, m, d, main) {
         const sub = a.lectura === 'lista' ? [a.que, a.vence ? `vence ${fechaCorta(a.vence)}` : '', a.monto ? plata(a.monto) : ''].filter(Boolean).join(' · ') || 'Gemini ya lo leyó. Revisá los datos.'
           : a.lectura === 'espera' ? `${a.error || 'Gemini está ocupado.'} La app lo reintenta sola${a.proximo ? ` a las ${hora(a.proximo)}` : ''}.`
           : a.lectura === 'error' ? `${a.error || 'No se pudo leer.'} Completalo a mano.` : 'Gemini lo está leyendo…';
-        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => ctx.navegar(`bitacora/n/${n.id}`) },
+        return h('div', { class: `bt-or-item${panelRev?.id === 'n:' + n.id ? ' sel' : ''}`, role: 'button', tabindex: 0, onclick: () => (esPCrev() ? abrirItem(ctx, m, { tipo: 'n', id: n.id }) : ctx.navegar(`bitacora/n/${n.id}`)) },
           h('span', { class: 'bt-or-ext' }, (extension(a.original || '').slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, n.titulo), h('small', { class: 'bt-or-ruta' }, ic('carpeta'), d.nombreRuta(n.carpetaId)), h('small', {}, sub)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
@@ -552,7 +552,8 @@ export async function pantallaPendientes(ctx, m, d, main) {
       })),
     ] : null];
   // En la PC, el archivo que estás revisando queda abierto al costado de la lista.
-  if (panelRev && (!esPCrev() || !lista.some(p => p.id === panelRev.id))) panelRev = null;
+  const sigue = panelRev && (panelRev.id.startsWith('p:') ? lista.some(p => 'p:' + p.id === panelRev.id) : sinLeer.some(n => 'n:' + n.id === panelRev.id));
+  if (panelRev && (!esPCrev() || !sigue)) panelRev = null;
   if (panelRev) poner(main, h('div', { class: 'bt-rev-grid' }, h('div', { class: 'bt-rev-izq' }, ...partes), panelRev.nodo));
   else poner(main, ...partes);
 }
@@ -564,8 +565,16 @@ export async function pantallaPendientes(ctx, m, d, main) {
 let panelRev = null;      // { id, nodo }
 let pantallaRev = null;   // { ctx, m, main } de la pantalla abierta
 const esPCrev = () => matchMedia('(min-width: 900px)').matches;
-// Los que se pueden revisar a mano en fila (los repetidos van por "Comparar").
-const revisables = async (m) => (await pendientesOrdenados(m)).filter(p => !p.repetidoDe);
+// Todo lo de "Para revisar", en el orden de la pantalla: primero los que falta
+// ubicar (menos los repetidos, que van por "Comparar") y después los ya ubicados.
+async function revisables(m) {
+  const d = await m.cargar();
+  return [
+    ...(await pendientesOrdenados(m)).filter(p => !p.repetidoDe).map(p => ({ tipo: 'p', id: p.id, creado: p.creado })),
+    ...d.notas.filter(n => n.archivo?.lectura && !n.archivo.revisado).sort((a, b) => a.creado - b.creado).map(n => ({ tipo: 'n', id: n.id, creado: n.creado })),
+  ];
+}
+const claveRev = (x) => `${x.tipo}:${x.id}`;
 
 async function redibujarRev() {
   if (!pantallaRev || !pantallaRev.main.isConnected) { panelRev = null; return; }
@@ -573,31 +582,121 @@ async function redibujarRev() {
   await pantallaPendientes(ctx, m, await m.cargar(), main);
 }
 
-export async function abrirRevision(ctx, m, p) {
+export function abrirRevision(ctx, m, p) {
   if (!esPCrev() || !pantallaRev) { revisar(ctx, m, p); return; }
+  return abrirItem(ctx, m, { tipo: 'p', id: p.id });
+}
+
+async function abrirItem(ctx, m, item) {
   const lista = await revisables(m);
   const nodo = ctx.h('div', { class: 'bt-rev-panel' });
-  panelRev = { id: p.id, nodo };
-  await revisar(ctx, m, p, {
+  panelRev = { id: claveRev(item), nodo };
+  const nav = {
     panel: nodo,
-    posicion: [lista.findIndex(x => x.id === p.id) + 1, lista.length],
-    siguiente: () => siguienteRev(ctx, m, p),
-    anterior: () => siguienteRev(ctx, m, p, -1),
+    posicion: [lista.findIndex(x => claveRev(x) === claveRev(item)) + 1, lista.length],
+    siguiente: () => siguienteRev(ctx, m, item, 1, nav.posicion[0] - 1),
+    anterior: () => siguienteRev(ctx, m, item, -1, nav.posicion[0] - 1),
     cerrar: () => { panelRev = null; redibujarRev(); },
-  });
+  };
+  if (item.tipo === 'p') {
+    const p = await m.col.pendientes.obtener(item.id);
+    if (!p) return siguienteRev(ctx, m, item);
+    await revisar(ctx, m, p, nav);
+  } else {
+    const n = (await m.cargar()).nota(item.id);
+    if (!n) return siguienteRev(ctx, m, item);
+    await revisarNota(ctx, m, n, nav);
+  }
   await redibujarRev();
 }
 
 // Abre el próximo (o el anterior) de la lista; si no queda ninguno, cierra el panel.
-async function siguienteRev(ctx, m, desde, paso = 1) {
+async function siguienteRev(ctx, m, desde, paso = 1, estaba = 0) {
   const lista = await revisables(m);
-  const i = lista.findIndex(x => x.id === desde.id);
-  const otros = lista.filter(x => x.id !== desde.id);
-  if (!otros.length) { panelRev = null; await redibujarRev(); ctx.aviso('No queda nada por revisar.'); return; }
-  let prox;
-  if (i < 0) prox = lista.find(x => x.creado > desde.creado) || lista[0];   // el actual ya se guardó
-  else prox = lista[(i + paso + lista.length) % lista.length];
-  abrirRevision(ctx, m, prox);
+  const i = lista.findIndex(x => claveRev(x) === claveRev(desde));
+  if (!lista.filter(x => claveRev(x) !== claveRev(desde)).length) { panelRev = null; await redibujarRev(); ctx.aviso('No queda nada por revisar.'); return; }
+  // Si el actual ya salió de la lista (se guardó), el que venía después quedó en su lugar.
+  const prox = i < 0 ? lista[Math.min(Math.max(estaba, 0), lista.length - 1)]
+    : lista[(i + paso + lista.length) % lista.length];
+  abrirItem(ctx, m, prox);
+}
+
+// Un archivo ya ubicado en su carpeta, revisado al costado: se corrigen los
+// datos (o se completan a mano si Gemini no pudo) y "Listo, siguiente" lo da por revisado.
+async function revisarNota(ctx, m, n, { panel, posicion, siguiente, anterior, cerrar }) {
+  const { h } = ctx;
+  const d = await m.cargar();
+  const a = n.archivo || {};
+  const principal = (n.adjuntos || []).find(x => x.principal);
+  const campo = (etiqueta, el) => h('label', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, etiqueta), el);
+  const nombre = h('input', { type: 'text', value: n.titulo || '', autocomplete: 'off' });
+  const que = h('input', { type: 'text', value: a.que || '', placeholder: 'Ej. Factura de gas', autocomplete: 'off' });
+  const de = h('input', { type: 'text', value: a.de || '', placeholder: 'Empresa o persona', autocomplete: 'off' });
+  const fecha = h('input', { type: 'date', value: a.fecha || '' });
+  const vence = h('input', { type: 'date', value: a.vence || '' });
+  const monto = h('input', { type: 'number', inputmode: 'decimal', step: 'any', min: 0, value: a.monto || '' });
+  let carpetaId = n.carpetaId || '';
+  const lugar = h('div', { class: 'bt-or-lugar' });
+  const pintarLugar = () => poner(lugar, h('div', { class: 'bt-or-elegida' }, ic('carpeta'), h('b', {}, d.nombreRuta(carpetaId)),
+    h('button', { type: 'button', class: 'boton bt-elegir-boton', onclick: async () => {
+      const x = await elegirCarpeta(ctx, d, { titulo: 'Mover a…', actual: carpetaId });
+      if (x !== null) { carpetaId = x; pintarLugar(); }
+    } }, ic('carpeta'), 'Cambiar')));
+  pintarLugar();
+  const tarea = interruptor(ctx, !!a.vence);
+  const dias = h('select', { 'aria-label': 'Cuándo avisar' }, VENTANAS.map(([v, t]) => h('option', { value: v }, t)));
+  dias.value = d.ajuste('ordenar')?.dias ?? '3';
+  const hayFinanzas = await ctx.existeAccion?.('nuevo-gasto');
+  const fin = interruptor(ctx, false);
+  const filaSug = (sw, texto, nota, extra = null) => h('div', { class: 'bt-or-sug' }, sw, h('span', {}, texto, nota ? h('small', {}, nota) : null), extra);
+  vence.addEventListener('change', () => { if (vence.value && !tarea.valor()) tarea.click(); });
+
+  const aviso = a.lectura === 'espera' ? `${a.error || 'Gemini está ocupado.'} Completalo a mano o tocá "Saltar" y la app lo reintenta sola.`
+    : a.lectura === 'error' ? `${a.error || 'Gemini no pudo leerlo.'} Completalo a mano.`
+      : a.lectura === 'leyendo' || a.lectura === 'cola' ? 'Gemini todavía lo está leyendo. Podés completarlo a mano igual.' : null;
+
+  const listo = async () => {
+    try {
+      const titulo = nombre.value.trim() || n.titulo;
+      const datos = { que: que.value.trim(), de: de.value.trim(), fecha: fecha.value, vence: vence.value, monto: Number(monto.value) || 0 };
+      // Completado a mano: deja de estar en espera de Gemini y sale de "Para revisar".
+      await m.guardarNota(n.id, { carpetaId, archivo: { ...a, ...datos, lectura: 'lista', error: '', revisado: true, sugerir: {} } });
+      if (titulo !== n.titulo) await m.renombrar(n.id, titulo);
+      if (tarea.valor() && datos.vence) {
+        const cuando = sumarDias(datos.vence, -Number(dias.value));
+        await m.crearRecordatorio({ notaId: n.id, titulo: datos.monto ? `Pagar ${datos.que || titulo} (${plata(datos.monto)})` : `Vence: ${titulo}`, fecha: cuando < hoyISO() ? hoyISO() : cuando });
+        await m.guardarAjuste('ordenar', { dias: dias.value });
+      }
+      ctx.aviso(`Listo: ${titulo}`, { accion: 'Abrir', alTocar: () => ctx.navegar(`bitacora/n/${n.id}`) });
+      if (hayFinanzas && fin.valor() && datos.monto) ctx.pedir('nuevo-gasto', { importe: datos.monto, descripcion: [datos.que, datos.de].filter(Boolean).join(' · ') }).catch(e => ctx.aviso(e.message));
+      siguiente();
+    } catch (e) { ctx.aviso(`No se pudo guardar: ${e.message}`); }
+  };
+
+  const flecha = (txt, fn, etiqueta) => h('button', { type: 'button', class: 'boton-icono', 'aria-label': etiqueta, title: etiqueta, onclick: fn }, txt);
+  const vista = principal ? portada(ctx, principal) : null;
+  poner(panel,
+    h('div', { class: 'bt-rev-cab' }, h('b', {}, n.titulo),
+      posicion ? h('span', { class: 'bt-rev-avance' }, `${posicion[0]} de ${posicion[1]}`) : null,
+      flecha('‹', anterior, 'Anterior'), flecha('›', siguiente, 'Siguiente'), flecha('✕', cerrar, 'Cerrar')),
+    h('div', { class: 'bt-rev-cuerpo' }, vista ? h('div', { class: 'bt-rev-doc' }, vista) : null,
+      h('div', { class: 'formulario-campos bt-or-rev' },
+        h('p', { class: 'nota' }, a.original || n.titulo, ' · ', h('a', { href: `#/bitacora/n/${n.id}` }, 'Abrir la nota')),
+        aviso ? h('p', { class: 'bt-or-duda' }, aviso) : null,
+        campo('Nombre', nombre),
+        h('div', { class: 'fila-campo' }, h('span', { class: 'etiqueta-campo' }, 'Dónde está'), lugar),
+        campo('Qué es', que), campo('De', de),
+        h('div', { class: 'bt-or-dos' }, campo('Fecha', fecha), campo('Vence', vence)),
+        campo('Monto', monto),
+        h('div', { class: 'bt-or-sugs' },
+          filaSug(tarea, 'Crear tarea por el vencimiento', 'En Tareas › Sistemas › Bitácora.', dias),
+          hayFinanzas ? filaSug(fin, 'Cargar el gasto en Finanzas', 'Se abre el formulario de gasto con el monto.') : null))),
+    h('div', { class: 'bt-rev-pie' },
+      h('span', { class: 'bt-espacio' }),
+      a.lectura !== 'leyendo' && a.lectura !== 'cola' ? h('button', { type: 'button', class: 'boton', onclick: () => { aLaColaNota(ctx, m, n.id, null, true); ctx.aviso('Quedó en cola: Gemini lo lee en cuanto pueda.'); siguiente(); } }, 'Leer con Gemini') : null,
+      h('button', { type: 'button', class: 'boton', onclick: siguiente }, 'Saltar'),
+      h('button', { type: 'button', class: 'boton principal', onclick: listo }, 'Listo, siguiente →')));
+  panel.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); listo(); } });
 }
 
 // ── Revisar y confirmar un archivo ──
