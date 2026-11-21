@@ -57,9 +57,9 @@ with sync_playwright() as p:
     chk(page.locator('.bt-or-est.confirmar').count()==1,'estado para confirmar')
     page.screenshot(path=S+f'or_lista_{w}.png', full_page=True)
     page.locator('.bt-or-item').first.click(); page.wait_for_timeout(600)
-    chk(page.locator('dialog .bt-or-elegida:has-text("Casa › Servicios › Gas")').count()==1,'carpeta propuesta')
+    chk(page.locator(':is(dialog[open], .bt-rev-panel) .bt-or-elegida:has-text("Casa › Servicios › Gas")').count()==1,'carpeta propuesta')
     page.screenshot(path=S+f'or_revisar_{w}.png', full_page=True)
-    page.locator('dialog button:has-text("Confirmar")').click(); page.wait_for_timeout(1500)
+    page.locator(':is(dialog[open], .bt-rev-panel) button.principal').first.click(); page.wait_for_timeout(1500)
     r=page.evaluate("""async () => { const R = await import('/js/core/registro.js'); const M = await import('/modules/bitacora/modelo.js');
       const d = await M.crearModelo(R.contexto('bitacora')).cargar(); const n = d.notas.find(x => x.archivo);
       const esp = M.espejoDe(d).archivos.filter(x => x.original || x.clave.startsWith('nota:'+n?.id));
@@ -136,11 +136,11 @@ with sync_playwright() as p:
     fc.value.set_files(files=[{'name':'internet.pdf','mimeType':'application/pdf','buffer':b'%PDF-1.4 internet'}])
     page.wait_for_timeout(2000)
     page.locator('.bt-or-item:has-text("internet.pdf")').click(); page.wait_for_timeout(500)
-    chk(page.locator('dialog[open] .bt-or-duda:has-text("límite")').count()==1,'revisar a mano en espera')
-    page.locator('dialog[open] input[type=text]').first.fill('Internet octubre')
-    page.locator('dialog[open] button:has-text("Otra carpeta")').click(); page.wait_for_timeout(300)
+    chk(page.locator(':is(dialog[open], .bt-rev-panel) .bt-or-duda:has-text("límite")').count()==1,'revisar a mano en espera')
+    page.locator(':is(dialog[open], .bt-rev-panel) input[type=text]').first.fill('Internet octubre')
+    page.locator(':is(dialog[open], .bt-rev-panel) button:has-text("Otra carpeta")').first.click(); page.wait_for_timeout(300)
     page.locator('dialog[open] .bt-elegir:has-text("Luz")').click(); page.wait_for_timeout(300)
-    page.locator('dialog[open] button:has-text("Confirmar")').click(); page.wait_for_timeout(1200)
+    page.locator(':is(dialog[open], .bt-rev-panel) button.principal').first.click(); page.wait_for_timeout(1200)
     chk(page.evaluate("async () => { const R = await import('/js/core/registro.js'); return (await R.contexto('bitacora').datos('notas').listar()).some(n => n.titulo === 'Internet octubre'); }"),'guardado a mano')
     estado['falla']=False
     print(w, 'errores', [e for e in err if 'favicon' not in e][:5])

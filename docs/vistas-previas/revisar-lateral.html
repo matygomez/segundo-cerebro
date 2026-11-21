@@ -1,0 +1,160 @@
+<title>Revisar en panel lateral</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Vista previa (PC): "Para revisar" con la lista a la izquierda y el archivo + sus datos en un panel a la derecha. Tema oscuro de la app. */
+:root{--papel:#0B0B0C;--fondo:#050506;--superficie:#1B1C1E;--superficie-2:#242528;--linea:#2E3033;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--laton:#D3AB5C;--laton-f:#2B2416;--rojo:#E2786C;--verde:#6FB4A0;--verde-f:#17302A;
+--titulo:'Barlow Condensed','Barlow',system-ui,sans-serif;--texto:'Barlow',system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--texto);font-size:15px}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:2px solid var(--laton);outline-offset:2px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--fondo)}
+.control{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.1rem;color:var(--laton)}
+.control span{font-size:.85rem;color:var(--tinta-2)}
+.envoltura{padding-block:18px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px;max-width:1360px;margin:0 auto}
+.explica{max-width:70ch;color:var(--tinta-2);line-height:1.5;margin:0}
+.explica b{color:var(--tinta)}
+.app{background:var(--papel);border:1px solid var(--linea);border-radius:16px;padding:18px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.35fr);gap:18px;min-width:0}
+@media (max-width:860px){.app{grid-template-columns:minmax(0,1fr)}}
+h1{font-family:var(--titulo);font-weight:600;font-size:1.9rem;margin:0}
+.sec{font-family:var(--titulo);font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-2);margin:14px 0 6px;display:flex;gap:8px;align-items:center}
+.num{background:var(--superficie-2);border-radius:999px;padding:0 8px;font-size:.8rem;color:var(--tinta)}
+.lista{display:grid;gap:6px}
+.item{display:flex;gap:10px;align-items:center;padding:9px 10px;border-radius:10px;border:1px solid transparent;background:var(--superficie);text-align:left;width:100%;min-width:0}
+.item:hover{border-color:#44464a}
+.item.sel{border-color:var(--laton);background:var(--laton-f)}
+.item.hecho{opacity:.45}
+.ext{flex:none;width:40px;height:40px;border-radius:8px;background:var(--superficie-2);display:grid;place-items:center;font-size:.68rem;font-weight:600;color:var(--rojo)}
+.item.hecho .ext{color:var(--verde)}
+.it{min-width:0;display:grid;gap:1px}
+.it b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it small{font-size:.78rem;color:var(--tinta-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Panel lateral */
+.panel{background:var(--superficie);border:1px solid var(--linea);border-radius:14px;display:grid;grid-template-rows:auto auto 1fr auto;min-width:0;align-self:start;position:sticky;top:70px}
+.p-cab{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:1px solid var(--linea)}
+.p-cab b{font-family:var(--titulo);font-size:1.25rem;font-weight:600;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.avance{font-size:.82rem;color:var(--tinta-2);white-space:nowrap}
+.flecha{width:32px;height:32px;border-radius:8px;border:1px solid var(--linea);background:var(--superficie-2);display:grid;place-items:center;padding:0}
+.flecha:disabled{opacity:.35;cursor:default}
+.cuerpo{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:14px;padding:14px}
+@media (max-width:1100px){.cuerpo{grid-template-columns:minmax(0,1fr)}}
+.doc{background:var(--superficie-2);border-radius:10px;min-height:340px;display:grid;place-items:center;padding:14px}
+.hoja{width:100%;max-width:250px;aspect-ratio:1/1.41;background:#f3f1ec;border-radius:2px;box-shadow:0 3px 14px #0009;padding:9%;display:grid;align-content:start;gap:7px;color:#333;font-size:.62rem}
+.hoja .logo{height:12px;width:34%;border-radius:2px;background:#d98c57}
+.hoja .t{font-weight:700;font-size:.8rem;color:#222}
+.hoja i{display:block;height:4px;border-radius:2px;background:#cfcac0}
+.hoja .monto{display:flex;justify-content:space-between;border-top:1px solid #ccc;padding-top:6px;font-weight:700;color:#222}
+.form{display:grid;gap:10px;align-content:start;min-width:0}
+.campo{display:grid;gap:4px}
+.campo span{font-size:.78rem;color:var(--tinta-2)}
+.campo input{width:100%;background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:8px 10px;min-width:0}
+.dos{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+.lugar{display:flex;align-items:center;gap:8px;background:var(--superficie-2);border:1px solid var(--linea);border-radius:8px;padding:7px 10px}
+.lugar b{flex:1;font-weight:500;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chico{border:1px solid var(--linea);background:var(--superficie);border-radius:7px;padding:4px 9px;font-size:.82rem}
+.sug{display:flex;align-items:center;gap:8px;font-size:.88rem}
+.sug input{accent-color:var(--laton);width:16px;height:16px}
+.aviso-ia{font-size:.8rem;color:var(--tinta-2);background:var(--superficie-2);border-radius:8px;padding:7px 10px;margin:0}
+.pie{display:flex;gap:8px;align-items:center;padding:12px 14px;border-top:1px solid var(--linea);flex-wrap:wrap}
+.pie .tecla{font-size:.75rem;color:var(--tinta-2);margin-right:auto}
+kbd{font-family:inherit;border:1px solid var(--linea);border-radius:4px;padding:0 4px;background:var(--superficie-2)}
+.boton{border:1px solid var(--linea);background:var(--superficie-2);border-radius:10px;padding:8px 14px}
+.principal{border:0;background:var(--laton);color:#1a1408;font-weight:600}
+.fin{padding:40px 20px;text-align:center;display:grid;gap:8px;justify-items:center}
+.fin b{font-family:var(--titulo);font-size:1.5rem}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--superficie-2);border:1px solid var(--linea);border-radius:10px;padding:9px 14px;font-size:.9rem;box-shadow:0 6px 20px #000a}
+</style>
+
+<div class="control"><b>Vista previa · Para revisar (PC)</b><span>Datos de ejemplo. Probá el botón "Listo, siguiente" o la tecla Enter.</span></div>
+
+<div class="envoltura">
+  <p class="explica">Cuando Gemini se queda sin cupo, tocás un archivo y se abre <b>al costado</b>, sin tapar la lista: ves el documento a la izquierda del panel y completás los datos a la derecha. Con <b>"Listo, siguiente"</b> se guarda y pasa solo al próximo. Con <b>"Saltar"</b> lo dejás para después. En el celular sigue como hoy, en pantalla completa.</p>
+  <div class="app">
+    <div>
+      <h1>Para revisar</h1>
+      <div class="sec">Falta elegir dónde va <span class="num" id="cuenta"></span></div>
+      <div class="lista" id="lista"></div>
+    </div>
+    <div class="panel" id="panel"></div>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  { arch: 'scan_0012.pdf', nombre: '2026-10 Gas Metrogas', lugar: 'Casa › Servicios › Gas', que: 'Factura de gas', de: 'Metrogas', fecha: '2026-10-28', vence: '2026-11-24', monto: '18430' },
+  { arch: 'IMG_20261105.jpg', nombre: 'Ticket ferretería', lugar: 'Casa › Arreglos', que: 'Ticket', de: 'Ferretería El Tornillo', fecha: '2026-11-05', vence: '', monto: '12900' },
+  { arch: 'scan_0013.pdf', nombre: '2026-10 Luz Edenor', lugar: 'Casa › Servicios › Luz', que: 'Factura de luz', de: 'Edenor', fecha: '2026-10-30', vence: '2026-11-26', monto: '31250' },
+  { arch: 'poliza_auto.pdf', nombre: 'Póliza auto 2026', lugar: 'Auto › Seguro', que: 'Póliza', de: 'La Segunda', fecha: '2026-09-01', vence: '2027-09-01', monto: '' },
+  { arch: 'scan_0014.pdf', nombre: '2026-11 Expensas', lugar: 'Casa › Expensas', que: 'Expensas', de: 'Administración', fecha: '2026-11-01', vence: '2026-11-10', monto: '96000' },
+];
+let actual = 0;
+const hechos = new Set();
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const plata = (n) => n ? '$ ' + Number(n).toLocaleString('es-AR') : '';
+
+function pintarLista() {
+  $('cuenta').textContent = ITEMS.length - hechos.size;
+  $('lista').innerHTML = ITEMS.map((x, i) => `<button type="button" class="item${i === actual ? ' sel' : ''}${hechos.has(i) ? ' hecho' : ''}" data-i="${i}">
+    <span class="ext">${hechos.has(i) ? '✓' : x.arch.split('.').pop().toUpperCase()}</span>
+    <span class="it"><b>${esc(x.arch)}</b><small>${hechos.has(i) ? 'Guardado en ' + esc(x.lugar) : 'Gemini llegó al límite gratis. Se reintenta a las 05:00.'}</small></span></button>`).join('');
+  $('lista').querySelectorAll('.item').forEach(b => b.onclick = () => { actual = +b.dataset.i; pintar(); });
+}
+
+function pintarPanel() {
+  const quedan = ITEMS.map((_, i) => i).filter(i => !hechos.has(i));
+  if (!quedan.length) { $('panel').innerHTML = `<div class="fin"><b>No queda nada por revisar</b><span style="color:var(--tinta-2)">Todos los archivos quedaron guardados en su carpeta.</span><button type="button" class="boton" id="reset">Volver a probar</button></div>`; $('reset').onclick = () => { hechos.clear(); actual = 0; pintar(); }; return; }
+  const x = ITEMS[actual];
+  const pos = quedan.indexOf(actual) + 1;
+  $('panel').innerHTML = `
+    <div class="p-cab"><b>${esc(x.arch)}</b><span class="avance">${pos || '–'} de ${quedan.length}</span>
+      <button type="button" class="flecha" id="ant" aria-label="Anterior" ${actual === 0 ? 'disabled' : ''}>‹</button>
+      <button type="button" class="flecha" id="sig" aria-label="Siguiente" ${actual === ITEMS.length - 1 ? 'disabled' : ''}>›</button></div>
+    <p class="aviso-ia" style="margin:12px 14px 0">Gemini no lo pudo leer (sin cupo). Completalo a mano o tocá "Saltar" y lo lee solo después.</p>
+    <div class="cuerpo">
+      <div class="doc"><div class="hoja"><div class="logo"></div><div class="t">${esc(x.de)}</div><i></i><i style="width:70%"></i><i></i><i style="width:55%"></i><i></i><i style="width:80%"></i>${x.monto ? `<div class="monto"><span>TOTAL</span><span>${plata(x.monto)}</span></div>` : ''}</div></div>
+      <div class="form">
+        <label class="campo"><span>Nombre</span><input id="f-nombre" value="${esc(x.nombre)}"></label>
+        <div class="campo"><span>Dónde va</span><div class="lugar"><b>${esc(x.lugar)}</b><button type="button" class="chico">Cambiar</button></div></div>
+        <div class="dos"><label class="campo"><span>Qué es</span><input id="f-que" value="${esc(x.que)}"></label><label class="campo"><span>De</span><input id="f-de" value="${esc(x.de)}"></label></div>
+        <div class="dos"><label class="campo"><span>Fecha</span><input id="f-fecha" type="date" value="${x.fecha}"></label><label class="campo"><span>Vence</span><input id="f-vence" type="date" value="${x.vence}"></label></div>
+        <label class="campo"><span>Monto</span><input id="f-monto" inputmode="decimal" value="${x.monto}"></label>
+        ${x.vence ? '<label class="sug"><input id="f-tarea" type="checkbox" checked> Crear tarea 3 días antes del vencimiento</label>' : ''}
+        ${x.monto ? '<label class="sug"><input id="f-gasto" type="checkbox"> Cargar el gasto en Finanzas</label>' : ''}
+      </div>
+    </div>
+    <div class="pie"><span class="tecla"><kbd>Enter</kbd> listo · <kbd>↓</kbd> saltar</span>
+      <button type="button" class="boton" id="saltar">Saltar</button>
+      <button type="button" class="boton principal" id="listo">Listo, siguiente →</button></div>`;
+  $('ant').onclick = () => { actual = Math.max(0, actual - 1); pintar(); };
+  $('sig').onclick = () => { actual = Math.min(ITEMS.length - 1, actual + 1); pintar(); };
+  $('saltar').onclick = siguiente;
+  $('listo').onclick = listo;
+}
+
+function siguiente() {
+  const quedan = ITEMS.map((_, i) => i).filter(i => !hechos.has(i) && i !== actual);
+  actual = quedan.find(i => i > actual) ?? quedan[0] ?? actual;
+  pintar();
+}
+function listo() {
+  hechos.add(actual);
+  toast(`Guardado en ${ITEMS[actual].lugar}`);
+  siguiente();
+}
+let t;
+function toast(texto) {
+  document.querySelector('.toast')?.remove();
+  const el = document.createElement('div'); el.className = 'toast'; el.setAttribute('role', 'status'); el.textContent = texto;
+  document.body.append(el); clearTimeout(t); t = setTimeout(() => el.remove(), 2200);
+}
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.target.matches('button')) { e.preventDefault(); if ($('listo')) listo(); }
+  if (e.key === 'ArrowDown' && !e.target.matches('input')) { e.preventDefault(); if ($('saltar')) siguiente(); }
+});
+function pintar() { pintarLista(); pintarPanel(); }
+pintar();
+</script>

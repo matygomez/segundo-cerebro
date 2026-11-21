@@ -510,7 +510,8 @@ export async function pantallaPendientes(ctx, m, d, main) {
     const archivos = [...(e.dataTransfer?.files || [])].map(f => ({ blob: f, nombre: f.name }));
     if (archivos.length) recibirArchivos(ctx, m, archivos, 'Arrastrado a la app');
   });
-  poner(main,
+  pantallaRev = { ctx, m, main };
+  const partes = [
     cabecera(ctx, { titulo: 'Para revisar', marca: ic('clip'), volver: { href: '#/bitacora', texto: 'Bitácora' } }),
     zona,
     !d.ajuste('gemini')?.api ? h('p', { class: 'nota bt-or-aviso' }, 'Para que la app lea los archivos sola, poné tu clave de Gemini en ', h('a', { href: '#/bitacora/ajustes' }, 'Configurar Bitácora'), '. Sin clave igual podés ordenarlos a mano.') : null,
@@ -521,7 +522,7 @@ export async function pantallaPendientes(ctx, m, d, main) {
         const pr = p.propuesta;
         const sub = p.estado === 'error' ? p.error : p.estado === 'espera' ? `${p.error} La app lo reintenta sola a las ${hora(p.proximo)}. Si estás apurado, tocalo y ordenalo a mano.` : p.estado === 'leyendo' ? 'Leyendo el archivo… (tocalo si querés ordenarlo a mano)' : p.estado === 'cola' ? 'En cola: Gemini lo lee cuando termine con los anteriores.' : [pr?.carpetaId ? d.nombreRuta(pr.carpetaId) : '¿Dónde lo guardo?', pr?.vence ? `vence ${fechaCorta(pr.vence)}` : ''].filter(Boolean).join(' · ');
         const conRepetido = p.repetidoDe && d.nota(p.repetidoDe);
-        return h('div', { class: 'bt-or-item', role: 'button', tabindex: 0, onclick: () => (conRepetido ? compararRepetido(ctx, m, p) : revisar(ctx, m, p)) },
+        return h('div', { class: `bt-or-item${panelRev?.id === p.id ? ' sel' : ''}`, role: 'button', tabindex: 0, onclick: () => (conRepetido ? compararRepetido(ctx, m, p) : abrirRevision(ctx, m, p)) },
           h('span', { class: 'bt-or-ext' }, (extension(p.original).slice(1) || 'arch').toUpperCase()),
           h('span', { class: 'bt-or-t' }, h('b', {}, pr?.nombre || p.original), h('small', {}, sub), h('small', {}, `${p.via} · ${haceCuanto(p.creado)}`)),
           h('span', { class: `bt-or-est ${clase}` }, texto),
@@ -549,7 +550,54 @@ export async function pantallaPendientes(ctx, m, d, main) {
           a.lectura === 'error' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: (e) => { e.stopPropagation(); ctx.navegar(`bitacora/n/${n.id}`); } }, 'Completar')
             : a.lectura === 'lista' ? h('button', { type: 'button', class: 'boton bt-chico', onclick: async (e) => { e.stopPropagation(); await m.guardarNota(n.id, { archivo: { ...a, revisado: true } }); ctx.aviso('Listo: salió de Para revisar.'); } }, 'Listo') : null);
       })),
-    ] : null);
+    ] : null];
+  // En la PC, el archivo que estás revisando queda abierto al costado de la lista.
+  if (panelRev && (!esPCrev() || !lista.some(p => p.id === panelRev.id))) panelRev = null;
+  if (panelRev) poner(main, h('div', { class: 'bt-rev-grid' }, h('div', { class: 'bt-rev-izq' }, ...partes), panelRev.nodo));
+  else poner(main, ...partes);
+}
+
+// ── Revisar al costado (PC) ──
+// Tocás un archivo y se abre en un panel al lado de la lista; "Listo, siguiente"
+// lo guarda y abre el próximo. El panel vive fuera de la lista, así que si la
+// pantalla se redibuja (sincronización, Gemini) no se pierde lo que escribiste.
+let panelRev = null;      // { id, nodo }
+let pantallaRev = null;   // { ctx, m, main } de la pantalla abierta
+const esPCrev = () => matchMedia('(min-width: 900px)').matches;
+// Los que se pueden revisar a mano en fila (los repetidos van por "Comparar").
+const revisables = async (m) => (await pendientesOrdenados(m)).filter(p => !p.repetidoDe);
+
+async function redibujarRev() {
+  if (!pantallaRev || !pantallaRev.main.isConnected) { panelRev = null; return; }
+  const { ctx, m, main } = pantallaRev;
+  await pantallaPendientes(ctx, m, await m.cargar(), main);
+}
+
+export async function abrirRevision(ctx, m, p) {
+  if (!esPCrev() || !pantallaRev) { revisar(ctx, m, p); return; }
+  const lista = await revisables(m);
+  const nodo = ctx.h('div', { class: 'bt-rev-panel' });
+  panelRev = { id: p.id, nodo };
+  await revisar(ctx, m, p, {
+    panel: nodo,
+    posicion: [lista.findIndex(x => x.id === p.id) + 1, lista.length],
+    siguiente: () => siguienteRev(ctx, m, p),
+    anterior: () => siguienteRev(ctx, m, p, -1),
+    cerrar: () => { panelRev = null; redibujarRev(); },
+  });
+  await redibujarRev();
+}
+
+// Abre el próximo (o el anterior) de la lista; si no queda ninguno, cierra el panel.
+async function siguienteRev(ctx, m, desde, paso = 1) {
+  const lista = await revisables(m);
+  const i = lista.findIndex(x => x.id === desde.id);
+  const otros = lista.filter(x => x.id !== desde.id);
+  if (!otros.length) { panelRev = null; await redibujarRev(); ctx.aviso('No queda nada por revisar.'); return; }
+  let prox;
+  if (i < 0) prox = lista.find(x => x.creado > desde.creado) || lista[0];   // el actual ya se guardó
+  else prox = lista[(i + paso + lista.length) % lista.length];
+  abrirRevision(ctx, m, prox);
 }
 
 // ── Revisar y confirmar un archivo ──
@@ -653,7 +701,7 @@ export async function compararRepetido(ctx, m, p) {
   pintar();
 }
 
-export async function revisar(ctx, m, p) {
+export async function revisar(ctx, m, p, { panel = null, posicion = null, siguiente = null, anterior = null, cerrar = null } = {}) {
   const { h } = ctx;
   const d = await m.cargar();
   const pr = p.propuesta || {};
@@ -729,7 +777,7 @@ export async function revisar(ctx, m, p) {
     ctx.aviso('Descartado');
   };
 
-  dlg = ventana(ctx, 'Revisar archivo', h('div', { class: 'formulario-campos bt-or-rev' },
+  const contenido = h('div', { class: 'formulario-campos bt-or-rev' },
     h('p', { class: 'nota' }, p.original, ' · ', p.via, p.adjunto?.url ? [' · ', h('a', { href: p.adjunto.url, target: '_blank', rel: 'noopener' }, 'Ver archivo')] : null),
     repetida ? h('p', { class: 'bt-or-rep' }, 'Parece que ya lo tenés: ', h('a', { href: `#/bitacora/n/${repetida.id}`, onclick: () => dlg.close() }, repetida.titulo), ` (${d.nombreRuta(repetida.carpetaId)}). ¿Lo guardo igual?`) : null,
     p.estado === 'error' || p.estado === 'espera' ? h('p', { class: 'bt-or-duda' }, p.error, p.estado === 'espera' ? ' Completalo a mano, o cerrá esto y la app lo reintenta sola.' : '') : null,
@@ -742,12 +790,28 @@ export async function revisar(ctx, m, p) {
     h('div', { class: 'bt-or-sugs' },
       filaSug(tarea, 'Crear tarea por el vencimiento', 'En Tareas › Sistemas › Bitácora.', dias),
       hayFinanzas ? filaSug(fin, 'Cargar el gasto en Finanzas', 'Se abre el formulario de gasto con el monto, para que elijas cuenta y categoría.') : null,
-      filaSug(mensual, '¿Llega todos los meses? Sumarlo a Cargas mensuales', 'Si un mes falta, te aviso con una tarea.'))),
-  { botones: [
+      filaSug(mensual, '¿Llega todos los meses? Sumarlo a Cargas mensuales', 'Si un mes falta, te aviso con una tarea.')));
+  const botones = [
     h('button', { type: 'button', class: 'boton peligro', onclick: descartar }, repetida ? 'No guardar' : 'Descartar'),
     h('span', { class: 'bt-espacio' }),
     h('button', { type: 'button', class: 'boton', onclick: () => { reintentar(ctx, m, p, true); dlg.close(); ctx.aviso('Gemini lo está leyendo. Cuando termine, lo ves en la lista.'); } }, 'Leer con Gemini'),
-    h('button', { type: 'button', class: 'boton principal', onclick: confirmar }, repetida ? 'Guardar igual' : 'Confirmar')] });
+    h('button', { type: 'button', class: 'boton principal', onclick: confirmar }, repetida ? 'Guardar igual' : 'Confirmar')];
+  if (panel) {
+    // Al costado (PC): los botones cierran el panel o pasan al siguiente.
+    dlg = { close: () => siguiente?.() };
+    const flecha = (txt, fn, etiqueta) => h('button', { type: 'button', class: 'boton-icono', 'aria-label': etiqueta, title: etiqueta, onclick: fn }, txt);
+    const cab = h('div', { class: 'bt-rev-cab' }, h('b', {}, p.original),
+      posicion ? h('span', { class: 'bt-rev-avance' }, `${posicion[0]} de ${posicion[1]}`) : null,
+      flecha('‹', anterior, 'Anterior'), flecha('›', siguiente, 'Siguiente'), flecha('✕', cerrar, 'Cerrar'));
+    const vista = p.adjunto ? portada(ctx, p.adjunto) : null;
+    // En el panel, "Confirmar" pasa a ser "Listo, siguiente" y se suma "Saltar".
+    const principal = botones[botones.length - 1];
+    principal.textContent = repetida ? 'Guardar igual' : 'Listo, siguiente →';
+    botones.splice(botones.length - 1, 0, h('button', { type: 'button', class: 'boton', onclick: () => siguiente?.() }, 'Saltar'));
+    poner(panel, cab, h('div', { class: 'bt-rev-cuerpo' }, vista ? h('div', { class: 'bt-rev-doc' }, vista) : null, contenido), h('div', { class: 'bt-rev-pie' }, ...botones));
+    // Enter en un campo = Listo, siguiente.
+    panel.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.matches('input')) { e.preventDefault(); confirmar(); } });
+  } else dlg = ventana(ctx, 'Revisar archivo', contenido, { botones });
   // La casilla de mensual solo tiene sentido si la carpeta elegida no es ya mensual.
   actualizarMensual = () => { mensual.parentElement.hidden = !!destino && mensuales.some(x => x.carpetaId === destino); };
   actualizarMensual();

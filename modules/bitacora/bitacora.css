@@ -622,3 +622,24 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-mtarj-pie { padding: 0.5rem 0.65rem 0.6rem; display: grid; gap: 0.1rem; min-width: 0; }
 .bt-mtarj-pie b { font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .bt-mtarj-pie small { font-size: 0.75rem; color: var(--tinta-2); }
+
+/* Para revisar en la PC: lista a la izquierda, el archivo abierto en un panel al costado */
+.bt.con-arbol:has(.bt-rev-panel) { grid-template-columns: minmax(0, 1fr); }
+.bt:has(.bt-rev-panel) > .bt-lado { display: none; }   /* con el panel abierto, el árbol deja lugar */
+#pantalla:has(.bt-rev-panel) { max-width: 92rem; }
+.bt-rev-izq .bt-or-item .boton { display: none; }
+.bt-rev-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr); gap: 1rem; align-items: start; }
+.bt-rev-izq { display: grid; gap: 0.75rem; min-width: 0; align-content: start; }
+.bt-rev-izq .bt-or-t small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-or-item.sel { border-color: var(--laton); background: color-mix(in srgb, var(--laton) 12%, var(--superficie)); }
+.bt-rev-panel { position: sticky; top: 4.25rem; max-height: calc(100vh - 5.5rem); display: grid; grid-template-rows: auto minmax(0, 1fr) auto; background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; min-width: 0; }
+.bt-rev-cab { display: flex; align-items: center; gap: 0.4rem; padding: 0.7rem 0.9rem; border-bottom: 1px solid var(--linea); }
+.bt-rev-cab b { flex: 1; min-width: 0; font-family: var(--fuente-titulo); font-size: 1.2rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-rev-avance { font-size: 0.8rem; color: var(--tinta-2); white-space: nowrap; margin-right: 0.3rem; }
+.bt-rev-cuerpo { overflow-y: auto; overflow-x: hidden; padding: 0.9rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(min(15rem, 100%), 1fr)); gap: 1rem; align-items: start; }
+.bt-rev-doc { position: sticky; top: 0; }
+.bt-rev-doc .bt-portada { width: 100%; }
+.bt-rev-pie { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; padding: 0.7rem 0.9rem; border-top: 1px solid var(--linea); }
+.bt-rev-pie .bt-espacio { flex: 1; }
+.bt-rev-cuerpo > * { min-width: 0; }
+.bt-rev-cuerpo .bt-or-rev input, .bt-rev-cuerpo .bt-or-rev select { max-width: 100%; min-width: 0; }
