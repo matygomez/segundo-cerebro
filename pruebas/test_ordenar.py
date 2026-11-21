@@ -35,15 +35,24 @@ with sync_playwright() as p:
         estado['pedidos']+=1
         if estado.get('falla'): route.fulfill(status=429, body='{}'); return
         cuerpo=json.loads(route.request.post_data)
+        modelo=route.request.url.split('/models/')[1].split(':')[0]
+        estado.setdefault('modelos',[]).append(modelo)
+        # El primer modelo llegó a su límite: tiene que probar el siguiente (cada uno tiene su cupo).
+        if estado.get('primeroLleno') and modelo=='gemini-2.5-flash': route.fulfill(status=429, body='{}'); return
+        estado['sinPensar']=cuerpo.get('generationConfig',{}).get('thinkingConfig',{}).get('thinkingBudget')==0
         estado['tieneArchivo']=any('inline_data' in pt for pt in cuerpo['contents'][0]['parts'])
         route.fulfill(status=200, content_type='application/json', body=json.dumps(respuesta(ids, estado['seguro'])))
     page.route('https://generativelanguage.googleapis.com/**', gem)
+    estado['primeroLleno']=True
     page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1200)
     chk(page.locator('.bt-or-zona').count()==1,'zona subir')
     with page.expect_file_chooser() as fc: page.locator('.bt-or-zona').click()
     fc.value.set_files(files=[{'name':'factura_0458812.pdf','mimeType':'application/pdf','buffer':PDF}])
     page.wait_for_timeout(2000)
-    chk(estado['pedidos']==1 and estado.get('tieneArchivo'),'gemini recibió el pdf')
+    chk(estado.get('modelos',[])[:2]==['gemini-2.5-flash','gemini-2.5-flash-lite'],'si un modelo está lleno prueba el siguiente '+str(estado.get('modelos')))
+    chk(estado.get('sinPensar'),'pide sin pensar a los 2.5')
+    estado['primeroLleno']=False
+    chk(estado['pedidos']==2 and estado.get('tieneArchivo'),'gemini recibió el pdf')
     chk(page.locator('.bt-or-item:has-text("2026-10 Gas Metrogas")').count()==1,'item listo')
     chk(page.locator('.bt-or-est.confirmar').count()==1,'estado para confirmar')
     page.screenshot(path=S+f'or_lista_{w}.png', full_page=True)

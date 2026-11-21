@@ -21,7 +21,8 @@ import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
 import { portada, visor } from './visor.js';
 
-const MODELOS = ['gemini-flash-latest', 'gemini-2.5-flash', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
+// Primero los rápidos y menos saturados; los "latest" (los más nuevos) van de respaldo.
+const MODELOS = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-flash-latest', 'gemini-flash-lite-latest', 'gemini-2.0-flash'];
 const MODELOS_BUSCAR = ['gemini-2.5-flash', 'gemini-2.5-flash-lite', 'gemini-2.0-flash', 'gemini-flash-lite-latest', 'gemini-flash-latest'];
 const MAX_LEER = 15 * 1024 * 1024;   // Gemini acepta hasta ~20 MB por pedido
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
@@ -88,38 +89,55 @@ Carpetas (id | ruta | ejemplos):
 ${listaCarpetas(d)}`;
 }
 
-// Si un modelo está saturado (500/503) se reintenta un par de veces y después
-// se prueba el siguiente; si ninguno responde, se avisa.
+// Si un modelo está saturado (500/503), llegó a su límite (429: cada modelo
+// tiene su propio cupo gratis) o tarda demasiado, se prueba el siguiente.
 const esperar = (ms) => new Promise(r => setTimeout(r, ms));
 // Un error que se arregla solo con el tiempo (límite, saturación, sin conexión):
 // el archivo queda "En espera" y la app lo vuelve a intentar sola.
 const reintentable = (texto) => Object.assign(new Error(texto), { reintentable: true });
-// seguirSiLimite: si un modelo llegó a su límite, prueba el siguiente (cada modelo tiene su propio cupo gratis).
-async function pedirGemini(clave, cuerpo, { modelos = MODELOS, seguirSiLimite = false } = {}) {
-  let saturado = false, ultimo = 0, limite = '';
+const ESPERA_MODELO = 45000;   // si un modelo no contesta en 45 s, se pasa al siguiente
+const ESPERA_TOTAL = 150000;   // menos que los 3 min en que la app da por colgada una lectura
+// Los 2.5 "piensan" antes de contestar si no se les dice: para leer un archivo no hace falta y lo hace lento.
+const sinPensar = (modelo, cuerpo) => (/^gemini-2\.5/.test(modelo)
+  ? { ...cuerpo, generationConfig: { ...(cuerpo.generationConfig || {}), thinkingConfig: { thinkingBudget: 0 } } }
+  : cuerpo);
+async function pedirGemini(clave, cuerpo, { modelos = MODELOS } = {}) {
+  let saturado = false, lento = false, limite = false, ultimo = 0;
+  const fin = Date.now() + ESPERA_TOTAL;
   for (const modelo of modelos) {
-    for (let intento = 0; intento < 2; intento++) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
-        method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave }, body: JSON.stringify(cuerpo),
-      }).catch(() => { throw reintentable('Sin conexión con Gemini.'); });
+    for (let intento = 0; intento < 2 && Date.now() < fin; intento++) {
+      const corte = new AbortController();
+      const reloj = setTimeout(() => corte.abort(), Math.min(ESPERA_MODELO, fin - Date.now()));
+      let r;
+      try {
+        r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': clave },
+          body: JSON.stringify(sinPensar(modelo, cuerpo)), signal: corte.signal,
+        });
+      } catch {
+        clearTimeout(reloj);
+        if (!corte.signal.aborted) throw reintentable('Sin conexión con Gemini.');
+        lento = true; break;   // tardó demasiado: el siguiente modelo
+      }
       ultimo = r.status;
-      if (r.ok) return r.json();
+      if (r.ok) {
+        try { return await r.json(); } catch { lento = true; break; } finally { clearTimeout(reloj); }
+      }
+      clearTimeout(reloj);
       if (r.status === 400 || r.status === 403) {
         const t = await r.text();
         if (/API key|API_KEY|permission/i.test(t)) throw reintentable('La clave de Gemini no es válida. Revisala en Configurar Bitácora.');
         throw new Error('Gemini no pudo leer este archivo.');
       }
-      if (r.status === 429) {
-        if (!seguirSiLimite) throw reintentable('Gemini llegó al límite gratis por ahora.');
-        limite = modelo; break;
-      }
+      if (r.status === 429) { limite = true; break; }
       if (r.status === 404) break;   // ese modelo ya no existe: el siguiente
-      if (r.status >= 500) { saturado = true; await esperar(1500 * (intento + 1)); continue; }
+      if (r.status >= 500) { saturado = true; if (intento === 0) await esperar(1500); continue; }
       throw reintentable(`Gemini no respondió (${r.status}).`);
     }
   }
+  if (saturado || lento) throw reintentable('Gemini está saturado en este momento.');
   if (limite) throw reintentable('Gemini llegó al límite gratis en todos los modelos.');
-  throw reintentable(saturado ? 'Gemini está saturado en este momento.' : `Gemini no respondió (${ultimo || '?'}).`);
+  throw reintentable(`Gemini no respondió (${ultimo || '?'}).`);
 }
 
 // Para otros módulos (el Resumen del día): una pregunta de texto, con búsqueda
@@ -130,7 +148,7 @@ export async function preguntarGemini(clave, texto, { buscar = false } = {}) {
     contents: [{ role: 'user', parts: [{ text: texto }] }],
     ...(buscar ? { tools: [{ google_search: {} }] } : {}),
     generationConfig: { temperature: 0.3 },
-  }, { modelos: buscar ? MODELOS_BUSCAR : MODELOS, seguirSiLimite: true });
+  }, { modelos: buscar ? MODELOS_BUSCAR : MODELOS });
   const c = r?.candidates?.[0];
   const fuentes = (c?.groundingMetadata?.groundingChunks || []).map(x => x.web).filter(Boolean).map(w => ({ titulo: w.title || '', url: w.uri || '' }));
   return { texto: c?.content?.parts?.map(p => p.text || '').join('') || '', fuentes };
