@@ -621,3 +621,39 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
 /* Ajustes › App de Android */
 .aj-estado-ok { color: var(--verde); font-weight: 600; white-space: nowrap; }
 .aj-dos { display: inline-flex; align-items: center; gap: 0.5rem; }
+
+/* ── Criterio común de los módulos en la PC ──────────────────
+   Todos los módulos arman su pantalla igual: título a la izquierda,
+   herramientas y botón principal a la derecha, pestañas a todo el
+   ancho debajo y tarjetas con el mismo título y enlace. En el celular
+   no cambia nada todavía. */
+.pestanas { display: flex; gap: 0.1rem; overflow-x: auto; border-bottom: 1px solid var(--linea); scrollbar-width: none; }
+.pestanas::-webkit-scrollbar { display: none; }
+.pestanas > a, .pestanas > button {
+  flex: none; position: relative; display: inline-flex; align-items: center; gap: 0.35rem;
+  padding: 0.5rem 0.75rem; border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px; background: none;
+  color: var(--tinta-2); font: inherit; font-weight: 500; font-size: 0.95rem; text-decoration: none; white-space: nowrap; cursor: pointer;
+}
+.pestanas > a:hover, .pestanas > button:hover { color: var(--tinta); }
+.pestanas > [aria-current='page'] { color: var(--tinta); border-bottom-color: var(--laton); }
+.pestanas .icono { width: 1.1rem; height: 1.1rem; }
+.pestana-num { min-width: 1.1rem; height: 1.1rem; padding: 0 0.3rem; border-radius: 999px; display: inline-grid; place-items: center; font-size: 0.68rem; font-weight: 600; background: var(--superficie-2); color: var(--tinta-2); }
+.cab-acciones { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; }
+
+@media (min-width: 900px) {
+  /* Mismo ancho para todas las pantallas */
+  html #pantalla, html #pantalla:has(> .ini), html #pantalla:has(> .bt.con-arbol), html #pantalla:has(.fz-cabecera), html #pantalla:has(> .cfg) { max-width: 82rem; }
+  .cabecera-pantalla { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; min-height: 2.75rem; }
+  .cabecera-pantalla .boton-icono { width: 2.5rem; height: 2.5rem; }
+  .cabecera-pantalla .boton { min-height: 2.5rem; }
+  /* Tarjetas: título blanco normal y enlace amarillo a la derecha */
+  .ini .mm-etq { font-size: 1.05rem; letter-spacing: 0; text-transform: none; color: var(--tinta); }
+  /* El buscador del Inicio repetía al de arriba */
+  .ini-pieza[data-clave='busqueda'] { display: none; }
+}
+.cfg { display: flex; flex-direction: column; gap: 1rem; }
+.cfg-cuerpo { display: flex; flex-direction: column; gap: 1rem; }
+@media (min-width: 900px) {
+  .cfg-cuerpo { display: grid; grid-template-columns: repeat(auto-fit, minmax(24rem, 1fr)); align-items: start; }
+}
+.cfg-cuerpo > :empty { display: none; }

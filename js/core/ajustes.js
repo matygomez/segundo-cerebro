@@ -15,7 +15,7 @@ import { idDispositivo } from './datos.js';
 import { CARPETA_DRIVE } from '../config.js';
 import { VERSION } from '../modulos.js';
 import { listaModulos } from './registro.js';
-import { navegacion, guardarNavegacion, ordenBarra, MAX_BARRA } from './preferencias.js';
+import { navegacion, guardarNavegacion, ordenBarra, MAX_BARRA, esPC } from './preferencias.js';
 import { seccionInicio } from './ajustes-inicio.js';
 
 let pedidoInstalacion = null;
@@ -29,7 +29,7 @@ export function pantallaAjustes(contenedor) {
   const seccionIni = h('section', { class: 'tarjeta aj-inicio', id: 'ajustes-inicio' });
 
   // ── Módulos: visible u oculto, por separado en PC y celular ──
-  const NOMBRES = { ajustes: 'Ajustes' };
+  const NOMBRES = { ajustes: 'Configuración' };
   const ICONOS = { ajustes: 'ajustes' };
   for (const m of listaModulos()) { NOMBRES[m.id] = m.nombre; ICONOS[m.id] = m.icono; }
   const delMenu = () => listaModulos().filter(m => !m.oculto);
@@ -70,7 +70,7 @@ export function pantallaAjustes(contenedor) {
     const guardar = async () => { nav.barra = lista.map(x => ({ id: x.id, on: x.on })); await guardarNavegacion(nav); };
     seccionBarra.replaceChildren(
       h('h2', {}, 'Barra de abajo ', h('span', { class: 'nota' }, '(celular)')),
-      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Ajustes, lo tenés tocando el logo de arriba.`),
+      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Configuración, la tenés tocando el logo de arriba.`),
       h('div', { class: 'aj-tabla' }, lista.map((x, i) => {
         const oculto = ocultoCel(x.id);
         const fijo = x.id === 'home';
@@ -211,18 +211,36 @@ export function pantallaAjustes(contenedor) {
   }
 
   const [seccionApp, quitarApp] = seccionAndroid();
-  contenedor.replaceChildren(
-    h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Ajustes')),
-    seccionDrive,
-    seccionApp,
-    seccionModulos,
-    seccionBarra,
-    seccionIni,
-    seccionDispositivo,
-  );
+  // En la PC, las secciones van en pestañas (como en los módulos). En el
+  // celular sigue siendo una sola página, una sección abajo de la otra.
+  const PESTANAS = [
+    { id: 'general', nombre: 'General', secciones: [seccionDrive, seccionApp, seccionDispositivo] },
+    { id: 'modulos', nombre: 'Menú y módulos', secciones: [seccionModulos, seccionBarra] },
+    { id: 'inicio', nombre: 'Inicio', secciones: [seccionIni] },
+  ];
+  const pestanaRuta = () => PESTANAS.find(p => location.hash.endsWith('/' + p.id))?.id || 'general';
+  const nav = h('nav', { class: 'pestanas cfg-pestanas', 'aria-label': 'Secciones de Configuración' });
+  function mostrarPestana() {
+    const actual = pestanaRuta(), pc = esPC();
+    nav.hidden = !pc;
+    nav.replaceChildren(...PESTANAS.map(p => h('a', { href: `#/ajustes/${p.id}`, 'aria-current': p.id === actual ? 'page' : false }, p.nombre)));
+    for (const p of PESTANAS) for (const s of p.secciones) if (s) s.hidden = pc && p.id !== actual;
+  }
+  contenedor.replaceChildren(h('div', { class: 'cfg' },
+    h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Configuración')),
+    nav,
+    h('div', { class: 'cfg-cuerpo' },
+      seccionDrive,
+      seccionApp,
+      seccionModulos,
+      seccionBarra,
+      seccionIni,
+      seccionDispositivo),
+  ));
+  mostrarPestana();
   const quitarInicio = seccionInicio(seccionIni);
   // #/ajustes/inicio (o un link desde el Inicio) lleva directo a esta sección.
-  if (/inicio$/.test(location.hash)) setTimeout(() => seccionIni.scrollIntoView({ block: 'start' }), 300);
+  if (/inicio$/.test(location.hash) && !esPC()) setTimeout(() => seccionIni.scrollIntoView({ block: 'start' }), 300);
   dibujarDrive();
   dibujarModulos();
   dibujarBarra();
@@ -234,5 +252,6 @@ export function pantallaAjustes(contenedor) {
     escuchar('datos', dibujarDispositivo),
     escuchar('preferencias', () => { dibujarModulos(); dibujarBarra(); }),
   ];
-  return () => { quitar.forEach(q => q()); quitarInicio(); quitarApp(); };
+  addEventListener('hashchange', mostrarPestana);
+  return () => { quitar.forEach(q => q()); quitarInicio(); quitarApp(); removeEventListener('hashchange', mostrarPestana); };
 }

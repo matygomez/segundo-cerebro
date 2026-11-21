@@ -60,7 +60,7 @@ function dibujarPanel() {
   const actual = leerRuta().id;
   const todos = [
     ...listaModulos().filter(m => !m.oculto && visible(m.id, 'cel')),
-    { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
+    { id: 'ajustes', nombre: 'Configuración', icono: 'ajustes' },
   ];
   panelModulos.replaceChildren(
     h('div', { class: 'panel-grilla' }, todos.map(m => h('a', {
@@ -71,7 +71,7 @@ function dibujarPanel() {
 function itemsMenu() {
   const todos = [
     ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
-    { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
+    { id: 'ajustes', nombre: 'Configuración', icono: 'ajustes' },
   ];
   if (esPC()) return todos.filter(it => visible(it.id, 'pc'));
   const orden = barraCelular(todos.map(it => it.id));

@@ -69,6 +69,7 @@ const TRAZOS = {
   imagen: '<rect x="3.5" y="5" width="17" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="m4 17 5-5 4 4 2.5-2.5L20 18"/>',
   calendario: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M8.5 3.5v4M15.5 3.5v4"/>',
   editar: '<path d="M5 19h4l10-10-4-4L5 15Z"/><path d="m13.5 6.5 4 4"/>',
+  engranaje: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/>',
 };
 // Símbolo de un tipo de campo (ícono de trazo o letra).
 export const simboloTipo = (t) => { const s = document.createElement('span'); s.className = 'bt-tipo-sym'; if (t.icono) s.append(ic(t.icono)); else s.textContent = t.sym; return s; };
@@ -186,11 +187,8 @@ export function arbol(ctx, m, d, actual = '') {
   const seccion = (id, titulo, boton = null) => h('div', { class: 'bt-ar-sec' },
     h('button', { type: 'button', class: `bt-ar-sec-tit${pleg.has(id) ? '' : ' abierta'}`, onclick: alternar(id) }, ic('flecha', 'icono bt-ar-sec-fl'), titulo), boton);
 
+  // Inicio, Buscar, Para revisar, Filmoteca y Papelera están en la cabecera (pestañas y lupa).
   const filas = [
-    fila('#/bitacora', [h('span', { class: 'bt-ar-flecha vacia' }), ic('inicio'), h('span', { class: 'bt-ar-nom' }, 'Inicio')], { sel: actual === 'inicio' }),
-    fila('#/bitacora/buscar', [h('span', { class: 'bt-ar-flecha vacia' }), ic('buscar'), h('span', { class: 'bt-ar-nom' }, 'Buscar')], { sel: actual === 'buscar' }),
-    fila('#/bitacora/pendientes', [h('span', { class: 'bt-ar-flecha vacia' }), ic('clip'), h('span', { class: 'bt-ar-nom' }, 'Para revisar')], { sel: actual === 'pendientes', n: d.totalRevisar || null }),
-    fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), ic('film'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
     seccion('sec:carpetas', 'Carpetas', h('button', { type: 'button', class: 'bt-ar-mas', title: 'Nueva carpeta', 'aria-label': 'Nueva carpeta', onclick: () => nuevaCarpeta(ctx, m, '') }, ic('mas'))),
   ];
   if (!pleg.has('sec:carpetas')) {
@@ -220,8 +218,6 @@ export function arbol(ctx, m, d, actual = '') {
       }
     }
   }
-  filas.push(h('div', { class: 'bt-ar-sep' }));
-  filas.push(fila('#/bitacora/papelera', [h('span', { class: 'bt-ar-flecha vacia' }), ic('papelera'), h('span', { class: 'bt-ar-nom' }, 'Papelera')], { sel: actual === 'papelera', n: d.papelera.length || null }));
   return h('nav', { class: 'bt-arbol', 'aria-label': 'Carpetas y etiquetas' }, filas);
 }
 
@@ -244,13 +240,32 @@ export function vacio(ctx, titulo, texto, ...botones) {
   return h('div', { class: 'vacio' }, h('h2', {}, titulo), texto ? h('p', {}, texto) : null, botones.length ? h('div', { class: 'botonera' }, botones) : null);
 }
 
-export function cabecera(ctx, { titulo, marca = null, volver = null, botones = [] }) {
+export function cabecera(ctx, { titulo, marca = null, volver = null, botones = [], clase = '' }) {
   const { h } = ctx;
-  return h('header', { class: 'bt-cab' },
+  return h('header', { class: `bt-cab ${clase}`.trim() },
     volver ? h('a', { href: volver.href, class: 'bt-volver' }, `‹ ${volver.texto}`) : null,
     h('div', { class: 'bt-cab-fila' },
       h('h1', { class: 'bt-titulo' }, marca, h('span', {}, titulo)),
       h('div', { class: 'bt-cab-botones' }, botones)));
+}
+
+// Cabecera del módulo en la PC, igual que en los demás: título, lupa,
+// configuración y "+ Nueva" a la derecha; debajo, las pestañas.
+export function cabeceraModulo(ctx, m, d, actual) {
+  const { h } = ctx;
+  const pest = (href, id, texto, n = null) => h('a', { href, 'aria-current': actual === id ? 'page' : false }, texto, n ? h('span', { class: 'pestana-num' }, String(n)) : null);
+  return h('div', { class: 'bt-modcab' },
+    h('header', { class: 'cabecera-pantalla' },
+      h('h1', {}, 'Bitácora'),
+      h('div', { class: 'cab-acciones' },
+        h('a', { href: '#/bitacora/buscar', class: 'boton-icono', title: 'Buscar en Bitácora', 'aria-label': 'Buscar en Bitácora' }, ic('buscar')),
+        h('a', { href: '#/bitacora/ajustes', class: 'boton-icono', title: 'Configurar Bitácora', 'aria-label': 'Configurar Bitácora' }, ic('engranaje')),
+        botonNueva(ctx, m, d, BANDEJA))),
+    h('nav', { class: 'pestanas', 'aria-label': 'Secciones de Bitácora' },
+      pest('#/bitacora', 'inicio', 'Inicio'),
+      pest('#/bitacora/pendientes', 'pendientes', 'Para revisar', d.totalRevisar || null),
+      pest('#/bitacora/f', 'f', 'Filmoteca'),
+      pest('#/bitacora/papelera', 'papelera', 'Papelera', d.papelera.length || null)));
 }
 
 const botonNueva = (ctx, m, d, carpetaId) => ctx.h('button', { type: 'button', class: 'boton principal bt-nueva', onclick: () => menuNueva(ctx, m, d, carpetaId) }, ic('mas'), 'Nueva');
@@ -261,14 +276,14 @@ export function pantallaInicio(ctx, m, d, main) {
   const cfg = configInicio(d);
   const cont = [];
   cont.push(cabecera(ctx, {
-    titulo: 'Bitácora', marca: icono('bitacora'),
+    titulo: 'Bitácora', marca: icono('bitacora'), clase: 'bt-cab-inicio',
     botones: [
       h('a', { href: '#/bitacora/ajustes', class: 'boton-icono', title: 'Configurar Bitácora', 'aria-label': 'Configurar Bitácora' }, ic('ajustes')),
       h('a', { href: '#/bitacora/pendientes', class: 'boton', title: 'Subir y ordenar archivos' }, ic('clip'), 'Archivos', d.totalRevisar ? h('span', { class: 'bt-or-num' }, String(d.totalRevisar)) : null),
       botonNueva(ctx, m, d, BANDEJA),
     ],
   }));
-  cont.push(h('a', { href: '#/bitacora/buscar', class: 'bt-busca' }, ic('buscar'), h('span', {}, 'Buscar en títulos, texto y #etiquetas…')));
+  cont.push(h('a', { href: '#/bitacora/buscar', class: 'bt-busca bt-busca-inicio' }, ic('buscar'), h('span', {}, 'Buscar en títulos, texto y #etiquetas…')));
   if (d.totalRevisar) cont.push(h('a', { href: '#/bitacora/pendientes', class: 'tarjeta bt-or-banner' }, ic('clip'), h('span', {}, h('b', {}, `${d.totalRevisar} archivo${d.totalRevisar === 1 ? '' : 's'} para revisar`), h('small', {}, 'Confirmá dónde va cada uno.')), h('span', { class: 'bt-link-chico' }, 'Revisar ›')));
 
   {

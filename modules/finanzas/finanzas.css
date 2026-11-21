@@ -40,7 +40,13 @@
   .fz-cabecera { grid-template-columns: 1fr auto; align-items: center; }
   .fz-pestanas { grid-column: 1 / -1; }
   .fz-acciones { display: flex; }
-  .fz-acciones .boton { padding: 0.5rem 1rem; }
+  .fz-acciones .boton { padding: 0.5rem 1rem; min-height: 2.5rem; }
+  /* Criterio común: herramientas primero y el botón principal en la punta derecha */
+  .fz-cabecera { margin-bottom: 0.25rem; }
+  .fz-acciones .fz-config { order: -1; width: 2.5rem; padding: 0; }
+  .fz-acciones .principal { order: 9; }
+  .fz-titulo h1 { font-size: 2.1rem; }
+  .fz-cuadro.apagado { border-style: solid; }
 }
 
 .fz-cuerpo { display: grid; gap: 1rem; padding-bottom: 1rem; }
@@ -675,3 +681,5 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
 .fz-chip-cerrado { font-size: 0.7rem; background: #1B2733; color: #8DB4DC; border-radius: 4px; padding: 0.05rem 0.4rem; margin-left: 0.35rem; white-space: nowrap; }
 .fz-no-lo-uso { display: grid; gap: 0.3rem; margin-top: 0.4rem; justify-items: start; }
 .fz-mes button:disabled { opacity: 0.3; cursor: default; background: none; }
+/* En la PC la cabecera va arriba de todo (criterio común): no se repite en la columna. */
+@media (min-width: 900px) { .fz-fija > .fz-titulo, .fz-fija > .fz-acciones, .fz-fija > .fz-pestanas { display: none; } }

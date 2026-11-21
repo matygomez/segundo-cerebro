@@ -668,7 +668,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     function seccionCalendario() {
       const cal = ctx.calendario;
       const titulo = h('h3', {}, 'Google Calendar');
-      if (!cal?.configurado?.()) return [titulo, h('p', { class: 'nota' }, 'Primero hay que vincular la app con Google (Ajustes).')];
+      if (!cal?.configurado?.()) return [titulo, h('p', { class: 'nota' }, 'Primero hay que vincular la app con Google (Configuración).')];
       const refrescar = async () => { await new Promise(r => setTimeout(r, 200)); d = await m.cargar(); pintar(); };
       if (!cal.disponible()) {
         return [titulo,

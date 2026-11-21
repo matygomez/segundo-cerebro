@@ -68,9 +68,10 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   contenedor.replaceChildren(cabecera, cuerpo);
 
   // ── Encabezado: título, mes, botones y pestañas ──
-  // En el panel, la cabecera va arriba de la primera columna; en las demás vistas, arriba de todo.
+  // En el celular, en el panel la cabecera va arriba de la primera columna.
+  // En la PC va siempre arriba de todo, igual que en los otros módulos.
   function dibujarCabecera() {
-    const enPanel = vista === 'panel';
+    const enPanel = vista === 'panel' && !matchMedia('(min-width: 900px)').matches;
     cabecera.hidden = enPanel;
     if (enPanel) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
   }

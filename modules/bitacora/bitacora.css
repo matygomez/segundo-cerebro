@@ -657,3 +657,17 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-rev-cuerpo .bt-or-dos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(9rem, 100%), 1fr)); gap: 0.6rem; }
 .bt-rev-cuerpo input[type=date] { width: 100%; }
 @container (max-width: 640px) { .bt-rev-cuerpo { grid-template-columns: minmax(0, 1fr); } .bt-rev-doc { position: static; } .bt-rev-doc .bt-vis { height: 45vh; } }
+
+/* Criterio común en la PC: la cabecera de arriba reemplaza a la del Inicio
+   del módulo, a su buscador y a los "‹ Bitácora" de las pestañas. */
+.bt-cabtop:empty { display: none; }
+.bt-modcab { display: grid; gap: 0.75rem; margin-bottom: 0.25rem; }
+.bt-cabtop:not(:empty) ~ .bt .bt-cab-inicio,
+.bt-cabtop:not(:empty) ~ .bt .bt-busca-inicio,
+.bt-cabtop:not(:empty) ~ .bt .bt-volver[href='#/bitacora'] { display: none; }
+@media (min-width: 900px) {
+  .bt-bloque-h { font-size: 1.05rem !important; letter-spacing: 0; text-transform: none; color: var(--tinta); }
+  .bt-link-chico { color: var(--laton); }
+  .bt-link-chico:hover { color: var(--laton); text-decoration: underline; }
+  .bt.con-arbol .bt-lado { top: 1rem; }
+}

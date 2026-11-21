@@ -362,10 +362,10 @@ dialog.tr-ventana { width: min(34rem, calc(100vw - 1rem)); box-sizing: border-bo
   #pantalla:has(.tr-zona) { max-width: none; }
   .tr-zona.con-detalle { grid-template-columns: minmax(0, 1fr) var(--tr-ancho-panel, 520px); }
   .tr-columna { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
-  /* Botones al lado del título, del lado izquierdo */
-  .tr-cabecera { justify-content: flex-start; gap: 1.25rem; flex-wrap: wrap; }
-  .tr-cabecera .tr-herramientas .boton-icono { width: 2.4rem; height: 2.4rem; }
-  .tr-cabecera .tr-nueva-arriba { min-height: 2.4rem; padding: 0.35rem 0.9rem; }
+  /* Criterio común: título a la izquierda, herramientas y "Nueva tarea" a la derecha */
+  .tr-cabecera { justify-content: space-between; gap: 1.25rem; flex-wrap: wrap; }
+  .tr-cabecera .tr-herramientas .boton-icono { width: 2.5rem; height: 2.5rem; }
+  .tr-cabecera .tr-nueva-arriba { min-height: 2.5rem; padding: 0.35rem 0.9rem; }
   .tr-panel {
     position: sticky; top: calc(var(--tr-arriba, 0px) + 0.75rem); align-self: start;
     height: calc(100vh - var(--tr-arriba, 0px) - 1.5rem);

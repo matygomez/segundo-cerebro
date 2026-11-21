@@ -20,7 +20,7 @@
 import { crearModelo, espejoDe, sincronizarRecordatorios, BANDEJA, hoyISO, textoArchivo } from './modelo.js';
 import {
   cargarEstilos, esPC, arbol, pantallaInicio, pantallaCarpeta, pantallaEtiqueta, pantallaBuscar,
-  pantallaPapelera, pantallaAjustes, recibirCompartido, ic, crearYAbrir,
+  pantallaPapelera, pantallaAjustes, recibirCompartido, ic, crearYAbrir, cabeceraModulo,
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
@@ -137,7 +137,9 @@ export default {
     const lado = h('aside', { class: 'bt-lado' });
     const main = h('div', { class: 'bt-main' });
     const raiz = h('div', { class: 'bt' }, lado, main);
-    contenedor.replaceChildren(raiz);
+    // En la PC, cabecera común arriba (título, botones y pestañas).
+    const cabTop = h('div', { class: 'bt-cabtop' });
+    contenedor.replaceChildren(cabTop, raiz);
 
     let [que, ...resto] = sub;
     let actual = 'inicio';
@@ -170,6 +172,7 @@ export default {
     function pintarLado() {
       raiz.classList.toggle('con-arbol', esPC());
       lado.replaceChildren(esPC() ? arbol(ctx, m, d, actual) : '');
+      cabTop.replaceChildren(esPC() ? cabeceraModulo(ctx, m, d, actual) : '');
     }
 
     if (que === 'compartir') {
