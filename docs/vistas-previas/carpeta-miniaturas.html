@@ -1,0 +1,144 @@
+<title>Bitácora en miniaturas</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600&family=Barlow+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Vista previa: una carpeta de Bitácora con botón Lista / Miniaturas, en celular y PC. Tema oscuro de la app. */
+:root{--papel:#0B0B0C;--fondo:#050506;--superficie:#1B1C1E;--superficie-2:#242528;--linea:#2E3033;--tinta:#E6E6E6;--tinta-2:#9A9C9F;--laton:#D3AB5C;--laton-f:#2B2416;--rojo:#E2786C;--azul:#8DB4DC;--verde:#6FB4A0;
+--titulo:'Barlow Condensed','Barlow',system-ui,sans-serif;--texto:'Barlow',system-ui,sans-serif;color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--fondo);color:var(--tinta);font-family:var(--texto);font-size:15px}
+button{font:inherit;color:inherit;cursor:pointer}
+button:focus-visible,a:focus-visible{outline:2px solid var(--laton);outline-offset:2px}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:30;background:var(--fondo)}
+.control{position:sticky;top:env(safe-area-inset-top,0px);z-index:20;background:#050506ee;backdrop-filter:blur(8px);border-bottom:1px solid var(--linea);padding-block:10px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center}
+.control b{font-family:var(--titulo);font-size:1.1rem;color:var(--laton);letter-spacing:.02em}
+.control span{font-size:.85rem;color:var(--tinta-2)}
+.seg{display:inline-flex;border:1px solid var(--linea);border-radius:9px;overflow:hidden}
+.seg button{border:0;background:var(--superficie);padding:6px 12px;font-size:.88rem}
+.seg button[aria-pressed="true"]{background:var(--laton);color:#1a1408;font-weight:600}
+.envoltura{padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:18px;max-width:1300px;margin:0 auto}
+.explica{max-width:68ch;color:var(--tinta-2);line-height:1.5;margin:0}
+.explica b{color:var(--tinta)}
+/* Marco de la app */
+.app{background:var(--papel);border:1px solid var(--linea);border-radius:18px;padding:18px;min-width:0}
+.cel{max-width:390px;width:100%;margin:0 auto}
+.cab{display:grid;gap:4px;margin-bottom:14px}
+.volver{font-size:.85rem;color:var(--tinta-2)}
+.cab-fila{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.marca{width:28px;height:28px;border-radius:8px;background:#3a2f18;color:var(--laton);display:grid;place-items:center;font-size:.85rem;font-weight:600}
+.cab h1{font-family:var(--titulo);font-size:1.9rem;margin:0;font-weight:600;line-height:1}
+.botones{margin-left:auto;display:flex;gap:6px;align-items:center}
+.bi{width:36px;height:36px;border-radius:10px;border:1px solid var(--linea);background:var(--superficie);display:grid;place-items:center;padding:0}
+.bi svg{width:18px;height:18px}
+.bi.activo{border-color:var(--laton);color:var(--laton);background:var(--laton-f)}
+.nueva{border:0;border-radius:10px;background:var(--laton);color:#1a1408;font-weight:600;padding:8px 12px;font-size:.9rem}
+.sub{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px}
+.sub a{display:inline-flex;gap:6px;align-items:center;padding:6px 12px;border-radius:999px;border:1px solid var(--linea);background:var(--superficie);font-size:.88rem;color:inherit;text-decoration:none}
+.sub small{color:var(--tinta-2)}
+/* Lista (como hoy) */
+.lista{background:var(--superficie);border-radius:14px;padding:4px 14px}
+.fila{display:flex;gap:12px;align-items:center;padding:10px 0;border-top:1px solid var(--linea);min-width:0}
+.fila:first-child{border-top:0}
+.fila-t{flex:1;min-width:0;display:grid;gap:1px}
+.fila-t b{font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fila-t span,.fila-t small{font-size:.82rem;color:var(--tinta-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cuando{font-size:.75rem;color:var(--tinta-2);white-space:nowrap}
+/* Miniaturas */
+.grilla{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pc .grilla{grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:14px}
+.tarj{background:var(--superficie);border:1px solid var(--linea);border-radius:12px;overflow:hidden;display:grid;grid-template-rows:auto auto;min-width:0;text-align:left;padding:0}
+.tarj:hover{border-color:#4a4c50}
+.mini{aspect-ratio:4/3;max-width:100%;background:var(--superficie-2);position:relative;overflow:hidden;display:grid;place-items:center}
+.tipo{position:absolute;left:8px;bottom:8px;font-size:.68rem;font-weight:600;letter-spacing:.06em;padding:2px 6px;border-radius:5px;background:#000a;color:var(--tinta)}
+.tipo.pdf{color:var(--rojo)}.tipo.foto{color:var(--azul)}.tipo.nota{color:var(--laton)}
+.pags{position:absolute;right:8px;bottom:8px;font-size:.68rem;padding:2px 6px;border-radius:5px;background:#000a;color:var(--tinta-2)}
+.pin{position:absolute;right:8px;top:8px;width:20px;height:20px;border-radius:50%;background:var(--laton);color:#1a1408;font-size:.7rem;display:grid;place-items:center}
+.pie{padding:8px 10px 10px;display:grid;gap:2px;min-width:0}
+.pie b{font-weight:500;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pie small{font-size:.75rem;color:var(--tinta-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Hoja de papel dibujada (primera página de un PDF) */
+.hoja{width:62%;height:88%;margin-top:12%;background:#f3f1ec;border-radius:2px;box-shadow:0 2px 10px #0008;padding:9% 8%;display:grid;align-content:start;gap:5px}
+.hoja i{display:block;height:4px;border-radius:2px;background:#c9c5bc}
+.hoja i.t{height:7px;width:55%;background:#7d7a73}
+.hoja i.l{height:9px;width:28%;margin-bottom:4px}
+.hoja i.c{width:70%}.hoja i.m{width:45%;background:#d98c57}
+.hoja.azul i.l{background:#3a6ea5}.hoja.verde i.l{background:#3b8a6f}.hoja.gris i.l{background:#555}
+/* Nota de texto: el comienzo del texto */
+.texto{position:absolute;inset:0;padding:12px 12px 26px;font-size:.72rem;line-height:1.35;color:var(--tinta-2);overflow:hidden;text-align:left}
+.texto strong{display:block;color:var(--tinta);font-size:.8rem;margin-bottom:3px}
+.texto::after{content:"";position:absolute;inset:auto 0 0;height:40px;background:linear-gradient(transparent,var(--superficie-2))}
+.foto1{background:linear-gradient(160deg,#5d7a8c 0%,#2f4a5a 45%,#6b5a3e 46%,#3f3424 100%)}
+.foto2{background:radial-gradient(circle at 70% 30%,#e8c37a 0 14%,transparent 15%),linear-gradient(180deg,#7fa2c0 0%,#a9b9c4 55%,#55663f 56%,#34401f 100%)}
+.aviso-datos{font-size:.8rem;color:var(--tinta-2);margin:12px 0 0}
+.pantallas{display:grid;grid-template-columns:minmax(0,390px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.pantallas{grid-template-columns:minmax(0,1fr)}.solo-pc{display:none}}
+.etq{font-family:var(--titulo);font-size:.95rem;letter-spacing:.06em;text-transform:uppercase;color:var(--tinta-2);margin:0 0 8px}
+</style>
+
+<div class="control">
+  <b>Vista previa · Bitácora</b>
+  <div class="seg" role="group" aria-label="Cómo ver la carpeta">
+    <button id="b-lista" type="button" aria-pressed="false">Lista (como hoy)</button>
+    <button id="b-mini" type="button" aria-pressed="true">Miniaturas (nuevo)</button>
+  </div>
+  <span>Datos de ejemplo</span>
+</div>
+
+<div class="envoltura">
+  <p class="explica">Al entrar a una carpeta, un botón arriba a la derecha <b>(el cuadradito)</b> cambia entre <b>lista</b> y <b>miniaturas</b>. En miniaturas cada archivo muestra su primera página o la foto, y las notas muestran el comienzo del texto. La app recuerda cómo dejaste cada carpeta. Tocá los botones de arriba para comparar.</p>
+  <div class="pantallas">
+    <div><p class="etq">Celular</p><div class="app cel" id="cel"></div></div>
+    <div class="solo-pc"><p class="etq">PC</p><div class="app pc" id="pc"></div></div>
+  </div>
+</div>
+
+<script>
+const ITEMS = [
+  { t: '2026-10 Gas Metrogas', tipo: 'pdf', pags: 2, color: '', sub: 'Factura · vence 24 nov', cuando: 'hace 2 h', pin: true },
+  { t: '2026-10 Luz Edenor', tipo: 'pdf', pags: 1, color: 'azul', sub: 'Factura · $ 31.250', cuando: 'ayer' },
+  { t: 'Medidor de gas', tipo: 'foto', foto: 'foto1', sub: 'Foto · 3,1 MB', cuando: 'hace 3 días' },
+  { t: 'Contrato de alquiler 2026', tipo: 'pdf', pags: 12, color: 'gris', sub: 'Contrato · vence 31 mar 2027', cuando: '12 oct' },
+  { t: 'Arreglo del calefón', tipo: 'nota', texto: 'Vino el gasista el martes. Cambió la válvula y dijo que hay que revisar la ventilación antes del invierno. Cobró $ 45.000 con factura.', sub: 'Nota', cuando: '8 oct' },
+  { t: '2026-09 Agua AySA', tipo: 'pdf', pags: 1, color: 'verde', sub: 'Factura · pagada', cuando: '28 sep' },
+  { t: 'Frente de la casa', tipo: 'foto', foto: 'foto2', sub: 'Foto · 2,4 MB', cuando: '20 sep' },
+  { t: 'Teléfonos útiles', tipo: 'nota', texto: 'Plomero: Raúl. Electricista: Darío. Cerrajero 24 h. Administración del barrio: lunes a viernes de 9 a 17.', sub: 'Nota', cuando: '2 sep' },
+];
+const SVG = {
+  lista: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>',
+  mini: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg>',
+  puntos: '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/></svg>',
+};
+let modo = 'mini';
+const esc = (s) => s.replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function miniatura(x) {
+  let dentro = '';
+  if (x.tipo === 'pdf') dentro = `<div class="hoja ${x.color}"><i class="l"></i><i class="t"></i><i></i><i class="c"></i><i></i><i class="c"></i><i class="m"></i><i></i><i class="c"></i></div><span class="pags">${x.pags} pág.</span>`;
+  if (x.tipo === 'foto') dentro = `<div class="${x.foto}" style="position:absolute;inset:0"></div>`;
+  if (x.tipo === 'nota') dentro = `<div class="texto"><strong>${esc(x.t)}</strong>${esc(x.texto)}</div>`;
+  const nombre = { pdf: 'PDF', foto: 'FOTO', nota: 'NOTA' }[x.tipo];
+  return `<div class="mini">${dentro}<span class="tipo ${x.tipo}">${nombre}</span>${x.pin ? '<span class="pin" title="Fijada">★</span>' : ''}</div>`;
+}
+
+function carpeta() {
+  const cab = `<div class="cab"><span class="volver">‹ Casa</span><div class="cab-fila"><span class="marca">S</span><h1>Servicios</h1>
+    <div class="botones"><button type="button" class="bi activo" data-cambiar title="${modo === 'mini' ? 'Ver como lista' : 'Ver en miniaturas'}" aria-label="${modo === 'mini' ? 'Ver como lista' : 'Ver en miniaturas'}">${modo === 'mini' ? SVG.lista : SVG.mini}</button>
+    <button type="button" class="bi" aria-label="Opciones de la carpeta">${SVG.puntos}</button><button type="button" class="nueva">+ Nueva</button></div></div></div>
+    <div class="sub"><a href="#">Gas <small>6</small></a><a href="#">Luz <small>9</small></a><a href="#">Agua <small>4</small></a></div>`;
+  const cuerpo = modo === 'lista'
+    ? `<div class="lista">${ITEMS.map(x => `<div class="fila"><div class="fila-t"><b>${x.pin ? '★ ' : ''}${esc(x.t)}</b><small>${esc(x.sub)}</small></div><span class="cuando">${x.cuando}</span></div>`).join('')}</div>`
+    : `<div class="grilla">${ITEMS.map(x => `<button type="button" class="tarj">${miniatura(x)}<div class="pie"><b>${esc(x.t)}</b><small>${esc(x.sub)} · ${x.cuando}</small></div></button>`).join('')}</div>
+       <p class="aviso-datos">La primera vez que abrís la carpeta, cada miniatura se baja de Drive y después queda guardada en el dispositivo.</p>`;
+  return cab + cuerpo;
+}
+
+function pintar() {
+  for (const id of ['cel', 'pc']) document.getElementById(id).innerHTML = carpeta();
+  document.getElementById('b-lista').setAttribute('aria-pressed', modo === 'lista');
+  document.getElementById('b-mini').setAttribute('aria-pressed', modo === 'mini');
+  document.querySelectorAll('[data-cambiar]').forEach(b => b.onclick = () => { modo = modo === 'mini' ? 'lista' : 'mini'; pintar(); });
+}
+document.getElementById('b-lista').onclick = () => { modo = 'lista'; pintar(); };
+document.getElementById('b-mini').onclick = () => { modo = 'mini'; pintar(); };
+pintar();
+</script>

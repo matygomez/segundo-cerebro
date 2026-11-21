@@ -319,6 +319,8 @@ export function crearModelo(ctx) {
       plantillas: ordenar(plantillas),
       recordatorios,
       pendientes: pendientes.sort((a, b) => a.creado - b.creado),   // archivos para revisar
+      // Todo lo que muestra "Para revisar": los que falta ubicar + los ya ubicados sin confirmar.
+      totalRevisar: pendientes.length + notas.filter(n => n.archivo?.lectura && !n.archivo.revisado).length,
       ajustesLista: ajustes,
       carpeta: (id) => (id ? porId.get(id) || null : null),
       nota: (id) => notaPorId.get(id) || null,

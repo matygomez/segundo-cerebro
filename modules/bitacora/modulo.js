@@ -49,7 +49,7 @@ function cuadroNotas(ctx, contenedor, op) {
     const fila = (icono, titulo, der, href) => h('a', { href, class: 'bt-ini-fila' }, ic(icono), h('span', { class: 'bt-ini-t' }, titulo), der ? h('span', { class: 'bt-ini-der' }, der) : null);
     if (op.fijadas !== false) for (const n of d.notas.filter(x => x.fijada).sort((a, b) => b.modificado - a.modificado)) filas.push(fila('pin', n.titulo, 'fijada', `#/bitacora/n/${n.id}`));
     if (op.bandeja !== false) { const nB = d.notasDe(BANDEJA).length; if (nB) filas.push(fila('bandeja', 'Bandeja', `${nB} para ordenar`, '#/bitacora/bandeja')); }
-    if (d.pendientes.length) filas.push(fila('clip', 'Archivos', `${d.pendientes.length} para revisar`, '#/bitacora/pendientes'));
+    if (d.totalRevisar) filas.push(fila('clip', 'Archivos', `${d.totalRevisar} para revisar`, '#/bitacora/pendientes'));
     if (op.recordatorios !== false) {
       for (const r of d.recordatorios.filter(x => x.fecha && x.fecha <= hoy).sort((a, b) => a.fecha.localeCompare(b.fecha))) {
         const n = d.nota(r.notaId);

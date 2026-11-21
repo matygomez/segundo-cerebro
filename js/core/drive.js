@@ -361,6 +361,13 @@ export async function aPapelera(id) {
   return r.json();
 }
 
+// La miniatura que Google arma solo para cada archivo (primera página de un
+// PDF, foto achicada). Devuelve su dirección, o '' si todavía no la tiene.
+export async function miniatura(id, tam = 400) {
+  const r = await (await pedir(`${API}/files/${encodeURIComponent(id)}?fields=thumbnailLink`)).json();
+  return r.thumbnailLink ? r.thumbnailLink.replace(/=s\d+$/, `=s${tam}`) : '';
+}
+
 // Datos de un archivo, o null si no existe o está en la papelera.
 export async function datosArchivo(id) {
   try {

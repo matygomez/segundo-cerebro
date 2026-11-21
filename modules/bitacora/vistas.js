@@ -29,6 +29,8 @@ export function cargarEstilos() {
 
 // Íconos propios del módulo (trazo, como los de la app).
 const TRAZOS = {
+  lista: '<path d="M9 6h11M9 12h11M9 18h11"/><path d="M4.5 6h.01M4.5 12h.01M4.5 18h.01"/>',
+  grilla: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
   carpeta: '<path d="M3.5 7.5a2 2 0 0 1 2-2h4l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2Z"/>',
   bandeja: '<path d="M4 13.5 6.5 5.5h11L20 13.5V18a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18Z"/><path d="M4 13.5h4.5l1 2h5l1-2H20"/>',
   buscar: '<circle cx="11" cy="11" r="6"/><path d="m20 20-4.5-4.5"/>',
@@ -187,7 +189,7 @@ export function arbol(ctx, m, d, actual = '') {
   const filas = [
     fila('#/bitacora', [h('span', { class: 'bt-ar-flecha vacia' }), ic('inicio'), h('span', { class: 'bt-ar-nom' }, 'Inicio')], { sel: actual === 'inicio' }),
     fila('#/bitacora/buscar', [h('span', { class: 'bt-ar-flecha vacia' }), ic('buscar'), h('span', { class: 'bt-ar-nom' }, 'Buscar')], { sel: actual === 'buscar' }),
-    fila('#/bitacora/pendientes', [h('span', { class: 'bt-ar-flecha vacia' }), ic('clip'), h('span', { class: 'bt-ar-nom' }, 'Para revisar')], { sel: actual === 'pendientes', n: d.pendientes.length || null }),
+    fila('#/bitacora/pendientes', [h('span', { class: 'bt-ar-flecha vacia' }), ic('clip'), h('span', { class: 'bt-ar-nom' }, 'Para revisar')], { sel: actual === 'pendientes', n: d.totalRevisar || null }),
     fila('#/bitacora/f', [h('span', { class: 'bt-ar-flecha vacia' }), ic('film'), h('span', { class: 'bt-ar-nom' }, 'Filmoteca')], { sel: actual === 'f', n: itemsCine(d).length || null }),
     seccion('sec:carpetas', 'Carpetas', h('button', { type: 'button', class: 'bt-ar-mas', title: 'Nueva carpeta', 'aria-label': 'Nueva carpeta', onclick: () => nuevaCarpeta(ctx, m, '') }, ic('mas'))),
   ];
@@ -262,12 +264,12 @@ export function pantallaInicio(ctx, m, d, main) {
     titulo: 'Bitácora', marca: icono('bitacora'),
     botones: [
       h('a', { href: '#/bitacora/ajustes', class: 'boton-icono', title: 'Configurar Bitácora', 'aria-label': 'Configurar Bitácora' }, ic('ajustes')),
-      h('a', { href: '#/bitacora/pendientes', class: 'boton', title: 'Subir y ordenar archivos' }, ic('clip'), 'Archivos', d.pendientes.length ? h('span', { class: 'bt-or-num' }, String(d.pendientes.length)) : null),
+      h('a', { href: '#/bitacora/pendientes', class: 'boton', title: 'Subir y ordenar archivos' }, ic('clip'), 'Archivos', d.totalRevisar ? h('span', { class: 'bt-or-num' }, String(d.totalRevisar)) : null),
       botonNueva(ctx, m, d, BANDEJA),
     ],
   }));
   cont.push(h('a', { href: '#/bitacora/buscar', class: 'bt-busca' }, ic('buscar'), h('span', {}, 'Buscar en títulos, texto y #etiquetas…')));
-  if (d.pendientes.length) cont.push(h('a', { href: '#/bitacora/pendientes', class: 'tarjeta bt-or-banner' }, ic('clip'), h('span', {}, h('b', {}, `${d.pendientes.length} archivo${d.pendientes.length === 1 ? '' : 's'} para revisar`), h('small', {}, 'Confirmá dónde va cada uno.')), h('span', { class: 'bt-link-chico' }, 'Revisar ›')));
+  if (d.totalRevisar) cont.push(h('a', { href: '#/bitacora/pendientes', class: 'tarjeta bt-or-banner' }, ic('clip'), h('span', {}, h('b', {}, `${d.totalRevisar} archivo${d.totalRevisar === 1 ? '' : 's'} para revisar`), h('small', {}, 'Confirmá dónde va cada uno.')), h('span', { class: 'bt-link-chico' }, 'Revisar ›')));
 
   {
     for (const b of cfg.bloques.filter(x => x.on)) {
@@ -314,6 +316,12 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   const padre = ruta.length > 1 ? ruta[ruta.length - 2] : null;
   soltarEnCarpeta(ctx, m, main);   // en la PC: arrastrar archivos a la carpeta abierta
   const botones = [];
+  const conGrilla = c && !c.base;
+  const enGrilla = conGrilla && vistaCarpeta(c.id) === 'grilla';
+  if (conGrilla) botones.push(h('button', {
+    type: 'button', class: 'boton-icono', title: enGrilla ? 'Ver como lista' : 'Ver en miniaturas', 'aria-label': enGrilla ? 'Ver como lista' : 'Ver en miniaturas',
+    onclick: () => { vistaCarpeta(c.id, enGrilla ? 'lista' : 'grilla'); pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }); },
+  }, ic(enGrilla ? 'lista' : 'grilla')));
   if (c) {
     if (c.base) botones.push(h('a', { href: `#/bitacora/c/${c.id}/campos`, class: 'boton-icono', title: 'Campos de la base', 'aria-label': 'Campos de la base' }, ic('ajustes')));
     botones.push(h('button', { type: 'button', class: 'boton-icono', title: 'Opciones de la carpeta', 'aria-label': 'Opciones de la carpeta', onclick: () => menuCarpeta(ctx, m, d, c) }, ic('puntos')));
@@ -332,12 +340,77 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   if (c?.base) { const zona = h('div', { class: 'bt-base-zona' }); cont.push(zona); poner(main, ...cont); renderBase(zona, c); return; }
 
   const notas = d.notasDe(carpetaId).sort((a, b) => (b.fijada ? 1 : 0) - (a.fijada ? 1 : 0) || b.modificado - a.modificado);
-  cont.push(notas.length
+  cont.push(notas.length && enGrilla ? grillaNotas(ctx, notas) : notas.length
     ? h('section', { class: 'tarjeta bt-bloque' }, h('div', { class: 'bt-lista' }, notas.map(n => filaNota(ctx, d, n, c ? {} : {
       extra: h('button', { type: 'button', class: 'boton bt-mover', onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const id = await elegirCarpeta(ctx, d, { actual: BANDEJA }); if (id !== null && id !== BANDEJA) { await m.guardarNota(n.id, { carpetaId: id }); ctx.aviso(`Movida a ${d.nombreRuta(id)}`); } } }, 'Mover…'),
     }))))
     : vacio(ctx, c ? 'Carpeta vacía' : 'La Bandeja está vacía', c ? 'Creá una nota o subí un archivo con "+ Nueva" (en la PC también podés arrastrarlo acá).' : null));
   poner(main, ...cont);
+}
+
+// Cómo se ve cada carpeta (lista o miniaturas): se recuerda en este dispositivo.
+function vistaCarpeta(id, nueva) {
+  const clave = `bt-vista:${id}`;
+  try {
+    if (nueva) localStorage.setItem(clave, nueva);
+    return localStorage.getItem(clave) || 'lista';
+  } catch { return nueva || 'lista'; }
+}
+
+// ── Miniaturas ──
+// Cada archivo muestra la miniatura que Google ya armó en Drive (se pide por
+// internet cada vez, no se guarda nada); las notas muestran el comienzo del texto.
+const archivoDeNota = (n) => (n.adjuntos || []).find(a => a.principal) || (n.adjuntos || []).find(a => /^image\//.test(a.tipo || ''));
+function tipoDe(a) {
+  if (!a) return ['nota', 'NOTA'];
+  if (/^image\//.test(a.tipo || '') || /\.(png|jpe?g|gif|webp|heic|avif)$/i.test(a.nombre || '')) return ['foto', 'FOTO'];
+  if (/pdf/.test(a.tipo || '') || /\.pdf$/i.test(a.nombre || '')) return ['pdf', 'PDF'];
+  return ['archivo', 'ARCHIVO'];
+}
+
+// De a 4 pedidos a la vez, para no saturar a Drive en carpetas grandes.
+const colaMini = { activos: 0, espera: [] };
+function pedirMiniatura(fn) {
+  return new Promise((ok) => {
+    const correr = async () => {
+      colaMini.activos++;
+      try { ok(await fn()); } catch { ok(null); }
+      colaMini.activos--;
+      colaMini.espera.shift()?.();
+    };
+    if (colaMini.activos < 4) correr(); else colaMini.espera.push(correr);
+  });
+}
+
+function grillaNotas(ctx, notas) {
+  const { h } = ctx;
+  // Solo se piden las miniaturas que aparecen en pantalla.
+  const mirar = 'IntersectionObserver' in window ? new IntersectionObserver((es) => {
+    for (const e of es) if (e.isIntersecting) { mirar.unobserve(e.target); e.target.cargar?.(); }
+  }, { rootMargin: '200px' }) : null;
+  const tarjeta = (n) => {
+    const a = archivoDeNota(n);
+    const [tipo, etiqueta] = tipoDe(a);
+    const caja = h('div', { class: `bt-mini bt-mini-${tipo}` },
+      a ? ic(tipo === 'foto' ? 'imagen' : 'clip', 'icono bt-mini-ic') : h('div', { class: 'bt-mini-texto' }, resumen(n.texto, 220) || 'Nota vacía'),
+      h('span', { class: `bt-mini-tipo bt-mini-tipo-${tipo}` }, etiqueta),
+      n.fijada ? ic('pin', 'icono bt-mini-pin') : null);
+    if (a) {
+      caja.cargar = async () => {
+        const url = await pedirMiniatura(() => ctx.archivos.urlMiniatura?.(a));
+        if (!url) return;   // sin internet o Google todavía no la armó: queda el ícono
+        const img = h('img', { alt: '', referrerpolicy: 'no-referrer', decoding: 'async' });
+        img.onload = () => caja.classList.add('con-img');
+        img.onerror = () => img.remove();
+        img.src = url;
+        caja.prepend(img);
+      };
+      mirar ? mirar.observe(caja) : caja.cargar();
+    }
+    return h('a', { href: `#/bitacora/n/${n.id}`, class: 'bt-mtarj' }, caja,
+      h('div', { class: 'bt-mtarj-pie' }, h('b', {}, n.titulo || 'Sin título'), h('small', {}, haceCuanto(n.modificado))));
+  };
+  return h('div', { class: 'bt-grilla' }, notas.map(tarjeta));
 }
 
 export async function nuevaCarpeta(ctx, m, padreId) {

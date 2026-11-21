@@ -602,3 +602,23 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 .bt-comp .bt-or-op span { display: grid; }
 .bt-comp .bt-or-op small { color: var(--tinta-2); font-size: 0.8rem; }
 .bt-comp-donde { display: grid; gap: 0.4rem; border-top: 1px solid var(--linea); padding-top: 0.7rem; }
+
+/* Carpeta en miniaturas (como la cuadrícula de Drive) */
+.bt-grilla { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.6rem; }
+@media (min-width: 600px) { .bt-grilla { grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.85rem; } }
+.bt-mtarj { display: grid; background: var(--superficie); border: 1px solid var(--linea); border-radius: 12px; overflow: hidden; text-decoration: none; color: inherit; min-width: 0; }
+.bt-mtarj:hover { border-color: var(--tinta-2); }
+.bt-mini { position: relative; aspect-ratio: 4 / 3; max-width: 100%; background: var(--superficie-2); display: grid; place-items: center; overflow: hidden; }
+.bt-mini > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; object-position: top; opacity: 0; transition: opacity 0.2s; }
+.bt-mini-pdf > img { object-fit: contain; padding-top: 0.5rem; }
+.bt-mini.con-img > img { opacity: 1; }
+.bt-mini.con-img .bt-mini-ic { display: none; }
+.bt-mini-ic { width: 2rem; height: 2rem; color: var(--tinta-2); }
+.bt-mini-texto { position: absolute; inset: 0; padding: 0.7rem 0.7rem 1.6rem; font-size: 0.75rem; line-height: 1.35; color: var(--tinta-2); overflow: hidden; }
+.bt-mini-texto::after { content: ""; position: absolute; inset: auto 0 0; height: 2.4rem; background: linear-gradient(transparent, var(--superficie-2)); }
+.bt-mini-tipo { position: absolute; left: 0.45rem; bottom: 0.45rem; font-size: 0.66rem; font-weight: 600; letter-spacing: 0.06em; padding: 0.1rem 0.4rem; border-radius: 5px; background: #000a; }
+.bt-mini-tipo-pdf { color: #E2786C; } .bt-mini-tipo-foto { color: #8DB4DC; } .bt-mini-tipo-nota { color: var(--laton); } .bt-mini-tipo-archivo { color: var(--tinta-2); }
+.bt-mini-pin { position: absolute; right: 0.45rem; top: 0.45rem; width: 1rem; height: 1rem; color: var(--laton); }
+.bt-mtarj-pie { padding: 0.5rem 0.65rem 0.6rem; display: grid; gap: 0.1rem; min-width: 0; }
+.bt-mtarj-pie b { font-weight: 500; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bt-mtarj-pie small { font-size: 0.75rem; color: var(--tinta-2); }

@@ -114,6 +114,7 @@ export function contexto(moduloId) {
       elegirDeDrive: archivos.elegirDeDrive,
       resolver: archivos.resolver,
       urlImagen: archivos.urlImagen,
+      urlMiniatura: archivos.urlMiniatura,
       esImagen: archivos.esImagen,
       selectorDisponible: archivos.selectorDisponible,
       descargar: archivos.descargar,

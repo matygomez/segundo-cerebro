@@ -63,6 +63,23 @@ export async function urlImagen(adj) {
   return URL.createObjectURL(blob);
 }
 
+// Miniatura de Google para mostrar en una grilla. No se guarda nada en el
+// dispositivo: se pide cada vez (solo se recuerda la dirección un rato, en memoria).
+// Devuelve una dirección, o null sin conexión o si Google todavía no la armó.
+const miniaturas = new Map();   // driveId → { url, hora }
+export async function urlMiniatura(adj) {
+  if (adj?.pendiente) adj = await resolver(adj.pendiente);
+  const id = adj?.driveId;
+  if (!id || !drive.conectado() || !navigator.onLine) return null;
+  const ya = miniaturas.get(id);
+  if (ya && Date.now() - ya.hora < 30 * 60000) return ya.url;
+  try {
+    const url = await drive.miniatura(id);
+    if (url) miniaturas.set(id, { url, hora: Date.now() });   // sin miniatura todavía: se vuelve a pedir la próxima
+    return url || null;
+  } catch { return null; }
+}
+
 export async function subir(modulo, archivo) {
   const nombre = archivo.name || `archivo-${Date.now()}`;
   if (drive.conectado() && navigator.onLine) {
