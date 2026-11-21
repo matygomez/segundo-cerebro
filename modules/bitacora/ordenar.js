@@ -344,6 +344,81 @@ export function elegirParaCarpeta(ctx, m, carpetaId) {
   input.click();
 }
 
+// ── Subir sin analizar ──
+// Para archivos que ya vienen ordenados: se guardan directo como notas, sin
+// Gemini y sin pasar por "Para revisar". Con "ruta" (subir una carpeta de la
+// PC) se arman las mismas subcarpetas adentro de la carpeta elegida.
+// Los repetidos (mismo archivo ya guardado) se saltean.
+const BASURA = /^(\.ds_store|desktop\.ini|thumbs\.db|\._.*)$/i;
+export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
+  lista = lista.filter(x => !BASURA.test(x.nombre || x.blob.name || ''));
+  if (!lista.length) return;
+  let d = await m.cargar();
+  const total = lista.length;
+  const aviso = ctx.aviso(`Subiendo 0 de ${total}…`, { duracion: 0 });
+  const texto = aviso.querySelector('span') || aviso;
+  // Primero las carpetas (de a una, para no crear dos veces la misma).
+  const carpetas = new Map([['', carpetaId]]);
+  const carpetaDe = async (ruta = []) => {
+    let padre = carpetaId;
+    for (let i = 0; i < ruta.length; i++) {
+      const clave = ruta.slice(0, i + 1).join('/');
+      if (!carpetas.has(clave)) {
+        const ya = d.hijas(padre).find(c => c.nombre.toLowerCase() === ruta[i].toLowerCase());
+        carpetas.set(clave, ya ? ya.id : await m.crearCarpeta({ nombre: ruta[i], padreId: padre, color: d.carpeta(padre)?.color || '' }));
+      }
+      padre = carpetas.get(clave);
+    }
+    return padre;
+  };
+  for (const x of lista) x.destino = await carpetaDe(x.ruta);
+  d = await m.cargar();
+  const huellas = new Set(d.notas.map(n => n.archivo?.huella).filter(Boolean));
+  let hechos = 0, guardados = 0, salteados = 0, fallados = 0;
+  // De a 3 a la vez: más rápido, sin saturar a Drive.
+  const cola = [...lista];
+  const trabajar = async () => {
+    for (let x = cola.shift(); x; x = cola.shift()) {
+      const nombre = x.nombre || x.blob.name || 'archivo';
+      try {
+        const huella = await huellaDe(x.blob);
+        if (huellas.has(huella)) { salteados++; continue; }
+        huellas.add(huella);
+        const adjunto = await ctx.archivos.subir(x.blob instanceof File ? x.blob : new File([x.blob], nombre, { type: x.blob.type || '' }));
+        await m.crearNota({
+          titulo: sinExtension(nombre), carpetaId: x.destino,
+          archivo: { que: '', de: '', fecha: '', vence: '', monto: 0, contenido: '', huella, original: nombre, lectura: '', revisado: true },
+          adjuntos: [{ ...adjunto, nombre, origen: 'subido', principal: true }],
+        });
+        guardados++;
+      } catch { fallados++; } finally {
+        hechos++;
+        texto.textContent = `Subiendo ${hechos} de ${total}…`;
+      }
+    }
+  };
+  await Promise.all([trabajar(), trabajar(), trabajar()]);
+  aviso.remove();
+  const partes = [`${guardados} guardado${guardados === 1 ? '' : 's'} en ${d.nombreRuta(carpetaId)}`];
+  if (salteados) partes.push(`${salteados} ya estaba${salteados === 1 ? '' : 'n'}`);
+  if (fallados) partes.push(`${fallados} no se pudo subir (probá de nuevo: los ya subidos se saltean)`);
+  ctx.aviso(partes.join(' · ') + '.', { duracion: 8000 });
+}
+
+// "+ Nueva › Subir sin analizar" (archivos) o "Subir carpeta sin analizar" (PC).
+export function elegirSinAnalizar(ctx, m, carpetaId, { carpeta = false } = {}) {
+  const input = ctx.h('input', { type: 'file', multiple: true, hidden: true });
+  if (carpeta) input.webkitdirectory = true;
+  input.addEventListener('change', () => {
+    // webkitRelativePath = "Carpeta/Sub/archivo.pdf": se guarda la ruta sin el nombre del archivo.
+    const lista = [...input.files].map(f => ({ blob: f, nombre: f.name, ruta: carpeta ? (f.webkitRelativePath || '').split('/').slice(0, -1) : [] }));
+    input.remove();
+    if (lista.length) subirSinAnalizar(ctx, m, lista, carpetaId);
+  });
+  document.body.append(input);
+  input.click();
+}
+
 // Arrastrar archivos arriba de una carpeta abierta (o la Bandeja) en la PC.
 export function soltarEnCarpeta(ctx, m, main) {
   if (main.dataset.soltar) return;

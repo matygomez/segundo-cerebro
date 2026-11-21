@@ -10,7 +10,7 @@ import { filaSeguirViendo, items as itemsCine, config as configCine } from './fi
 import {
   BANDEJA, DIAS_PAPELERA, TIPOS, COLORES_CARPETA, resumen, etiquetasDe, plantillaTitulo, comparar, hoyISO,
 } from './modelo.js';
-import { seccionArchivos, seccionMensuales, elegirParaCarpeta, soltarEnCarpeta } from './ordenar.js';
+import { seccionArchivos, seccionMensuales, elegirParaCarpeta, elegirSinAnalizar, soltarEnCarpeta } from './ordenar.js';
 
 // Como replaceChildren, pero ignora los vacíos (null, false).
 export const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
@@ -597,6 +597,8 @@ export function menuNueva(ctx, m, d, carpetaId = BANDEJA) {
     base ? { icono: 'base', texto: `Nuevo en ${base.nombre}`, nota: 'Formulario con los campos de la base', accion: () => notaRapida(ctx, m, d, { plantilla: rapidaBase, carpetaId: base.id }) } : null,
     { icono: 'nota', texto: base ? 'Nota en blanco en la base' : 'Nota en blanco', nota: `en ${d.nombreRuta(carpetaId)}`, accion: () => crearYAbrir(ctx, m, d, { carpetaId }) },
     { icono: 'clip', texto: 'Subir archivo acá', nota: `en ${d.nombreRuta(carpetaId)} · Gemini completa los datos`, accion: () => elegirParaCarpeta(ctx, m, carpetaId) },
+    { icono: 'clip', texto: 'Subir sin analizar', nota: 'Uno o varios archivos ya ordenados · sin Gemini ni revisión', accion: () => elegirSinAnalizar(ctx, m, carpetaId) },
+    matchMedia('(pointer: fine)').matches ? { icono: 'carpeta', texto: 'Subir carpeta sin analizar', nota: 'Con todas sus subcarpetas · sin Gemini ni revisión', accion: () => elegirSinAnalizar(ctx, m, carpetaId, { carpeta: true }) } : null,
     rapidas.length ? { separador: 'Notas rápidas' } : null,
     ...rapidas.map(p => ({ icono: p.icono || 'nota', texto: p.nombre, nota: d.nombreRuta(destinoDe(p)), accion: () => notaRapida(ctx, m, d, { plantilla: p, carpetaId: destinoDe(p) }) })),
     otras.length ? { separador: 'Plantillas' } : null,
