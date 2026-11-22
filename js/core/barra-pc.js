@@ -132,7 +132,7 @@ function abrirMenuUsuario() {
 }
 
 // ── Columna del módulo ──
-// Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }],
+// Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, textoBoton?, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }],
 //   configurar: '#/ruta', filtros(boton) → abre sus filtros }.
 // Mientras no la tenga, la columna muestra el nombre y el botón principal.
 // Dónde se configura cada módulo, hasta que cada uno lo mande en columna() → configurar.
@@ -165,7 +165,7 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
 
   const cab = h('button', { type: 'button', class: 'pc-cab', title: 'Plegar la columna', onclick: () => alternarColumna(true) },
     cuad(), h('span', { class: 'pc-cab-tx' }, h('b', {}, def.nombre), extra?.contexto ? h('small', {}, extra.contexto) : null));
-  const prin = boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, boton.texto)) : null;
+  const prin = boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, extra?.textoBoton || boton.texto)) : null;
   const grupos = (extra?.grupos || []).map(g => [
     g.titulo ? h('div', { class: 'pc-g' }, g.titulo) : null,
     ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('span', {}, p.nombre), p.n ? h('span', { class: 'pc-n' }, String(p.n)) : null)),

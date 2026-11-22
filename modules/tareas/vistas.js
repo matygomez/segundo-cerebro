@@ -73,6 +73,9 @@ const TRAZOS = {
   herramienta: '<path d="M14.5 6.5a4 4 0 0 0-5 5L4 17l3 3 5.5-5.5a4 4 0 0 0 5-5L15 12l-3-3Z"/>',
   musica: '<path d="M9 17V6l10-2v11"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="15" r="2"/>',
   grafico: '<path d="M5 19V5M5 19h14"/><path d="M8.5 15l3.5-4 3 2.5 4-5.5"/>',
+  grilla: '<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/>',
+  semana: '<rect x="4" y="5.5" width="16" height="14" rx="2"/><path d="M4 10h16M9 10v9.5M14 10v9.5"/>',
+  fabrica: '<path d="M3 20V10l5 3V10l5 3V6h4l1 14z"/><path d="M3 20h18"/>',
   regalo: '<rect x="4" y="9" width="16" height="11" rx="1.5"/><path d="M4 12.5h16M12 9v11M12 9c-1.5-3-5-3-5-1s3.5 1 5 1c1.5 0 5 1 5-1s-3.5-2-5 1"/>',
   escuela: '<path d="m3 9 9-4.5L21 9l-9 4.5Z"/><path d="M7 11v4.5c3 2 7 2 10 0V11"/>',
 };
@@ -381,9 +384,10 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   const panel = h('aside', { class: 'tr-panel', hidden: true, 'aria-label': 'Detalle de la tarea' }, asaPanel, panelContenido);
   const columnaLista = h('div', { class: 'tr-columna' });
   const zona = h('div', { class: 'tr-zona' }, columnaLista, panel);
-  const ANCHO_MIN = 360;
-  const anchoMax = () => Math.max(ANCHO_MIN, (zona.getBoundingClientRect().width || window.innerWidth) - 420);
-  const ponerAncho = (px) => { const w = Math.round(Math.min(anchoMax(), Math.max(ANCHO_MIN, px))); zona.style.setProperty('--tr-ancho-panel', `${w}px`); return w; };
+  // En las pantallas nuevas de la PC el detalle va de 320 a 680 px (como la maqueta).
+  const anchoMin = () => (zona.classList.contains('tr-pc') ? 320 : 360);
+  const anchoMax = () => (zona.classList.contains('tr-pc') ? 680 : Math.max(360, (zona.getBoundingClientRect().width || window.innerWidth) - 420));
+  const ponerAncho = (px) => { const w = Math.round(Math.min(anchoMax(), Math.max(anchoMin(), px))); zona.style.setProperty('--tr-ancho-panel', `${w}px`); return w; };
   try { ponerAncho(Number(localStorage.getItem('tr-ancho-panel')) || 420); } catch { ponerAncho(420); }
   asaPanel.addEventListener('pointerdown', (e) => {
     e.preventDefault();
@@ -419,8 +423,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // ── Detalle: al costado en la PC, como ventana en el celular ──
   let editor = null;
   function marcarActiva() {
-    for (const el of cuerpo.querySelectorAll('.tr-tarea.abierta')) el.classList.remove('abierta');
-    if (editor?.tareaId) cuerpo.querySelector(`.tr-tarea[data-id="${editor.tareaId}"]`)?.classList.add('abierta');
+    for (const el of cuerpo.querySelectorAll('.tr-tarea.abierta, .tp-f.abierta')) el.classList.remove('abierta');
+    if (editor?.tareaId) cuerpo.querySelector(`.tr-tarea[data-id="${editor.tareaId}"], .tp-f[data-id="${editor.tareaId}"]`)?.classList.add('abierta');
   }
   async function abrir(t, base = {}) {
     if (!esPC()) { abrirEditor(ctx, m, d, t, base, { abrirOtra: (x) => abrir(x) }); return; }
@@ -439,7 +443,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // Tocar afuera del detalle: igual que cancelar (si hubo cambios, pregunta).
   const alTocarAfuera = (e) => {
     if (!editor || panel.contains(e.target) || e.target.closest('dialog, #avisos')) return;
-    if (e.target.closest('.tr-cuerpo, .tr-check, .tr-sub-alternar, .tr-asa, .tr-fab, .tr-nueva-arriba, .tr-rapida')) return;
+    if (e.target.closest('.tr-cuerpo, .tr-check, .tr-sub-alternar, .tr-asa, .tr-fab, .tr-nueva-arriba, .tr-rapida, .tp-f, .tp-ev, .tp-tabla tr')) return;
     if (!editor.sucio()) { editor.cerrar(); return; }
     // Con cambios: se frena el toque (por ejemplo un link) y se pregunta.
     const frenar = (ev) => { ev.preventDefault(); ev.stopPropagation(); };
@@ -1308,8 +1312,9 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   // Pantallas nuevas de la PC (pc.js). Usan las mismas filas de tarea y el mismo detalle al costado.
   const pc = crearPC({
     ctx, h, m, d, ic,
-    fila: (t, opc = {}) => filaTarea(ctx, m, d, t, { marcaMadre: true, ...opc }),
     abrir: (t) => abrir(t),
+    completar: (t) => alternarHecha(ctx, m, d, t),
+    opcionesArea: (a) => opcionesArea(a),
     plegado: (id) => estaPlegado(id),
     plegar: (id) => alternarPlegado(id),
     rapida: (base, ayuda) => lineaRapida(base, ayuda),
@@ -1319,7 +1324,6 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   });
   pcAbierta = pc;
   configAbierta = abrirConfig;
-  cuerpo.addEventListener('pointerdown', (e) => { if (esPC()) pc.alTildar(e); }, true);
 
   let primeraVez = true;
   function dibujar() {

@@ -46,11 +46,12 @@ export default {
     const contar = (f) => cuantasCumplen(d, filtroDe(f));
     return {
       contexto: `${paraHoy} para hoy · ${venc} vencida${venc === 1 ? '' : 's'}`,
+      textoBoton: 'Nueva tarea',
       grupos: [
         { titulo: 'Vistas', pestañas: [
-          pest('inicio', 'Resumen', 'grafico', '#/tareas', 0, vista === 'inicio'),
-          pest('hoy', 'Hoy', 'sol', '#/tareas/hoy', venc + paraHoy, vista === 'hoy'),
-          pest('proximos', 'Próximos', 'calendario', '#/tareas/proximos', 0, vista === 'proximos'),
+          pest('inicio', 'Resumen', 'grilla', '#/tareas', 0, vista === 'inicio'),
+          pest('hoy', 'Hoy', 'sol', '#/tareas/hoy', paraHoy, vista === 'hoy'),
+          pest('proximos', 'Próximos', 'semana', '#/tareas/proximos', 0, vista === 'proximos'),
           pest('bandeja', 'Bandeja', 'bandeja', '#/tareas/bandeja', bandeja, vista === 'bandeja'),
         ] },
         { titulo: 'Áreas', pestañas: d.areas.filter(a => !a.archivada && !a.sistema)
