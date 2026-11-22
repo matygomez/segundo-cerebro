@@ -47,7 +47,8 @@
     transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
   }
   .tp-bento.quieto .tp-card { transition: none; }
-  .tp-card:hover { transform: translateY(-2px); border-color: var(--tp-linea2); box-shadow: 0 10px 24px rgb(0 0 0 / 0.35); }
+  /* Al pasar el mouse solo se marca el borde: la tarjeta no se mueve (pedido de Matias). */
+  .tp-card:hover { border-color: var(--tp-linea2); }
   .tp-bento.entra .tp-card { animation: tp-entra 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .tp-bento.entra .tp-card:nth-child(2) { animation-delay: 40ms; } .tp-bento.entra .tp-card:nth-child(3) { animation-delay: 80ms; }
   .tp-bento.entra .tp-card:nth-child(4) { animation-delay: 120ms; } .tp-bento.entra .tp-card:nth-child(n+5) { animation-delay: 160ms; }
