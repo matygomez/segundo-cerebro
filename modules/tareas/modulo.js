@@ -9,7 +9,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import { crearModelo, hecha, vencida, deHoy, ordenar, siguienteFecha, textoRepeticion, hoy, sumarDias, textoFecha } from './modelo.js';
-import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha } from './vistas.js';
+import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha, abrirFiltrosPC, abrirConfigPC, ic } from './vistas.js';
+import { filtroDe, cuantasCumplen } from './pc.js';
 import { abrirEditor } from './editor.js';
 import { sincronizarCalendario } from './calendario.js';
 
@@ -30,6 +31,37 @@ export default {
   nombre: 'Tareas',
 
   pantalla: pantallaTareas,
+
+  // Columna de la PC: vistas, áreas y filtros guardados, con su número.
+  async columna(ctx) {
+    const m = crearModelo(ctx);
+    const d = await m.cargar();
+    const ruta = location.hash.replace(/^#\/tareas\/?/, '').split('/');
+    const vista = ruta[0] || 'inicio', id = ruta[1] || '';
+    const pend = d.tareas.filter(t => !hecha(t) && !d.enOculto?.(t));
+    const venc = pend.filter(vencida).length, paraHoy = pend.filter(deHoy).length;
+    const bandeja = pend.filter(t => !t.areaId && !t.padreId).length;
+    // Los íconos son los del módulo (áreas con su ícono elegido).
+    const pest = (pid, nombre, icono, href, n, activa) => ({ id: pid, nombre, icono: ic(icono), href, n, activa });
+    const contar = (f) => cuantasCumplen(d, filtroDe(f));
+    return {
+      contexto: `${paraHoy} para hoy · ${venc} vencida${venc === 1 ? '' : 's'}`,
+      grupos: [
+        { titulo: 'Vistas', pestañas: [
+          pest('inicio', 'Resumen', 'grafico', '#/tareas', 0, vista === 'inicio'),
+          pest('hoy', 'Hoy', 'sol', '#/tareas/hoy', venc + paraHoy, vista === 'hoy'),
+          pest('proximos', 'Próximos', 'calendario', '#/tareas/proximos', 0, vista === 'proximos'),
+          pest('bandeja', 'Bandeja', 'bandeja', '#/tareas/bandeja', bandeja, vista === 'bandeja'),
+        ] },
+        { titulo: 'Áreas', pestañas: d.areas.filter(a => !a.archivada && !a.sistema)
+          .map(a => pest(a.id, a.nombre, a.icono || 'carpeta', `#/tareas/area/${a.id}`, 0, vista === 'area' && id === a.id)) },
+        ...(d.filtros.length ? [{ titulo: 'Mis filtros', pestañas: d.filtros
+          .map(f => pest(f.id, f.nombre, f.icono || 'filtro', `#/tareas/filtro/${f.id}`, f.numero ? contar(f) : 0, vista === 'filtro' && id === f.id)) }] : []),
+      ],
+      filtros: (boton) => abrirFiltrosPC(boton),
+      configurar: () => abrirConfigPC(),
+    };
+  },
 
   botonesInicio(ctx) {
     return [{

@@ -15,6 +15,7 @@
 
 import { h, icono } from './ui.js';
 import { listaModulos } from './registro.js';
+import { escuchar } from './eventos.js';
 
 const CLAVE = 'sc-barras-pc';
 const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE) || '{}'); } catch { return {}; } };
@@ -137,8 +138,18 @@ function abrirMenuUsuario() {
 // Dónde se configura cada módulo, hasta que cada uno lo mande en columna() → configurar.
 const CONFIGURAR_DE = { finanzas: '#/finanzas/config', bitacora: '#/bitacora/ajustes', habitos: '#/habitos/config', compras: '#/compras/ajustes', resumen: '#/resumen/config', home: '#/ajustes/inicio' };
 let turno = 0;
-export async function dibujarColumna(def, ctx) {
+let ultima = null, esperaCol = null;
+// Si cambian los datos del módulo abierto, la columna se vuelve a dibujar (números al día).
+escuchar('datos', (e) => {
+  if (!ultima || e?.modulo !== ultima.def.id || !ultima.def.columna) return;
+  clearTimeout(esperaCol);
+  esperaCol = setTimeout(() => dibujarColumna(ultima.def, ultima.ctx, { sinAnimar: true }), 250);
+});
+// El ícono puede venir como nombre (íconos de la app) o ya dibujado por el módulo.
+const iconoDe = (x) => (x instanceof Node ? x.cloneNode(true) : icono(x || 'punto'));
+export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
   if (!col) return;
+  ultima = { def, ctx };
   const mio = ++turno;
   const gris = def.id === 'ajustes';
   // El ícono está en el registro de módulos (js/modulos.js), no siempre en la definición.
@@ -157,19 +168,21 @@ export async function dibujarColumna(def, ctx) {
   const prin = boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, boton.texto)) : null;
   const grupos = (extra?.grupos || []).map(g => [
     g.titulo ? h('div', { class: 'pc-g' }, g.titulo) : null,
-    ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, icono(p.icono || 'punto'), h('span', {}, p.nombre))),
+    ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('span', {}, p.nombre), p.n ? h('span', { class: 'pc-n' }, String(p.n)) : null)),
   ]).flat();
 
   // Pie de la columna: Filtros (si el módulo los ofrece) y Configurar este módulo.
   const conf = gris ? null : (extra?.configurar || CONFIGURAR_DE[def.id] || '#/ajustes');
+  // Configurar puede ser una ruta o algo que el módulo abre (por ejemplo una ventana).
+  const confAttrs = typeof conf === 'function' ? { onclick: (e) => { e.preventDefault(); conf(); }, href: '#' } : { href: conf };
   const filtrar = extra?.filtros ? (e) => extra.filtros(e.currentTarget) : null;
   const tipFiltros = filtrar ? 'Filtros' : 'Filtros: llegan con el diseño nuevo de este módulo';
   const pieCol = gris ? null : h('div', { class: 'pc-cpie' },
     h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
-    h('a', { href: conf, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
+    h('a', { ...confAttrs, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
 
   col.replaceChildren(...[cab, prin, ...grupos, pieCol].filter(Boolean));
-  col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia');
+  if (!sinAnimar) { col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia'); }
 
   const nuevo = boton ? h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', title: boton.texto, onclick: () => boton.alTocar?.() }, icono('mas'), h('small', {}, 'Nuevo')) : null;
   tira.replaceChildren(...[
@@ -177,10 +190,10 @@ export async function dibujarColumna(def, ctx) {
     nuevo,
     ...(extra?.grupos || []).flatMap((g, i) => [
       i ? h('div', { class: 'pc-tsep' }) : null,
-      ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, icono(p.icono || 'punto'), h('small', {}, p.nombre))),
+      ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('small', {}, p.nombre))),
     ]),
     gris ? null : h('div', { class: 'pc-tpie' },
-      h('button', { type: 'button', class: 'pc-ti', 'data-tip': tipFiltros, disabled: !filtrar, onclick: filtrar }, icono('filtro'), h('small', {}, 'Filtros')),
-      h('a', { href: conf, class: 'pc-ti', 'data-tip': `Configurar ${def.nombre}` }, icono('engranaje'), h('small', {}, 'Ajustes'))),
+      h('button', { type: 'button', class: 'pc-ti', 'data-tip': tipFiltros, 'data-filtros': '1', disabled: !filtrar, onclick: filtrar }, icono('filtro'), h('small', {}, 'Filtros')),
+      h('a', { ...confAttrs, class: 'pc-ti', 'data-tip': `Configurar ${def.nombre}` }, icono('engranaje'), h('small', {}, 'Ajustes'))),
   ].filter(Boolean));
 }

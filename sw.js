@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.36.2';
+const VERSION = 'sc-0.37.0';
 
 const ARCHIVOS = [
   './',
@@ -44,10 +44,12 @@ const ARCHIVOS = [
   './modules/tareas/modulo.js',
   './modules/tareas/modelo.js',
   './modules/tareas/vistas.js',
+  './modules/tareas/pc.js',
   './modules/tareas/editor.js',
   './modules/tareas/arrastre.js',
   './modules/tareas/calendario.js',
   './modules/tareas/tareas.css',
+  './modules/tareas/tareas-pc.css',
   './modules/calendario/modulo.js',
   './modules/calendario/calendario.css',
   './modules/calendario/semana.js',

@@ -19,6 +19,13 @@ import { crearModelo, hoy, sumarDias, diasEntre, hecha, vencida, deHoy, programa
 import { abrirEditor, menu, pedirNombre, pedirFiltro, poner } from './editor.js';
 import { hacerOrdenable } from './arrastre.js';
 import { sincronizarCalendario, configCalendarios, CLAVE_AJUSTE as CLAVE_CALENDARIOS } from './calendario.js';
+import { crearPC, filtrarTareas, filtroDe } from './pc.js';
+
+// La pantalla abierta en la PC atiende los botones de abajo de la columna
+// (Filtros y Configurar), que dibuja la app afuera del módulo.
+let pcAbierta = null, configAbierta = null;
+export const abrirFiltrosPC = (boton) => pcAbierta?.abrirFiltros(boton);
+export const abrirConfigPC = () => configAbierta?.();
 
 // Íconos propios del módulo (mismo estilo de línea que el resto de la app).
 const TRAZOS = {
@@ -71,7 +78,7 @@ const TRAZOS = {
 };
 const ICONOS_ELEGIBLES = ['carpeta', 'proyecto', 'persona', 'maletin', 'casa', 'diana', 'libro', 'escuela', 'corazon', 'auto', 'carrito', 'plata', 'estrella', 'avion', 'calendario', 'hoja', 'herramienta', 'musica', 'grafico', 'regalo'];
 
-function ic(nombre) {
+export function ic(nombre) {
   const s = document.createElement('span');
   s.className = 'icono';
   s.setAttribute('aria-hidden', 'true');
@@ -85,7 +92,11 @@ export function cargarEstilos() {
   l.id = 'estilos-tareas';
   l.rel = 'stylesheet';
   l.href = new URL('./tareas.css', import.meta.url).href;
-  document.head.append(l);
+  // Las pantallas de la PC tienen su propia hoja (tareas-pc.css).
+  const pc = document.createElement('link');
+  pc.rel = 'stylesheet';
+  pc.href = new URL('./tareas-pc.css', import.meta.url).href;
+  document.head.append(l, pc);
 }
 
 // Quién abre el detalle de una tarea. Dentro de Tareas (en la PC) lo abre al
@@ -334,7 +345,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   const m = crearModelo(ctx);
   let vista = sub[0] || 'inicio';
   let ancla = '';
-  if (vista === 'proximos') { vista = 'hoy'; ancla = 'proximos'; }
+  // En la PC, Próximos tiene su propia pantalla; en el celular es una parte de Hoy.
+  if (vista === 'proximos' && !window.matchMedia('(min-width: 900px)').matches) { vista = 'hoy'; ancla = 'proximos'; }
   if (vista === 'vencidas') { vista = 'hoy'; ancla = 'vencidas'; }
   if (vista === 'sin-area') vista = 'bandeja';
   if (vista === 'hoy' && sub[1]) ancla = sub[1];
@@ -372,7 +384,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   const ANCHO_MIN = 360;
   const anchoMax = () => Math.max(ANCHO_MIN, (zona.getBoundingClientRect().width || window.innerWidth) - 420);
   const ponerAncho = (px) => { const w = Math.round(Math.min(anchoMax(), Math.max(ANCHO_MIN, px))); zona.style.setProperty('--tr-ancho-panel', `${w}px`); return w; };
-  try { ponerAncho(Number(localStorage.getItem('tr-ancho-panel')) || 520); } catch { ponerAncho(520); }
+  try { ponerAncho(Number(localStorage.getItem('tr-ancho-panel')) || 420); } catch { ponerAncho(420); }
   asaPanel.addEventListener('pointerdown', (e) => {
     e.preventDefault();
     panel.classList.add('ajustando');
@@ -395,7 +407,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     ubicarPanel();
     panel.hidden = false;
     zona.classList.add('con-detalle');
-    ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 520);
+    ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 420);
   }
   function ocultarPanel() {
     zona.classList.remove('con-detalle');
@@ -1237,7 +1249,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
       { texto: 'Editar filtro', accion: async () => { const nuevo = await pedirFiltro(ctx, d, f); if (nuevo) await m.actualizarFiltro(f.id, nuevo); } },
       { texto: 'Borrar filtro', peligro: true, accion: async () => { if (await ctx.confirmar(`¿Borrar el filtro "${f.nombre}"? Las tareas no se tocan.`, { si: 'Borrar', peligro: true })) { await m.borrarFiltro(f.id); ctx.navegar('tareas'); } } },
     ]);
-    const resultado = aplicarFiltro(d.tareas, f);
+    // Los filtros armados en la PC (con muchas más opciones) se leen con su propio motor.
+    const resultado = f.nuevo ? filtrarTareas(d, d.tareas, filtroDe(f)) : aplicarFiltro(d.tareas, f);
     const pend = resultado.filter(t => !hecha(t)), hechas = resultado.filter(hecha);
     return [
       volver('#/tareas', 'Tareas'),
@@ -1292,8 +1305,32 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     } else listaRaiz.before(h('div', { class: 'tr-col-cab' }, enc));
   }
 
+  // Pantallas nuevas de la PC (pc.js). Usan las mismas filas de tarea y el mismo detalle al costado.
+  const pc = crearPC({
+    ctx, h, m, d, ic,
+    fila: (t, opc = {}) => filaTarea(ctx, m, d, t, { marcaMadre: true, ...opc }),
+    abrir: (t) => abrir(t),
+    plegado: (id) => estaPlegado(id),
+    plegar: (id) => alternarPlegado(id),
+    rapida: (base, ayuda) => lineaRapida(base, ayuda),
+    redibujar: () => dibujar(),
+    vista: () => vista,
+    id: () => idRuta,
+  });
+  pcAbierta = pc;
+  configAbierta = abrirConfig;
+  cuerpo.addEventListener('pointerdown', (e) => { if (esPC()) pc.alTildar(e); }, true);
+
   let primeraVez = true;
   function dibujar() {
+    const nuevaPC = esPC() ? pc.vista(vista, idRuta) : null;
+    zona.classList.toggle('tr-pc', !!nuevaPC);
+    if (nuevaPC) {
+      poner(cuerpo, nuevaPC);
+      marcarActiva();
+      primeraVez = false;
+      return;
+    }
     const cfg = configHojas();
     dibujarHojas(cfg);
     cuerpo.classList.toggle('tr-compacto', cfg.compacto);
@@ -1318,7 +1355,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   let espera = null;
   const quitar = ctx.alCambiarDatos(() => {
     clearTimeout(espera);
-    espera = setTimeout(async () => { d = await m.cargar(); dibujar(); }, 60);
+    espera = setTimeout(async () => { d = await m.cargar(); pc.actualizar(d); dibujar(); }, 60);
   });
   // Al girar el celular o cambiar el ancho, la configuración puede ser otra (PC o celular).
   let eraPC = esPC();
@@ -1327,14 +1364,22 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     eraPC = esPC();
     // El detalle al costado solo existe en la PC.
     if (!eraPC && editor) editor.cerrar();
-    if (eraPC) ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 520);
+    if (eraPC) ponerAncho(parseFloat(zona.style.getPropertyValue('--tr-ancho-panel')) || 420);
     dibujar();
   };
   window.addEventListener('resize', alCambiarAncho);
 
+  // En Hoy y el Resumen, cada minuto: las que se pasan de hora bajan solas a Vencidas.
+  const reloj = setInterval(() => {
+    if (!esPC() || !['hoy', 'inicio'].includes(vista) || editor || document.activeElement?.matches('input, textarea, select')) return;
+    dibujar();
+  }, 60_000);
+
   dibujar();
   return () => {
     quitar(); clearTimeout(espera); window.removeEventListener('resize', alCambiarAncho);
+    clearInterval(reloj); pc.cerrarFiltros();
+    if (pcAbierta === pc) { pcAbierta = null; configAbierta = null; }
     document.removeEventListener('pointerdown', alTocarAfuera, true);
     if (abridor) abridor = null;
     clearTimeout(cierrePanel);

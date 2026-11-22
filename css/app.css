@@ -746,6 +746,15 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   .pc-pest:hover { background: var(--superficie); color: var(--tinta); }
   .pc-pest[aria-current] { background: var(--superficie-2); color: var(--tinta); }
   .pc-pest[aria-current] .icono { color: var(--laton); }
+  .pc-pest { position: relative; }
+  /* Rayita amarilla de la pestaña elegida */
+  .pc-pest[aria-current]::before { content: ""; position: absolute; left: -8px; top: 9px; bottom: 9px; width: 3px; border-radius: 0 3px 3px 0; background: var(--laton); animation: pc-raya 0.25s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes pc-raya { from { transform: scaleY(0); } }
+  .pc-pest > span:not(.icono):not(.pc-n) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pc-n { font-size: 0.72rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+  .pc-tb.on, .pc-ti.on { color: var(--laton); border-color: var(--laton); }
+  .pc-tb[data-n]:not([data-n=""])::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 99px; background: var(--laton); color: #111; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+  .pc-tb { position: relative; }
   /* Tira plegada */
   .pc-tira { position: absolute; inset: 0; width: 66px; padding: 12px 5px; display: flex; flex-direction: column; gap: 2px; opacity: 0; pointer-events: none; transition: opacity 0.2s 0.08s; }
   #app.col-plegada .pc-tira { opacity: 1; pointer-events: auto; }
@@ -770,6 +779,7 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   }
   .pc-tb .icono { width: 16px; height: 16px; }
   .pc-tb:hover:not(:disabled) { color: var(--tinta); border-color: #3a3d41; }
+  .pc-col { overflow-y: auto; scrollbar-width: none; }
   .pc-tb:disabled { opacity: 0.4; cursor: default; }
   .pc-tpie { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--linea); }
   .pc-ti:disabled { opacity: 0.4; cursor: default; }

@@ -679,7 +679,8 @@ export function crearModelo(ctx) {
     },
 
     // Pasa una tarea a otra fecha (deslizar a la izquierda = mañana).
-    cambiarFecha: (t, fecha) => col.tareas.actualizar(t.id, { fecha }),
+    // Si se pasa para más adelante una que ya era de hoy o vencida, se cuenta (filtro "Pasadas a mañana 3+ veces").
+    cambiarFecha: (t, fecha) => col.tareas.actualizar(t.id, { fecha, ...(t.fecha && fecha > t.fecha && t.fecha <= hoy() ? { postergada: (t.postergada || 0) + 1 } : {}) }),
 
     // Mueve un elemento un lugar arriba (-1) o abajo (+1) entre sus hermanos.
     async mover(tipo, id, direccion, hermanos) {
