@@ -666,7 +666,8 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   #app.rail-ab .pc-it { flex-direction: row; justify-content: flex-start; gap: 11px; padding: 0 12px; height: 40px; font-size: 0.92rem; }
   #app.rail-ab .pc-it .pc-tx { font-size: 0.92rem; max-width: none; letter-spacing: 0; }
   .pc-bus { border: 1px solid var(--linea); background: var(--superficie); margin-bottom: 8px; }
-  .pc-bus kbd { margin-left: auto; font-family: var(--fuente); font-size: 0.62rem; border: 1px solid var(--linea); border-radius: 4px; padding: 0 5px; color: var(--tinta-2); }
+  /* El atajo, apenas insinuado */
+  .pc-bus kbd { margin-left: auto; font-family: var(--fuente); font-size: 0.56rem; letter-spacing: 0.02em; border: 0; padding: 0; color: var(--tinta-2); opacity: 0.45; }
   .pc-mods { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: none; }
   .pc-pie { margin-top: auto; display: flex; flex-direction: column; }
   .pc-us {
