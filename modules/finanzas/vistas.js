@@ -844,13 +844,14 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   function dibujar() {
     dibujarCabecera();
     cuerpo.onpointermove = cuerpo.onpointerdown = cuerpo.onpointerleave = null;
+    cuerpo.dataset.vista = vista;
+    entrada();
     if (vista === 'movimientos') return vistaMovimientos(cuerpo, ctx, m, d, { mes: mesVista, alCambiarMes: (mes) => { mesVista = mes; dibujar(); avisarColumna(); } });
     if (vista === 'config') return vistaConfig(cuerpo, ctx, m, d);
-    if (vista === 'analisis') return vistaAnalisis(cuerpo, ctx, m, d, { mes: mesVista });
+    if (vista === 'analisis') { vistaAnalisis(cuerpo, ctx, m, d, { mes: mesVista }); return ajustarAlto(); }
     cuerpo.classList.toggle('fz-det-pc', esPC() && vista === 'detalle');
     cuerpo.dataset.det = vista === 'detalle' ? clave : '';
     poner(cuerpo, vista === 'detalle' ? vistaDetalle() : vistaPanel());
-    entrada();
     ajustarAlto();
   }
 
@@ -868,7 +869,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   // si el contenido no entra, se achica un poco todo (nunca menos del 60 %).
   function ajustarAlto() {
     cuerpo.style.zoom = '';
-    if (!esPC() || !['panel', 'detalle'].includes(vista)) return;
+    if (!esPC() || !['panel', 'detalle', 'analisis'].includes(vista)) return;
     const arriba = cuerpo.getBoundingClientRect().top + window.scrollY;
     const lugar = window.innerHeight - arriba - 12;
     const alto = cuerpo.scrollHeight;

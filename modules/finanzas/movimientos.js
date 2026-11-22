@@ -202,9 +202,9 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
 
   poner(cuerpo,
     h('div', { class: 'fz-filtros' }, buscador, selTipo, selCuenta, filaTodos),
-    contador,
-    h('p', { class: 'nota' }, 'Tocá un movimiento para ver el detalle, editarlo o borrarlo.'),
-    h('div', { class: 'fz-hoja-mov' }, zonaTabla, zonaLista, zonaDetalle),
-    h('p', { class: 'nota' }, 'Con una cuenta elegida en el filtro, las transferencias muestran − si salieron de esa cuenta y + si entraron.'));
+    // Cantidad y aclaración en un solo renglón (en la PC la lista llena el resto de la pantalla).
+    h('div', { class: 'fz-mov-notas' }, contador,
+      h('p', { class: 'nota' }, 'Con una cuenta elegida en el filtro, las transferencias muestran − si salieron de esa cuenta y + si entraron.')),
+    h('div', { class: 'fz-hoja-mov' }, zonaTabla, zonaLista, zonaDetalle));
   pintar();
 }

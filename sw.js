@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.39.1';
+const VERSION = 'sc-0.39.2';
 
 const ARCHIVOS = [
   './',

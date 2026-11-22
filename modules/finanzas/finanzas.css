@@ -746,3 +746,52 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
   .fz-det-pc[data-det="credito"] > .fz-det-grilla:last-child { grid-column: 2; grid-row: 3 / 5; }
   .fz-det-pc[data-det="credito"] > .fz-det-grilla:nth-last-child(2) { grid-column: 1; }
 }
+
+/* ── PC: Movimientos en una pantalla (solo la lista se desplaza) ── */
+.fz-mov-notas { display: grid; gap: 0.2rem; }
+.fz-mov-notas p { margin: 0; }
+@media (min-width: 900px) {
+  #pantalla:has(.fz-cuerpo[data-vista="movimientos"]), #pantalla:has(.fz-cuerpo[data-vista="analisis"]) { padding-bottom: 12px; }
+  .fz-cuerpo[data-vista="movimientos"] { display: flex; flex-direction: column; gap: 0.55rem; height: calc(100dvh - 1.25rem - 12px); padding-bottom: 0; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-filtros { grid-template-columns: minmax(0, 2fr) minmax(0, 1fr) minmax(0, 1fr) auto; align-items: center; flex: none; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-filtros input, .fz-cuerpo[data-vista="movimientos"] .fz-filtros select { min-height: 2.3rem; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-filtros input[type=search], .fz-cuerpo[data-vista="movimientos"] .fz-filtro-todos { grid-column: auto; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-filtro-todos { white-space: nowrap; margin: 0; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-mov-notas { display: flex; gap: 1.2rem; flex: none; min-width: 0; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-mov-notas p { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-mov-notas p:first-child { flex: none; color: var(--tinta); }
+  .fz-cuerpo[data-vista="movimientos"] .fz-hoja-mov { flex: 1; min-height: 0; grid-template-rows: minmax(0, 1fr); align-items: stretch; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-tabla-caja { overflow: auto; min-height: 0; scrollbar-width: thin; scrollbar-color: #3a3d41 transparent; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-tabla-mov thead th { position: sticky; top: 0; z-index: 1; }
+  .fz-cuerpo[data-vista="movimientos"] .fz-detalle-mov { position: static; align-self: start; max-height: 100%; overflow: auto; }
+  /* Análisis: las columnas llegan hasta abajo, sin huecos */
+  /* Alto fijo: los gráficos se achican para que cada columna entre justo en la ventana */
+  .fz-cuerpo[data-vista="analisis"] { display: flex; flex-direction: column; gap: 0.55rem; height: calc(100dvh - 1.25rem - 12px); padding-bottom: 0; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-filtro { flex: none; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-grilla { flex: 1; min-height: 0; align-items: stretch; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-col { min-height: 0; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro { display: flex; flex-direction: column; flex: 0 0 auto; min-height: 0; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro:has(.fz-an-svg) { flex: 1 1 0; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro > * { flex: none; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro > .fz-an-svg, .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro > :has(> .fz-an-svg) { flex: 1 1 0; min-height: 3.5rem; height: auto; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro > :has(> .fz-an-svg) { display: flex; flex-direction: column; }
+  .fz-cuerpo[data-vista="analisis"] .fz-an-cuadro > :has(> .fz-an-svg) > .fz-an-svg { flex: 1 1 0; min-height: 0; }
+  /* Animaciones de entrada (como Tareas) */
+  .fz-cuerpo.entra .fz-filtros, .fz-cuerpo.entra .fz-mov-notas, .fz-cuerpo.entra .fz-hoja-mov > *, .fz-cuerpo.entra .fz-an-filtro, .fz-cuerpo.entra .fz-an-cuadro { animation: fz-entra 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .fz-cuerpo.entra .fz-mov-notas { animation-delay: 40ms; }
+  .fz-cuerpo.entra .fz-hoja-mov > * { animation-delay: 80ms; }
+  .fz-cuerpo.entra .fz-hoja-mov > aside { animation-delay: 140ms; }
+  .fz-cuerpo.entra .fz-tabla-mov tbody tr { animation: fz-fila 0.45s ease both; }
+  .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(1) { animation-delay: 120ms; } .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(2) { animation-delay: 150ms; }
+  .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(3) { animation-delay: 180ms; } .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(4) { animation-delay: 210ms; }
+  .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(5) { animation-delay: 240ms; } .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(6) { animation-delay: 270ms; }
+  .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(7) { animation-delay: 300ms; } .fz-cuerpo.entra .fz-tabla-mov tbody tr:nth-child(n+8) { animation-delay: 330ms; }
+  .fz-cuerpo.entra .fz-an-col > :nth-child(2) { animation-delay: 60ms; } .fz-cuerpo.entra .fz-an-col > :nth-child(n+3) { animation-delay: 120ms; }
+  .fz-cuerpo.entra .fz-an-col:nth-child(2) > * { animation-delay: 80ms; } .fz-cuerpo.entra .fz-an-col:nth-child(3) > * { animation-delay: 160ms; }
+  .fz-cuerpo.entra .fz-an-svg path, .fz-cuerpo.entra .fz-an-svg rect:not(.fz-an-hit), .fz-cuerpo.entra .fz-an-svg circle { animation: fz-aparece 0.9s ease 0.25s both; }
+  .fz-cuerpo.entra .fz-an-progreso > span, .fz-cuerpo.entra .fz-an-r5-barra > span { transform-origin: left; animation: fz-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+  .fz-an-cuadro { transition: border-color 0.18s; } .fz-an-cuadro:hover { border-color: #3a3d41; }
+  .fz-tabla-mov tbody tr { transition: background 0.15s; }
+}
+@keyframes fz-fila { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
+@keyframes fz-aparece { from { opacity: 0; } to { opacity: 1; } }
