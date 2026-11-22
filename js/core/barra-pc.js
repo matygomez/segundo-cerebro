@@ -149,6 +149,16 @@ escuchar('datos', (e) => {
 const iconoDe = (x) => (x instanceof Node ? x.cloneNode(true) : icono(x || 'punto'));
 export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
   if (!col) return;
+  // Dentro del mismo módulo (ir de Hoy a Bandeja, por ejemplo) la columna no se anima:
+  // se marca enseguida la pestaña nueva y después se actualizan los números.
+  if (ultima?.def.id === def.id) {
+    sinAnimar = true;
+    const ruta = location.hash.split('?')[0];
+    for (const a of [...col.querySelectorAll('.pc-pest'), ...tira.querySelectorAll('.pc-ti[href]')]) {
+      const h = a.getAttribute('href');
+      if (h === ruta) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current');
+    }
+  }
   ultima = { def, ctx };
   const mio = ++turno;
   const gris = def.id === 'ajustes';
