@@ -746,7 +746,8 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   .pc-acc2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
   .pc-sec { display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding: 0 4px; border: 1px solid #3a3d41; border-radius: 9px; background: var(--superficie-2); color: var(--tinta); font: inherit; font-size: 0.74rem; cursor: pointer; white-space: nowrap; min-width: 0; transition: border-color 0.15s; }
   .pc-sec:hover { border-color: var(--laton); }
-  .pc-sec .icono { display: none; }
+  .pc-sec b { font-weight: 600; }
+  .pc-acc .pc-prin { justify-content: center; gap: 7px; }
   /* Selector de mes en la columna */
   .pc-mes { display: flex; align-items: center; justify-content: space-between; height: 34px; border: 1px solid var(--linea); border-radius: 9px; padding: 0 3px; margin-bottom: 2px; }
   .pc-mes button, .pc-mest button { border: 0; background: none; color: var(--tinta-2); cursor: pointer; border-radius: 7px; display: grid; place-items: center; padding: 0; font: inherit; }

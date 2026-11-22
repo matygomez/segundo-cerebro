@@ -50,8 +50,8 @@ export default {
       ['credito', 'Crédito', 'tarjeta'], ['inversiones', 'Inversiones', 'subida'], ['prestamos', 'Préstamos', 'persona']];
     return {
       contexto: `Disponible ${plata(d.resumenMes(mes).disponible)}`,
-      botones: [{ texto: 'Gasto', alTocar: abrir('gasto') }, { texto: 'Ingreso', icono: ic('mas'), alTocar: abrir('ingreso') },
-        { texto: 'Transferencia', icono: ic('transferir'), alTocar: abrir('transferencia') }],
+      botones: [{ texto: 'Egreso', signo: '−', icono: 'menos', alTocar: abrir('gasto') }, { texto: 'Ingreso', signo: '+', icono: 'mas', alTocar: abrir('ingreso') },
+        { texto: 'Transferencia', icono: ic('transferir'), corto: 'Transf.', alTocar: abrir('transferencia') }],
       mes: { texto: nombreMes(mes), otro: mes !== mesActual(), puedeAntes: mes > lim.min, puedeDespues: mes < lim.max,
         mover: async (n) => moverMesFinanzas(n, await m.cargar()) },
       grupos: [

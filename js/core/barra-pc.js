@@ -134,7 +134,8 @@ function abrirMenuUsuario() {
 // ── Columna del módulo ──
 // Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, textoBoton?, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }],
 //   configurar: '#/ruta', filtros(boton) → abre sus filtros,
-//   botones?: [{ texto, icono?, alTocar }] (el primero grande, los demás en una fila chica),
+//   botones?: [{ texto, signo?, icono?, corto?, alTocar }] (el primero grande, los demás en una fila chica;
+//     signo va delante del texto, icono y corto se usan en la columna achicada),
 //   mes?: { texto, otro, puedeAntes, puedeDespues, mover(n) } (n = -1, 1, o 0 para volver al actual) }.
 // Un módulo pide redibujar la columna (por ejemplo al cambiar de mes) con window.dispatchEvent(new Event('pc-columna')).
 // Mientras no la tenga, la columna muestra el nombre y el botón principal.
@@ -181,8 +182,8 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     cuad(), h('span', { class: 'pc-cab-tx' }, h('b', {}, def.nombre), extra?.contexto ? h('small', {}, extra.contexto) : null));
   const botones = extra?.botones || null;
   const prin = botones ? h('div', { class: 'pc-acc' },
-    h('button', { type: 'button', class: 'pc-prin', onclick: () => botones[0].alTocar?.() }, h('b', {}, '+'), h('span', {}, botones[0].texto)),
-    botones.length > 1 ? h('div', { class: 'pc-acc2' }, botones.slice(1).map(b => h('button', { type: 'button', class: 'pc-sec', onclick: () => b.alTocar?.() }, b.icono ? iconoDe(b.icono) : null, h('span', {}, b.texto)))) : null)
+    h('button', { type: 'button', class: 'pc-prin', onclick: () => botones[0].alTocar?.() }, h('b', {}, botones[0].signo || '+'), h('span', {}, botones[0].texto)),
+    botones.length > 1 ? h('div', { class: 'pc-acc2' }, botones.slice(1).map(b => h('button', { type: 'button', class: 'pc-sec', onclick: () => b.alTocar?.() }, b.signo ? h('b', {}, b.signo) : null, h('span', {}, b.texto)))) : null)
     : boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, extra?.textoBoton || boton.texto)) : null;
   // Selector de mes (Finanzas): flechas y, tocando el nombre, vuelve al mes actual.
   const mes = extra?.mes || null;
@@ -209,8 +210,7 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
   if (!sinAnimar) { col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia'); }
 
   const nuevo = botones ? [
-    h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', 'data-tip': botones[0].texto, onclick: () => botones[0].alTocar?.() }, icono('mas'), h('small', {}, botones[0].texto)),
-    ...botones.slice(1).map(b => h('button', { type: 'button', class: 'pc-ti', 'data-tip': b.texto, onclick: () => b.alTocar?.() }, b.icono ? iconoDe(b.icono) : icono('mas'), h('small', {}, b.texto)))]
+    ...botones.map((b, i) => h('button', { type: 'button', class: `pc-ti${i ? '' : ' pc-ti-nuevo'}`, 'data-tip': b.texto, onclick: () => b.alTocar?.() }, iconoDe(b.icono || 'mas'), h('small', {}, b.corto || b.texto)))]
     : boton ? h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', title: boton.texto, onclick: () => boton.alTocar?.() }, icono('mas'), h('small', {}, 'Nuevo')) : null;
   const mesTira = mes ? h('div', { class: 'pc-mest' },
     h('button', { type: 'button', 'aria-label': 'Mes anterior', disabled: !mes.puedeAntes, onclick: () => mes.mover(-1) }, icono('flecha-izq')),

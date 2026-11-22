@@ -847,7 +847,32 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
     if (vista === 'movimientos') return vistaMovimientos(cuerpo, ctx, m, d, { mes: mesVista, alCambiarMes: (mes) => { mesVista = mes; dibujar(); avisarColumna(); } });
     if (vista === 'config') return vistaConfig(cuerpo, ctx, m, d);
     if (vista === 'analisis') return vistaAnalisis(cuerpo, ctx, m, d, { mes: mesVista });
+    cuerpo.classList.toggle('fz-det-pc', esPC() && vista === 'detalle');
+    cuerpo.dataset.det = vista === 'detalle' ? clave : '';
     poner(cuerpo, vista === 'detalle' ? vistaDetalle() : vistaPanel());
+    entrada();
+    ajustarAlto();
+  }
+
+  // Como en Tareas: al entrar a una vista los cuadros aparecen uno detrás de otro
+  // y las barras crecen. Solo al llegar, no cada vez que cambian los datos.
+  let primera = true;
+  function entrada() {
+    if (!primera) return;
+    primera = false;
+    cuerpo.classList.add('entra');
+    setTimeout(() => cuerpo.classList.remove('entra'), 900);
+  }
+
+  // En la PC el panel y cada detalle se ven enteros en la ventana, sin barra:
+  // si el contenido no entra, se achica un poco todo (nunca menos del 60 %).
+  function ajustarAlto() {
+    cuerpo.style.zoom = '';
+    if (!esPC() || !['panel', 'detalle'].includes(vista)) return;
+    const arriba = cuerpo.getBoundingClientRect().top + window.scrollY;
+    const lugar = window.innerHeight - arriba - 12;
+    const alto = cuerpo.scrollHeight;
+    if (alto > lugar + 1) cuerpo.style.zoom = String(Math.max(0.6, Math.floor(lugar / alto * 1000) / 1000));
   }
 
   let espera = null;
@@ -865,7 +890,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
 
   // Si cambia de celular a PC (o al revés), cambia la cabecera y el Disponible.
   let eraPC = esPC();
-  const alRedimensionar = () => { if (esPC() !== eraPC) { eraPC = esPC(); dibujar(); } };
+  const alRedimensionar = () => { if (esPC() !== eraPC) { eraPC = esPC(); dibujar(); } else ajustarAlto(); };
   addEventListener('resize', alRedimensionar);
   redibujarPantalla = dibujar;
   dibujar();
