@@ -43,16 +43,17 @@ export function armarBarraPC(op) {
   rail = h('aside', { class: 'pc-rail' },
     h('button', { type: 'button', class: 'pc-logo', title: 'Agrandar o achicar la barra', onclick: alternarRail },
       h('span', { class: 'pc-logo-cuad' }, h('span', { class: 'marca-signo' })), h('span', { class: 'pc-tx pc-logo-tx' }, 'Segundo Cerebro')),
-    h('button', { type: 'button', class: 'pc-it pc-bus', title: 'Buscar en todo (Ctrl K)', onclick: () => opciones.alBuscar() },
+    h('button', { type: 'button', class: 'pc-it pc-bus', 'data-tip': 'Buscar (Ctrl K)', 'aria-label': 'Buscar en todo (Ctrl K)', onclick: () => opciones.alBuscar() },
       icono('lupa'), h('span', { class: 'pc-tx' }, 'Buscar'), h('kbd', { class: 'pc-tx' }, 'Ctrl K')),
     lista,
     pie,
-    h('button', { type: 'button', class: 'pc-us', title: 'Tu cuenta', onclick: (e) => { e.stopPropagation(); abrirMenuUsuario(); } },
+    h('button', { type: 'button', class: 'pc-us', 'data-tip': 'Mi cuenta', 'aria-label': 'Tu cuenta', onclick: (e) => { e.stopPropagation(); abrirMenuUsuario(); } },
       avatar, h('span', { class: 'pc-tx pc-us-tx' }, h('b', {}, 'Mi cuenta'), usTexto)),
     menuUs);
 
   col = h('div', { class: 'pc-col' });
   tira = h('div', { class: 'pc-tira' });
+  armarCartelito();
   document.addEventListener('click', (e) => { if (!menuUs.hidden && !menuUs.contains(e.target)) menuUs.hidden = true; });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') menuUs.hidden = true;
@@ -60,6 +61,26 @@ export function armarBarraPC(op) {
     if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b' && matchMedia('(min-width: 900px)').matches) { e.preventDefault(); alternarColumna(); }
   });
   return h('div', { class: 'pc-marco' }, rail, h('aside', { class: 'pc-colw' }, col, tira));
+}
+
+// Cartelito con el nombre al pasar el mouse cuando la barra o la columna están achicadas:
+// sale enseguida (el de Windows tarda y no sigue el estilo de la app).
+function armarCartelito() {
+  const tip = h('div', { class: 'pc-tip', hidden: true, role: 'tooltip' });
+  document.body.append(tip);
+  const mostrar = (e) => {
+    const el = e.target.closest?.('[data-tip]');
+    const enRail = el && rail.contains(el);
+    const achicado = enRail ? !app().classList.contains('rail-ab') : app().classList.contains('col-plegada');
+    if (!el || !achicado || !(enRail || tira.contains(el) || col.contains(el))) { tip.hidden = true; return; }
+    const r = el.getBoundingClientRect();
+    tip.textContent = el.dataset.tip;
+    tip.style.left = `${r.right + 10}px`;
+    tip.style.top = `${r.top + r.height / 2}px`;
+    tip.hidden = false;
+  };
+  document.addEventListener('mouseover', mostrar);
+  document.addEventListener('click', () => { tip.hidden = true; });
 }
 
 function alternarRail() {
@@ -79,7 +100,7 @@ export function marcarBarraPC(id, redibujar = false) {
   if (!lista) return;
   if (redibujar || !lista.childElementCount) {
     const items = opciones.items();
-    const enlace = (it) => h('a', { href: `#/${it.id}`, class: 'pc-it', 'data-id': it.id, title: it.nombre }, icono(it.icono), h('span', { class: 'pc-tx' }, it.nombre));
+    const enlace = (it) => h('a', { href: `#/${it.id}`, class: 'pc-it', 'data-id': it.id, 'data-tip': it.nombre, 'aria-label': it.nombre }, icono(it.icono), h('span', { class: 'pc-tx' }, it.nombre));
     lista.replaceChildren(...items.filter(it => it.id !== 'ajustes').map(enlace));
     const conf = items.find(it => it.id === 'ajustes') || { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' };
     pie.replaceChildren(enlace(conf));
@@ -110,8 +131,11 @@ function abrirMenuUsuario() {
 }
 
 // ── Columna del módulo ──
-// Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }] }.
+// Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }],
+//   configurar: '#/ruta', filtros(boton) → abre sus filtros }.
 // Mientras no la tenga, la columna muestra el nombre y el botón principal.
+// Dónde se configura cada módulo, hasta que cada uno lo mande en columna() → configurar.
+const CONFIGURAR_DE = { finanzas: '#/finanzas/config', bitacora: '#/bitacora/ajustes', habitos: '#/habitos/config', compras: '#/compras/ajustes', resumen: '#/resumen/config', home: '#/ajustes/inicio' };
 let turno = 0;
 export async function dibujarColumna(def, ctx) {
   if (!col) return;
@@ -136,7 +160,15 @@ export async function dibujarColumna(def, ctx) {
     ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, icono(p.icono || 'punto'), h('span', {}, p.nombre))),
   ]).flat();
 
-  col.replaceChildren(...[cab, prin, ...grupos].filter(Boolean));
+  // Pie de la columna: Filtros (si el módulo los ofrece) y Configurar este módulo.
+  const conf = gris ? null : (extra?.configurar || CONFIGURAR_DE[def.id] || '#/ajustes');
+  const filtrar = extra?.filtros ? (e) => extra.filtros(e.currentTarget) : null;
+  const tipFiltros = filtrar ? 'Filtros' : 'Filtros: llegan con el diseño nuevo de este módulo';
+  const pieCol = gris ? null : h('div', { class: 'pc-cpie' },
+    h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
+    h('a', { href: conf, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
+
+  col.replaceChildren(...[cab, prin, ...grupos, pieCol].filter(Boolean));
   col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia');
 
   const nuevo = boton ? h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', title: boton.texto, onclick: () => boton.alTocar?.() }, icono('mas'), h('small', {}, 'Nuevo')) : null;
@@ -145,7 +177,10 @@ export async function dibujarColumna(def, ctx) {
     nuevo,
     ...(extra?.grupos || []).flatMap((g, i) => [
       i ? h('div', { class: 'pc-tsep' }) : null,
-      ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', title: p.nombre, 'aria-current': p.activa ? 'page' : null }, icono(p.icono || 'punto'), h('small', {}, p.nombre))),
+      ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, icono(p.icono || 'punto'), h('small', {}, p.nombre))),
     ]),
+    gris ? null : h('div', { class: 'pc-tpie' },
+      h('button', { type: 'button', class: 'pc-ti', 'data-tip': tipFiltros, disabled: !filtrar, onclick: filtrar }, icono('filtro'), h('small', {}, 'Filtros')),
+      h('a', { href: conf, class: 'pc-ti', 'data-tip': `Configurar ${def.nombre}` }, icono('engranaje'), h('small', {}, 'Ajustes'))),
   ].filter(Boolean));
 }

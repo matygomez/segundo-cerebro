@@ -668,7 +668,8 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   .pc-bus { border: 1px solid var(--linea); background: var(--superficie); margin-bottom: 8px; }
   /* El atajo, apenas insinuado */
   .pc-bus kbd { margin-left: auto; font-family: var(--fuente); font-size: 0.56rem; letter-spacing: 0.02em; border: 0; padding: 0; color: var(--tinta-2); opacity: 0.45; }
-  .pc-mods { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: none; }
+  /* El margen negativo deja lugar a la rayita amarilla (sale 5px a la izquierda) sin que el desplazamiento la recorte */
+  .pc-mods { display: flex; flex-direction: column; gap: 2px; overflow-y: auto; scrollbar-width: none; margin: 0 -5px; padding: 0 5px; }
   .pc-pie { margin-top: auto; display: flex; flex-direction: column; }
   .pc-us {
     display: flex; align-items: center; justify-content: center; gap: 10px; height: 48px; margin-top: 2px;
@@ -757,6 +758,21 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   .pc-ti[aria-current] .icono { color: var(--laton); }
   .pc-ti-nuevo { background: var(--tinta); color: var(--papel); margin-bottom: 8px; }
   .pc-ti-nuevo:hover { background: var(--tinta); color: var(--papel); }
+  .pc-tip {
+    position: fixed; z-index: 60; transform: translateY(-50%); pointer-events: none; white-space: nowrap;
+    background: var(--tinta); color: var(--papel); font-size: 0.78rem; font-weight: 600; padding: 5px 9px; border-radius: 7px;
+    box-shadow: 0 8px 20px rgb(0 0 0 / 0.45); animation: pc-pop 0.12s ease-out;
+  }
+  .pc-cpie { margin-top: auto; display: flex; gap: 6px; padding-top: 10px; border-top: 1px solid var(--linea); }
+  .pc-tb {
+    width: 34px; height: 34px; border-radius: 9px; border: 1px solid var(--linea); background: var(--superficie-2); color: var(--tinta-2);
+    display: grid; place-items: center; cursor: pointer; padding: 0; transition: color 0.15s, border-color 0.15s;
+  }
+  .pc-tb .icono { width: 16px; height: 16px; }
+  .pc-tb:hover:not(:disabled) { color: var(--tinta); border-color: #3a3d41; }
+  .pc-tb:disabled { opacity: 0.4; cursor: default; }
+  .pc-tpie { margin-top: auto; display: flex; flex-direction: column; gap: 2px; padding-top: 8px; border-top: 1px solid var(--linea); }
+  .pc-ti:disabled { opacity: 0.4; cursor: default; }
   .pc-tsep { height: 0; margin-top: -2px; position: relative; }
   .pc-tsep::before { content: ""; position: absolute; left: 14px; right: 14px; top: -1px; height: 1px; background: var(--linea); }
 
