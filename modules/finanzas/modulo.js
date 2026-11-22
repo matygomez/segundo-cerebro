@@ -7,12 +7,12 @@
 //   - Resumen para el widget (a futuro)
 // ─────────────────────────────────────────────────────────────
 
-import { crearModelo, plata, mesActual } from './modelo.js';
+import { crearModelo, plata, mesActual, nombreMes } from './modelo.js';
 
 const sumarMes = (mes) => { const [a, m] = mes.split('-').map(Number); const f = new Date(a, m, 1); return `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}`; };
-import { pantallaFinanzas } from './vistas.js';
+import { pantallaFinanzas, mesFinanzas, moverMesFinanzas, limitesDe } from './vistas.js';
 import { abrirMovimiento } from './formularios.js';
-import { cargarEstilos } from './comun.js';
+import { cargarEstilos, ic } from './comun.js';
 import { sincronizarRecordatorios, estadoRecordatorio, pagarRecordatorio } from './recordatorios.js';
 
 // Formulario de movimiento nuevo con pestañas arriba para cambiar el tipo
@@ -35,6 +35,34 @@ export default {
   nombre: 'Finanzas',
 
   pantalla: pantallaFinanzas,
+
+  // Columna de la PC: Gasto / Ingreso / Transferencia, el mes, las vistas y cada panel.
+  async columna(ctx) {
+    const m = crearModelo(ctx);
+    const d = await m.cargar();
+    const mes = mesFinanzas();
+    const lim = limitesDe(d);
+    const ruta = location.hash.replace(/^#\/finanzas\/?/, '').split('/');
+    const vista = ruta[0] || 'panel', clave = ruta[1] || '';
+    const pest = (id, nombre, icono, href, activa) => ({ id, nombre, icono: ic(icono), href, activa });
+    const abrir = (tipo) => () => conPestanas(ctx, tipo);
+    const PANELES = [['cuentas', 'Cuentas', 'banco'], ['fijos', 'Gastos fijos', 'calendario'], ['variables', 'Gastos variables', 'bolsa'],
+      ['credito', 'Crédito', 'tarjeta'], ['inversiones', 'Inversiones', 'subida'], ['prestamos', 'Préstamos', 'persona']];
+    return {
+      contexto: `Disponible ${plata(d.resumenMes(mes).disponible)}`,
+      botones: [{ texto: 'Gasto', alTocar: abrir('gasto') }, { texto: 'Ingreso', icono: ic('mas'), alTocar: abrir('ingreso') },
+        { texto: 'Transferencia', icono: ic('transferir'), alTocar: abrir('transferencia') }],
+      mes: { texto: nombreMes(mes), otro: mes !== mesActual(), puedeAntes: mes > lim.min, puedeDespues: mes < lim.max,
+        mover: async (n) => moverMesFinanzas(n, await m.cargar()) },
+      grupos: [
+        { titulo: 'Vistas', pestañas: [
+          pest('panel', 'Panel', 'grilla', '#/finanzas', vista === 'panel'),
+          pest('movimientos', 'Movimientos', 'tabla', '#/finanzas/movimientos', vista === 'movimientos'),
+          pest('analisis', 'Análisis', 'grafico', '#/finanzas/analisis', vista === 'analisis')] },
+        { titulo: 'Paneles', pestañas: PANELES.map(([k, n, i]) => pest(k, n, i, `#/finanzas/detalle/${k}`, vista === 'detalle' && clave === k)) },
+      ],
+    };
+  },
 
   // Al abrir la app y cada vez que cambian los datos de Finanzas,
   // se ponen al día las tareas de recordatorio.

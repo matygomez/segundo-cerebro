@@ -740,6 +740,26 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   }
   .pc-prin b { font-size: 1.15rem; line-height: 1; font-weight: 600; }
   .pc-prin:hover { transform: translateY(-1px); box-shadow: 0 6px 14px rgb(0 0 0 / 0.35); }
+  /* Varios botones arriba (Finanzas: Gasto grande, Ingreso y Transferencia abajo) */
+  .pc-acc { display: flex; flex-direction: column; gap: 5px; margin-bottom: 6px; }
+  .pc-acc .pc-prin { margin: 0; }
+  .pc-acc2 { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; }
+  .pc-sec { display: flex; align-items: center; justify-content: center; gap: 4px; height: 32px; padding: 0 4px; border: 1px solid #3a3d41; border-radius: 9px; background: var(--superficie-2); color: var(--tinta); font: inherit; font-size: 0.74rem; cursor: pointer; white-space: nowrap; min-width: 0; transition: border-color 0.15s; }
+  .pc-sec:hover { border-color: var(--laton); }
+  .pc-sec .icono { display: none; }
+  /* Selector de mes en la columna */
+  .pc-mes { display: flex; align-items: center; justify-content: space-between; height: 34px; border: 1px solid var(--linea); border-radius: 9px; padding: 0 3px; margin-bottom: 2px; }
+  .pc-mes button, .pc-mest button { border: 0; background: none; color: var(--tinta-2); cursor: pointer; border-radius: 7px; display: grid; place-items: center; padding: 0; font: inherit; }
+  .pc-mes > button:not(.pc-mes-c) { width: 26px; height: 26px; }
+  .pc-mes button:hover:not(:disabled), .pc-mest button:hover:not(:disabled) { background: var(--superficie-2); color: var(--tinta); }
+  .pc-mes button:disabled, .pc-mest button:disabled { opacity: 0.3; cursor: default; }
+  .pc-mes .icono, .pc-mest .icono { width: 15px; height: 15px; }
+  .pc-mes-c { font-family: var(--fuente-titulo) !important; font-size: 0.95rem !important; font-weight: 600; color: var(--tinta) !important; padding: 3px 6px !important; }
+  .pc-mes-c.otro, .pc-mest-c.otro { color: var(--laton) !important; }
+  .pc-mest { display: flex; flex-direction: column; align-items: center; margin: 2px 0 6px; }
+  .pc-mest > button:not(.pc-mest-c) { width: 40px; height: 18px; }
+  .pc-mest > button:not(.pc-mest-c) .icono { transform: rotate(90deg); }
+  .pc-mest-c { font-size: 0.68rem !important; font-weight: 600; color: var(--tinta) !important; text-transform: capitalize; padding: 2px 6px !important; }
   .pc-g { font-size: 0.66rem; letter-spacing: 0.08em; text-transform: uppercase; color: #6f6d6a; font-weight: 600; padding: 12px 8px 4px; }
   .pc-pest { display: flex; align-items: center; gap: 10px; height: 34px; padding: 0 9px; border-radius: 9px; color: var(--tinta-2); font-size: 0.85rem; text-decoration: none; transition: background 0.15s, color 0.15s; }
   .pc-pest .icono { width: 16px; height: 16px; }

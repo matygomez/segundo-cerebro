@@ -13,7 +13,29 @@
 .transf { color: var(--fz-azul); }
 
 /* Finanzas usa todo el ancho en la PC */
-@media (min-width: 900px) { #pantalla:has(.fz-cabecera) { max-width: 82rem; } }
+@media (min-width: 900px) {
+  /* Como Tareas: todo el ancho, y el panel llena la pantalla (cada columna estira su último cuadro, sin huecos ni barras adentro). */
+  #pantalla:has(.fz-cabecera) { max-width: none; }
+  #pantalla:has(.fz-columnas[data-n="3"]), #pantalla:has(.fz-columnas[data-n="2"]) { padding-bottom: 12px; }
+  .fz-cuerpo:has(> .fz-columnas) { padding-bottom: 0; }
+  .fz-columnas[data-n="3"], .fz-columnas[data-n="2"] { align-items: stretch; min-height: calc(100dvh - 2rem); }
+  .fz-columnas[data-n="3"] .fz-col > .fz-cuadro:last-child, .fz-columnas[data-n="2"] .fz-col > .fz-cuadro:last-child { flex: 1; }
+}
+/* Disponible de la PC (cuadro con la cuenta de dónde sale) */
+.fz-disp-pc { display: grid; gap: 0.55rem; align-content: start; }
+.fz-dp-tit { display: inline-flex; align-items: center; gap: 0.35rem; border: 0; background: none; color: var(--tinta); font: inherit; font-weight: 600; padding: 0; cursor: pointer; margin-right: auto; }
+.fz-dp-tit .icono { width: 0.95rem; height: 0.95rem; color: var(--tinta-2); }
+.fz-dp-num { border: 0; background: none; color: var(--tinta); padding: 0; text-align: left; cursor: pointer; font-size: 2.6rem !important; }
+.fz-dp-tri { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+.fz-dp-tri > * { display: grid; gap: 0.05rem; border: 0; background: none; padding: 0; text-align: left; font: inherit; color: inherit; min-width: 0; }
+.fz-dp-tri button { cursor: pointer; }
+.fz-dp-tri span { font-size: 0.75rem; color: var(--tinta-2); }
+.fz-dp-tri b { font-size: 0.92rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.fz-dp-desg { display: grid; gap: 0.15rem; border-top: 1px solid var(--linea); padding-top: 0.5rem; font-size: 0.82rem; color: var(--tinta-2); }
+.fz-dp-l { display: flex; justify-content: space-between; gap: 0.5rem; }
+.fz-dp-l b { color: var(--tinta); font-weight: 600; }
+.fz-dp-l.t { border-top: 1px solid var(--linea); padding-top: 0.3rem; margin-top: 0.15rem; }
+.fz-dp-l.t b { color: var(--verde); }
 
 /* ── Encabezado ── */
 .fz-cabecera { display: grid; gap: 0.75rem; }

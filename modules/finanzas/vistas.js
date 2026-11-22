@@ -17,6 +17,25 @@ import { vistaAnalisis } from './analisis.js';
 import { abrirControlResumen } from './control.js';
 
 let mesVista = mesActual();
+// La columna de la PC (modulo.js) lee y cambia el mes; la pantalla abierta se redibuja.
+let redibujarPantalla = null;
+const avisarColumna = () => window.dispatchEvent(new Event('pc-columna'));
+export const mesFinanzas = () => mesVista;
+// Las flechas recorren solo desde el primer mes con algo cargado hasta el último
+// (o el actual, si es más adelante): compras, cuotas y sus vencimientos.
+export function limitesDe(d) {
+  const meses = [mesActual(), ...d.movimientos.map(x => mesDe(x.fecha)), ...d.cuotas().flatMap(q => [q.mesGasto, sumarMeses(q.mes, 1)])].sort();
+  return { min: meses[0], max: meses.at(-1) };
+}
+// n = -1 / 1 para moverse, 0 para volver al mes actual.
+export function moverMesFinanzas(n, d) {
+  const lim = limitesDe(d);
+  const nuevo = n === 0 ? mesActual() : sumarMeses(mesVista, n);
+  if (n !== 0 && (nuevo < lim.min || nuevo > lim.max)) return;
+  mesVista = nuevo;
+  redibujarPantalla?.();
+  avisarColumna();
+}
 
 // Cuadros plegados: en el celular y en la PC se recuerdan por separado.
 const esPC = () => window.matchMedia('(min-width: 900px)').matches;
@@ -70,28 +89,24 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   // ── Encabezado: título, mes, botones y pestañas ──
   // En el panel, la cabecera va arriba de la primera columna; en las demás vistas, arriba de todo.
   function dibujarCabecera() {
-    const enPanel = vista === 'panel';
-    cabecera.hidden = enPanel;
-    if (enPanel) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
+    // En la PC el mes, los botones y las pestañas están en la columna del costado.
+    const sinCab = vista === 'panel' || (esPC() && vista !== 'config');
+    cabecera.hidden = sinCab;
+    if (sinCab) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
   }
 
-  // Las flechas recorren solo desde el primer mes con algo cargado hasta el último
-  // (o el actual, si es más adelante): compras, cuotas y sus vencimientos.
-  function limitesMes() {
-    const meses = [mesActual(), ...d.movimientos.map(x => mesDe(x.fecha)), ...d.cuotas().flatMap(q => [q.mesGasto, sumarMeses(q.mes, 1)])].sort();
-    return { min: meses[0], max: meses.at(-1) };
-  }
+  const limitesMes = () => limitesDe(d);
 
   function piezasCabecera() {
     const lim = limitesMes();
-    const cambiarMes = (n) => { mesVista = sumarMeses(mesVista, n); dibujar(); };
+    const cambiarMes = (n) => { mesVista = sumarMeses(mesVista, n); dibujar(); avisarColumna(); };
     return [
       h('div', { class: 'fz-titulo' },
         h('h1', {}, 'Finanzas'),
         h('div', { class: 'fz-mes' },
           h('button', { type: 'button', 'aria-label': 'Mes anterior', disabled: mesVista <= lim.min, title: mesVista <= lim.min ? 'No hay nada cargado antes' : null, onclick: () => cambiarMes(-1) }, ic('izquierda')),
           // Tocando el nombre se vuelve al mes actual; en otro mes se ve en amarillo.
-          h('button', { type: 'button', class: `fz-mes-centro${mesVista !== mesActual() ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => { mesVista = mesActual(); dibujar(); } }, nombreMes(mesVista)),
+          h('button', { type: 'button', class: `fz-mes-centro${mesVista !== mesActual() ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => { mesVista = mesActual(); dibujar(); avisarColumna(); } }, nombreMes(mesVista)),
           h('button', { type: 'button', 'aria-label': 'Mes siguiente', disabled: mesVista >= lim.max, title: mesVista >= lim.max ? 'No hay nada cargado después' : null, onclick: () => cambiarMes(1) }, ic('flecha')))),
       h('div', { class: 'fz-acciones' },
         h('button', { type: 'button', class: 'boton principal', onclick: () => abrirMovimiento(ctx, m, d, 'gasto') }, ic('menos'), 'Gasto'),
@@ -500,8 +515,32 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   let arrastrando = false;
   let nDibujado = null;
 
+  // Disponible de la PC: el número, ingresos/gastos/diferencia y cómo se llega.
+  function disponiblePC(r) {
+    const esActual = mesVista === mesActual();
+    const fila = (t, v, cls = '') => h('div', { class: `fz-dp-l ${cls}`.trim() }, h('span', {}, t), h('b', { class: 'num' }, v));
+    return h('section', { class: 'fz-cuadro fz-disp-pc' },
+      h('div', { class: 'fz-cuadro-cab' },
+        h('button', { type: 'button', class: 'fz-dp-tit', title: 'De dónde sale el Disponible', onclick: () => explicarDisponible(r) },
+          esActual ? 'Disponible' : `Disponible al cierre de ${nombreMes(mesVista, false).toLowerCase()}`, ic('info')),
+        h('span', { class: 'fz-cuadro-der nota' }, nombreMes(mesVista))),
+      h('button', { type: 'button', class: 'fz-disponible-valor num fz-dp-num', onclick: () => explicarDisponible(r) }, plata(r.disponible)),
+      h('div', { class: 'fz-dp-tri' },
+        h('button', { type: 'button', onclick: () => explicarIngresos() }, h('span', {}, 'Ingresos'), h('b', { class: 'num pos' }, plata(r.totalIngresos))),
+        h('button', { type: 'button', onclick: () => explicarGastos(r) }, h('span', {}, 'Gastos'), h('b', { class: 'num neg' }, plata(r.totalGastos))),
+        h('div', {}, h('span', {}, 'Diferencia'), h('b', { class: `num ${r.diferencia < 0 ? 'neg' : 'pos'}` }, plata(r.diferencia)))),
+      h('div', { class: 'fz-dp-desg' },
+        fila('Plata en cuentas', plata(r.enCuentas)),
+        r.aCobrar ? fila('+ A cobrar este mes', plata(r.aCobrar)) : null,
+        r.aPagar ? fila('− A pagar este mes', plata(r.aPagar)) : null,
+        fila('− Falta pagar de fijos', plata(r.fijosPendientes)),
+        r.faltanteCredito ? fila('− Transferir al fondo de crédito', plata(r.faltanteCredito)) : null,
+        fila('Disponible', plata(r.disponible), 't')));
+  }
+
   function vistaPanel() {
     const r = d.resumenMes(mesVista);
+    const sinNada = !d.cuentas.length && !d.categorias.length && !d.creditos.length;
     const esActual = mesVista === mesActual();
     const disponible = h('div', { class: 'fz-disponible' },
       h('button', { type: 'button', class: 'fz-disp-boton', onclick: () => explicarDisponible(r) },
@@ -511,8 +550,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('button', { type: 'button', onclick: () => explicarIngresos() }, 'Ingresos ', h('b', { class: 'num pos' }, plata(r.totalIngresos))),
         h('button', { type: 'button', onclick: () => explicarGastos(r) }, 'Gastos ', h('b', { class: 'num neg' }, plata(r.totalGastos))),
         h('span', {}, 'Diferencia ', h('b', { class: `num ${r.diferencia < 0 ? 'neg' : 'pos'}` }, plata(r.diferencia)))));
-    const sinNada = !d.cuentas.length && !d.categorias.length && !d.creditos.length;
-    const fija = h('div', { class: 'fz-fija' }, piezasCabecera(), disponible,
+    // En la PC el Disponible es un cuadro más, con la cuenta de dónde sale (la cabecera está en la columna).
+    const fija = esPC() && !sinNada ? disponiblePC(r) : h('div', { class: 'fz-fija' }, piezasCabecera(), disponible,
       sinNada ? h('div', { class: 'vacio' }, h('h2', {}, 'Empecemos'),
         h('p', {}, 'Creá tus cuentas, tarjetas y categorías desde Configurar Finanzas. Después ya podés cargar gastos e ingresos.'),
         h('a', { href: '#/finanzas/config', class: 'boton principal' }, ic('engranaje'), 'Configurar Finanzas')) : null);
@@ -805,7 +844,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   function dibujar() {
     dibujarCabecera();
     cuerpo.onpointermove = cuerpo.onpointerdown = cuerpo.onpointerleave = null;
-    if (vista === 'movimientos') return vistaMovimientos(cuerpo, ctx, m, d, { mes: mesVista, alCambiarMes: (mes) => { mesVista = mes; dibujar(); } });
+    if (vista === 'movimientos') return vistaMovimientos(cuerpo, ctx, m, d, { mes: mesVista, alCambiarMes: (mes) => { mesVista = mes; dibujar(); avisarColumna(); } });
     if (vista === 'config') return vistaConfig(cuerpo, ctx, m, d);
     if (vista === 'analisis') return vistaAnalisis(cuerpo, ctx, m, d, { mes: mesVista });
     poner(cuerpo, vista === 'detalle' ? vistaDetalle() : vistaPanel());
@@ -824,8 +863,13 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   }) : null;
   observador?.observe(cuerpo);
 
+  // Si cambia de celular a PC (o al revés), cambia la cabecera y el Disponible.
+  let eraPC = esPC();
+  const alRedimensionar = () => { if (esPC() !== eraPC) { eraPC = esPC(); dibujar(); } };
+  addEventListener('resize', alRedimensionar);
+  redibujarPantalla = dibujar;
   dibujar();
-  return () => { quitar(); clearTimeout(espera); observador?.disconnect(); };
+  return () => { quitar(); clearTimeout(espera); observador?.disconnect(); removeEventListener('resize', alRedimensionar); if (redibujarPantalla === dibujar) redibujarPantalla = null; };
 }
 
 // Para el bloque de Inicio.

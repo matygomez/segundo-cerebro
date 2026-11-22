@@ -50,6 +50,8 @@ const TRAZOS = {
   descargar: '<path d="M12 4v11"/><path d="m7 10 5 5 5-5"/><path d="M5 19h14"/>',
   compras: '<path d="M3.5 4.5h2l2.3 10.5h9.9l2.3-7.5H6.4"/><circle cx="9" cy="19" r="1.3"/><circle cx="16.5" cy="19" r="1.3"/>',
   punto: '<circle cx="12" cy="12" r="3"/>',
+  'flecha-izq': '<path d="m15 6-6 6 6 6"/>',
+  'flecha-der': '<path d="m9 6 6 6-6 6"/>',
 };
 
 export function icono(nombre, clase = 'icono') {

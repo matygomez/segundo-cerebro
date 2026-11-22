@@ -133,7 +133,10 @@ function abrirMenuUsuario() {
 
 // ── Columna del módulo ──
 // Cada módulo puede (más adelante) exportar columna(ctx) → { contexto, textoBoton?, grupos: [{ titulo, pestañas: [{ id, nombre, icono, href, activa }] }],
-//   configurar: '#/ruta', filtros(boton) → abre sus filtros }.
+//   configurar: '#/ruta', filtros(boton) → abre sus filtros,
+//   botones?: [{ texto, icono?, alTocar }] (el primero grande, los demás en una fila chica),
+//   mes?: { texto, otro, puedeAntes, puedeDespues, mover(n) } (n = -1, 1, o 0 para volver al actual) }.
+// Un módulo pide redibujar la columna (por ejemplo al cambiar de mes) con window.dispatchEvent(new Event('pc-columna')).
 // Mientras no la tenga, la columna muestra el nombre y el botón principal.
 // Dónde se configura cada módulo, hasta que cada uno lo mande en columna() → configurar.
 const CONFIGURAR_DE = { finanzas: '#/finanzas/config', bitacora: '#/bitacora/ajustes', habitos: '#/habitos/config', compras: '#/compras/ajustes', resumen: '#/resumen/config', home: '#/ajustes/inicio' };
@@ -145,6 +148,7 @@ escuchar('datos', (e) => {
   clearTimeout(esperaCol);
   esperaCol = setTimeout(() => dibujarColumna(ultima.def, ultima.ctx, { sinAnimar: true }), 250);
 });
+addEventListener('pc-columna', () => { if (ultima) dibujarColumna(ultima.def, ultima.ctx, { sinAnimar: true }); });
 // El ícono puede venir como nombre (íconos de la app) o ya dibujado por el módulo.
 const iconoDe = (x) => (x instanceof Node ? x.cloneNode(true) : icono(x || 'punto'));
 export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
@@ -175,7 +179,17 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
 
   const cab = h('button', { type: 'button', class: 'pc-cab', title: 'Plegar la columna', onclick: () => alternarColumna(true) },
     cuad(), h('span', { class: 'pc-cab-tx' }, h('b', {}, def.nombre), extra?.contexto ? h('small', {}, extra.contexto) : null));
-  const prin = boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, extra?.textoBoton || boton.texto)) : null;
+  const botones = extra?.botones || null;
+  const prin = botones ? h('div', { class: 'pc-acc' },
+    h('button', { type: 'button', class: 'pc-prin', onclick: () => botones[0].alTocar?.() }, h('b', {}, '+'), h('span', {}, botones[0].texto)),
+    botones.length > 1 ? h('div', { class: 'pc-acc2' }, botones.slice(1).map(b => h('button', { type: 'button', class: 'pc-sec', onclick: () => b.alTocar?.() }, b.icono ? iconoDe(b.icono) : null, h('span', {}, b.texto)))) : null)
+    : boton ? h('button', { type: 'button', class: 'pc-prin', onclick: () => boton.alTocar?.() }, h('b', {}, '+'), h('span', {}, extra?.textoBoton || boton.texto)) : null;
+  // Selector de mes (Finanzas): flechas y, tocando el nombre, vuelve al mes actual.
+  const mes = extra?.mes || null;
+  const selMes = mes ? h('div', { class: 'pc-mes' },
+    h('button', { type: 'button', 'aria-label': 'Mes anterior', title: mes.puedeAntes ? 'Mes anterior' : 'No hay nada cargado antes', disabled: !mes.puedeAntes, onclick: () => mes.mover(-1) }, icono('flecha-izq')),
+    h('button', { type: 'button', class: `pc-mes-c${mes.otro ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => mes.mover(0) }, mes.texto),
+    h('button', { type: 'button', 'aria-label': 'Mes siguiente', title: mes.puedeDespues ? 'Mes siguiente' : 'No hay nada cargado después', disabled: !mes.puedeDespues, onclick: () => mes.mover(1) }, icono('flecha-der'))) : null;
   const grupos = (extra?.grupos || []).map(g => [
     g.titulo ? h('div', { class: 'pc-g' }, g.titulo) : null,
     ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('span', {}, p.nombre), p.n ? h('span', { class: 'pc-n' }, String(p.n)) : null)),
@@ -191,13 +205,21 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
     h('a', { ...confAttrs, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
 
-  col.replaceChildren(...[cab, prin, ...grupos, pieCol].filter(Boolean));
+  col.replaceChildren(...[cab, prin, selMes, ...grupos, pieCol].filter(Boolean));
   if (!sinAnimar) { col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia'); }
 
-  const nuevo = boton ? h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', title: boton.texto, onclick: () => boton.alTocar?.() }, icono('mas'), h('small', {}, 'Nuevo')) : null;
+  const nuevo = botones ? [
+    h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', 'data-tip': botones[0].texto, onclick: () => botones[0].alTocar?.() }, icono('mas'), h('small', {}, botones[0].texto)),
+    ...botones.slice(1).map(b => h('button', { type: 'button', class: 'pc-ti', 'data-tip': b.texto, onclick: () => b.alTocar?.() }, b.icono ? iconoDe(b.icono) : icono('mas'), h('small', {}, b.texto)))]
+    : boton ? h('button', { type: 'button', class: 'pc-ti pc-ti-nuevo', title: boton.texto, onclick: () => boton.alTocar?.() }, icono('mas'), h('small', {}, 'Nuevo')) : null;
+  const mesTira = mes ? h('div', { class: 'pc-mest' },
+    h('button', { type: 'button', 'aria-label': 'Mes anterior', disabled: !mes.puedeAntes, onclick: () => mes.mover(-1) }, icono('flecha-izq')),
+    h('button', { type: 'button', class: `pc-mest-c${mes.otro ? ' otro' : ''}`, 'data-tip': `${mes.texto} · tocá para volver al actual`, onclick: () => mes.mover(0) }, mes.texto.slice(0, 3)),
+    h('button', { type: 'button', 'aria-label': 'Mes siguiente', disabled: !mes.puedeDespues, onclick: () => mes.mover(1) }, icono('flecha-der'))) : null;
   tira.replaceChildren(...[
     h('button', { type: 'button', class: `pc-cuad ${gris ? 'gris' : ''} pc-tira-cuad`, title: `Abrir ${def.nombre}`, onclick: () => alternarColumna(false) }, icono(ic)),
-    nuevo,
+    ...[nuevo].flat(),
+    mesTira,
     ...(extra?.grupos || []).flatMap((g, i) => [
       i ? h('div', { class: 'pc-tsep' }) : null,
       ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('small', {}, p.nombre))),
