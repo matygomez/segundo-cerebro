@@ -449,8 +449,9 @@ export function abrirEditor(ctx, m, d, tarea = null, base = {}, opciones = {}) {
         h('div', { class: 'tr-nueva-sub' }, nuevaSub, h('button', { type: 'button', class: 'boton-icono', 'aria-label': 'Agregar subtarea', onclick: agregarSub }, icono('mas')))),
       h('div', { class: 'tr-dos' }, fila('Fecha', fecha), fila('Hora', hora)),
       filaOcultar,
-      filaArea,
-      h('div', { class: 'tr-dos' }, filaProyecto, filaSeccion),
+      // Área y proyecto en la misma fila (pedido de Matias); la sección, si hay, abajo.
+      h('div', { class: 'tr-dos' }, filaArea, filaProyecto),
+      filaSeccion,
       bloque('Adjuntos', listaAdj,
         h('div', { class: `tr-adj-botones${navigator.clipboard?.read ? ' con-pegar' : ''}` },
           h('button', { type: 'button', class: 'boton', title: 'Subir archivo (también podés pegar con Ctrl+V o arrastrar)', onclick: () => elegirArchivo.click() }, icSvg(ICONO_CLIP), 'Subir archivo'),

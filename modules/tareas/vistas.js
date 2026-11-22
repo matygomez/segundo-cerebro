@@ -1330,7 +1330,12 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
     const nuevaPC = esPC() ? pc.vista(vista, idRuta) : null;
     zona.classList.toggle('tr-pc', !!nuevaPC);
     if (nuevaPC) {
+      // Al redibujar la misma pantalla (ordenar, tildar, filtrar) cada tarjeta queda donde estaba, sin saltar arriba.
+      const misma = cuerpo.firstElementChild?.dataset.vista === `${vista}:${idRuta}`;
+      const scrolls = misma ? [...cuerpo.querySelectorAll('.tp-cuerpo')].map(e => e.scrollTop) : [];
+      nuevaPC.dataset.vista = `${vista}:${idRuta}`;
       poner(cuerpo, nuevaPC);
+      cuerpo.querySelectorAll('.tp-cuerpo').forEach((e, i) => { if (scrolls[i]) e.scrollTop = scrolls[i]; });
       marcarActiva();
       primeraVez = false;
       return;

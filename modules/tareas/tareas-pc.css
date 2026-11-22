@@ -46,6 +46,7 @@
     display: flex; flex-direction: column; gap: 9px; min-height: 0; min-width: 0; overflow: hidden;
     transition: transform 0.18s, border-color 0.18s, box-shadow 0.18s;
   }
+  .tp-bento.quieto .tp-card { transition: none; }
   .tp-card:hover { transform: translateY(-2px); border-color: var(--tp-linea2); box-shadow: 0 10px 24px rgb(0 0 0 / 0.35); }
   .tp-bento.entra .tp-card { animation: tp-entra 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .tp-bento.entra .tp-card:nth-child(2) { animation-delay: 40ms; } .tp-bento.entra .tp-card:nth-child(3) { animation-delay: 80ms; }
@@ -59,6 +60,9 @@
   .tp-a-g { color: var(--tp-laton); font-size: 12px; white-space: nowrap; }
   .tp-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--tp-linea2) transparent; overscroll-behavior: contain; }
   .tp-cuerpo > * { flex: none; }
+  /* Aire entre el texto y la barra de desplazamiento de cada tarjeta (el borde derecho de la tarjeta no cambia). */
+  .tp-cuerpo, .tp-dia-g > div:last-child { padding-right: 10px; }
+  .tp-card.tp-nums .tp-cuerpo, .tp-card.tp-cvc .tp-cuerpo { padding-right: 0; }
   .tp-cuerpo > .tp-cols, .tp-cuerpo > .tp-semana, .tp-cuerpo > .tp-hcal, .tp-cuerpo > .tp-heat, .tp-cuerpo > .tp-dia-g { flex: 1; }
   .tp-mini { font-size: 11.5px; color: var(--tp-suave); }
   .tp-texto { line-height: 1.6; }
@@ -152,7 +156,9 @@
   .tp-gcuerpo { padding-left: 0; }
   .tp-barra { display: block; height: 6px; border-radius: 6px; background: var(--tp-sup2); overflow: hidden; flex: none; }
   .tp-barra.chica { width: 70px; margin-left: auto; }
-  .tp-barra i { display: block; height: 100%; border-radius: 6px; background: var(--tp-laton); transform-origin: left; animation: tp-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tp-barra i { display: block; height: 100%; border-radius: 6px; background: var(--tp-laton); transform-origin: left; }
+  /* Las barras crecen solo al entrar a la pantalla, no cada vez que se redibuja (si no, "salta"). */
+  .tp-bento.entra .tp-barra i { animation: tp-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   @keyframes tp-crece { from { transform: scaleX(0); } to { transform: scaleX(1); } }
   .tp-barra i.v { background: var(--tp-verde); } .tp-barra i.r { background: var(--tp-rojo); } .tp-barra i.z { background: var(--tp-azul); }
 
@@ -200,7 +206,8 @@
   /* ── Hechas (semana, calendario) ── */
   .tp-cols { display: flex; align-items: flex-end; gap: 7px; min-height: 0; padding-top: 6px; }
   .tp-co { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 5px; height: 100%; justify-content: flex-end; }
-  .tp-co i { display: block; width: 100%; border-radius: 5px 5px 2px 2px; background: var(--tp-sup2); transform-origin: bottom; animation: tp-sube 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .tp-co i { display: block; width: 100%; border-radius: 5px 5px 2px 2px; background: var(--tp-sup2); transform-origin: bottom; }
+  .tp-bento.entra .tp-co i { animation: tp-sube 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
   .tp-co i.on { background: var(--tp-laton); }
   .tp-co small { font-size: 10px; color: var(--tp-tenue); }
   @keyframes tp-sube { from { transform: scaleY(0); } to { transform: scaleY(1); } }

@@ -181,7 +181,9 @@ export function crearPC(E) {
       h('div', { class: 'tp-cuerpo' }, cuerpo));
   const grid = (cards) => {
     const clave = `${E.vista()}:${E.id()}`;
-    const g = h('div', { class: `tp-bento${clave !== ultimaVista ? ' entra' : ''}` }, cards);
+    const g = h('div', { class: `tp-bento${clave !== ultimaVista ? ' entra' : ' quieto'}` }, cards);
+    // Al redibujar la misma pantalla, la tarjeta que está bajo el mouse no hace la animación de "levantarse" (se veía como un salto).
+    if (clave === ultimaVista) requestAnimationFrame(() => requestAnimationFrame(() => g.classList.remove('quieto')));
     ultimaVista = clave;
     return g;
   };
@@ -663,15 +665,10 @@ export function crearPC(E) {
     const lista = grupos.map(a => { const del = ordenadas.filter(t => (t.areaId || '') === a.id); return del.length ? grupo(`filtro:${id}:${a.id}`, a.nombre, del.length, del.map(t => fila(t))) : null; });
     const desc = chipsDe(F, d).map(x => x[1]).join(' · ');
     const base = { ...(F.area?.length === 1 && F.area[0] !== '_bandeja' ? { areaId: F.area[0] } : {}), ...(F.etiq?.length ? { etiquetas: [...F.etiq] } : {}), ...(F.fecha === 'hoy' ? { fecha: hoy() } : {}) };
-    const nombreOrden = { fecha: 'por fecha', area: 'por área', dur: 'por duración', creacion: 'por creación', nombre: 'por nombre' }[orden];
     return grid([
-      card({ c: 8, r: 8, titulo: f.nombre, sub: `${ts.length} tarea${ts.length === 1 ? '' : 's'} de todas las áreas${desc ? ` · ${desc}` : ''}`, clase: 'tp-lista',
+      card({ c: 12, r: 8, titulo: f.nombre, sub: `${ts.length} tarea${ts.length === 1 ? '' : 's'} de todas las áreas${desc ? ` · ${desc}` : ''}`, clase: 'tp-lista',
         extra: herr(agregar(base, 'Agregar una tarea… (Enter)'), btn('Borrar este filtro', async () => { if (await ctx.confirmar(`¿Borrar el filtro "${f.nombre}"?`, { si: 'Borrar', peligro: true })) { await m.borrarFiltro(f.id); ctx.aviso('Filtro borrado'); location.hash = '#/tareas/hoy'; } })),
         cuerpo: ts.length ? lista : vacio('Nada con este filtro', 'Todo al día') }),
-      card({ c: 4, r: 8, titulo: 'Cómo funciona', cuerpo: h('div', { class: 'tp-mini tp-texto' },
-        'Es un filtro que guardaste con nombre. Junta las tareas de ', h('b', {}, F.area?.length ? chipsDe({ area: F.area }, d).map(x => x[1]).join(', ') : 'todas las áreas'), ' que cumplen: ', h('b', {}, desc || 'todo'), '.',
-        h('br'), 'Orden: ', h('b', {}, nombreOrden), f.numero ? ' · muestra el número en la columna' : '', '.',
-        h('br'), h('br'), 'Queda en la columna, debajo de "Mis filtros", y se actualiza solo. Para cambiarlo, abrí Filtros abajo a la izquierda, elegí otra cosa y guardalo con el mismo nombre.') }),
     ]);
   }
 
