@@ -9,12 +9,13 @@
 
 import * as db from './core/db.js';
 import * as drive from './core/drive.js';
-import { iniciarSincronizacion, estadoSync } from './core/sincronizacion.js';
+import { iniciarSincronizacion, estadoSync, sincronizar } from './core/sincronizacion.js';
 import { cargar, contexto, listaModulos, iniciarModulos } from './core/registro.js';
+import { armarBarraPC, marcarBarraPC, dibujarColumna, estadoUsuario } from './core/barra-pc.js';
 import { pantallaAjustes } from './core/ajustes.js';
 import { escuchar } from './core/eventos.js';
 import { h, icono, aviso } from './core/ui.js';
-import { botonBusqueda } from './core/busqueda.js';
+import { botonBusqueda, abrirBusqueda } from './core/busqueda.js';
 import { ventana } from './core/android.js';
 import { abrirVentana, iniciarAndroid } from './core/android-app.js';
 import { cargarPreferencias, visible, barraCelular, esPC, definirOcultosPorDefecto, definirFueraDeBarra } from './core/preferencias.js';
@@ -60,7 +61,7 @@ function dibujarPanel() {
   const actual = leerRuta().id;
   const todos = [
     ...listaModulos().filter(m => !m.oculto && visible(m.id, 'cel')),
-    { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
+    { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' },
   ];
   panelModulos.replaceChildren(
     h('div', { class: 'panel-grilla' }, todos.map(m => h('a', {
@@ -71,7 +72,7 @@ function dibujarPanel() {
 function itemsMenu() {
   const todos = [
     ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
-    { id: 'ajustes', nombre: 'Ajustes', icono: 'ajustes' },
+    { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' },
   ];
   if (esPC()) return todos.filter(it => visible(it.id, 'pc'));
   const orden = barraCelular(todos.map(it => it.id));
@@ -94,19 +95,26 @@ function armarCascaron() {
     veloModulos,
     panelModulos,
     menu,
+    // PC: barra de módulos y columna del módulo (en el celular no se ven)
+    armarBarraPC({ items: () => itemsMenu(), alBuscar: () => abrirBusqueda(), alSincronizar: () => sincronizar(), alConectar: conectarDrive }),
     h('main', { id: 'pantalla', tabindex: '-1' }),
   );
   dibujarMenu();
   dibujarEstado();
   escuchar('sync', dibujarEstado);
   escuchar('sesion', dibujarEstado);
-  escuchar('preferencias', dibujarMenu);
+  escuchar('preferencias', () => { dibujarMenu(); marcarBarraPC(leerRuta().id, true); });
   matchMedia('(min-width: 900px)').addEventListener('change', () => { abrirPanel(false); dibujarMenu(); });
   window.addEventListener('hashchange', () => abrirPanel(false));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !panelModulos.hidden) abrirPanel(false); });
 }
 
+async function conectarDrive() {
+  try { await drive.conectar(); } catch (err) { aviso(err.message); }
+}
+
 function marcarMenu(id) {
+  marcarBarraPC(id);
   for (const a of document.querySelectorAll('.menu-item')) {
     if (a.dataset.id === id) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -121,7 +129,9 @@ async function mostrar() {
   limpiarPantalla = null;
   marcarMenu(id);
 
+  animarEntrada(pantalla);
   if (id === 'ajustes') {
+    dibujarColumna({ id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' }, null);
     limpiarPantalla = pantallaAjustes(pantalla);
     return;
   }
@@ -132,6 +142,7 @@ async function mostrar() {
     if (mio !== turno) return;
     if (!def) { location.replace('#/' + INICIO); return; }
     pantalla.replaceChildren();
+    dibujarColumna(def, contexto(def.id));
     const r = await def.pantalla(pantalla, contexto(def.id), sub);
     if (mio !== turno) { if (typeof r === 'function') r(); return; }
     limpiarPantalla = typeof r === 'function' ? r : null;
@@ -146,6 +157,17 @@ async function mostrar() {
         h('button', { type: 'button', class: 'boton principal', onclick: forzarActualizacion }, 'Forzar actualización'),
         h('a', { href: '#/' + INICIO, class: 'boton' }, 'Volver a Inicio'))));
   }
+}
+
+// En la PC, al abrir una pantalla sus tarjetas aparecen una detrás de otra.
+// Solo al entrar: si se redibuja por un cambio de datos, no se vuelve a animar.
+let quitarEntrada = null;
+function animarEntrada(pantalla) {
+  clearTimeout(quitarEntrada);
+  pantalla.classList.remove('entrando');
+  void pantalla.offsetWidth;
+  pantalla.classList.add('entrando');
+  quitarEntrada = setTimeout(() => pantalla.classList.remove('entrando'), 900);
 }
 
 // Borra la copia guardada de la app y la vuelve a bajar. Los datos no se tocan.
@@ -177,6 +199,9 @@ function dibujarEstado() {
     if (s.pendientes && s.fase !== 'sincronizando') texto = `${s.pendientes} sin subir`;
   }
   zona.replaceChildren(h('button', { class: `chip-sync ${clase}`, onclick: alTocar, title: 'Estado de sincronización' }, icono(ic), h('span', {}, texto)));
+  // Anillo de color alrededor de la foto (PC): verde al día, amarillo subiendo, rojo con problema, gris sin Drive.
+  const tono = e !== 'conectado' ? 'apagado' : s.fase === 'sincronizando' ? 'subiendo' : (s.fase === 'error' || s.fase === 'sin-internet') ? 'problema' : s.pendientes ? 'subiendo' : 'aldia';
+  estadoUsuario(tono, texto, e === 'desconectado');
 }
 
 function registrarServiceWorker() {

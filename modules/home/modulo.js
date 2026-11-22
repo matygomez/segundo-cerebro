@@ -59,7 +59,7 @@ function memento(ctx, cfg) {
     return h('section', { class: 'tarjeta mm' },
       h('span', { class: 'mm-etq' }, 'Memento mori'),
       h('p', { class: 'nota' }, 'Cargá tu fecha de nacimiento para ver cuánto tiempo tenés por delante.'),
-      h('a', { href: '#/ajustes/inicio', class: 'bloque-enlace mm-link' }, 'Cargarla en Ajustes › Inicio'));
+      h('a', { href: '#/ajustes/inicio', class: 'bloque-enlace mm-link' }, 'Cargarla en Configuración › Inicio'));
   }
   const q = porcentajes();
   const pc = esPC();

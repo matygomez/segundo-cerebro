@@ -3,7 +3,8 @@ Leé solo la sección que vas a tocar. Al terminar, actualizá sus 1–3 líneas
 
 ## Núcleo (`js/core/`, `js/app.js`, `sw.js`)
 Sincronización Drive (cada colección = un JSON; trae todos los .json en un pedido, baja/sube de a 4, "al día" antes del espejo .md), registro de módulos, formularios, editor de texto, búsqueda general (lupa, Ctrl+K, barra del Inicio),
-Ajustes (módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos (en PC va al Inicio); ya no hay engranaje arriba. Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
+Configuración (ex Ajustes: módulos visibles, barra del celular máx. 5, Inicio). En el celular, tocar el logo abre un panel con todos los módulos; ya no hay engranaje arriba.
+PC (0.36.0, `js/core/barra-pc.js`): sin barra de arriba. Barra de módulos a la izquierda (logo agranda/achica, Buscar, módulos con ícono, Configuración, "Mi cuenta" con anillo de Drive y menú) + columna del módulo (cuadrito amarillo con degradado, nombre, botón principal = primer `botonesInicio`; se pliega tocando el título o Ctrl+B). Los módulos todavía no mandan sus pestañas: contrato opcional `columna(ctx) → { contexto, grupos:[{ titulo, pestañas:[{ id, nombre, icono, href, activa }] }] }`. Criterios y demo: docs/vistas-previas de project files (criterios-pc, demo-pc). Pantalla de error con "Forzar actualización". SW baja archivos con `?v=VERSION`.
 
 ## App de Android (`android/`, `js/core/android.js`, `js/core/android-app.js`)
 App "Cerebro": ventana nativa que abre la app de Pages (lo web llega igual). Login de Google nativo. Puente `window.CerebroAndroid` (lista en `android.js`).

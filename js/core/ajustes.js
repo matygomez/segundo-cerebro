@@ -29,8 +29,8 @@ export function pantallaAjustes(contenedor) {
   const seccionIni = h('section', { class: 'tarjeta aj-inicio', id: 'ajustes-inicio' });
 
   // ── Módulos: visible u oculto, por separado en PC y celular ──
-  const NOMBRES = { ajustes: 'Ajustes' };
-  const ICONOS = { ajustes: 'ajustes' };
+  const NOMBRES = { ajustes: 'Configuración' };
+  const ICONOS = { ajustes: 'engranaje' };
   for (const m of listaModulos()) { NOMBRES[m.id] = m.nombre; ICONOS[m.id] = m.icono; }
   const delMenu = () => listaModulos().filter(m => !m.oculto);
 
@@ -70,7 +70,7 @@ export function pantallaAjustes(contenedor) {
     const guardar = async () => { nav.barra = lista.map(x => ({ id: x.id, on: x.on })); await guardarNavegacion(nav); };
     seccionBarra.replaceChildren(
       h('h2', {}, 'Barra de abajo ', h('span', { class: 'nota' }, '(celular)')),
-      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Ajustes, lo tenés tocando el logo de arriba.`),
+      h('p', { class: 'nota' }, `Elegí qué aparece y en qué orden. Hasta ${MAX_BARRA}. Si sacás Configuración, la tenés tocando el logo de arriba.`),
       h('div', { class: 'aj-tabla' }, lista.map((x, i) => {
         const oculto = ocultoCel(x.id);
         const fijo = x.id === 'home';
@@ -212,7 +212,7 @@ export function pantallaAjustes(contenedor) {
 
   const [seccionApp, quitarApp] = seccionAndroid();
   contenedor.replaceChildren(
-    h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Ajustes')),
+    h('header', { class: 'cabecera-pantalla' }, h('h1', {}, 'Configuración')),
     seccionDrive,
     seccionApp,
     seccionModulos,

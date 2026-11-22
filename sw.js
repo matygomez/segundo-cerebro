@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.35.2';
+const VERSION = 'sc-0.36.0';
 
 const ARCHIVOS = [
   './',
@@ -37,6 +37,7 @@ const ARCHIVOS = [
   './js/core/espejo.js',
   './js/core/registro.js',
   './js/core/busqueda.js',
+  './js/core/barra-pc.js',
   './js/core/sincronizacion.js',
   './js/core/ui.js',
   './modules/home/modulo.js',
