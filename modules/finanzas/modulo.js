@@ -139,6 +139,30 @@ export default {
         return { gastado: Math.round(gastado), ingresado: Math.round(ingresado), categorias };
       });
     },
+    // Para el Inicio de la PC: patrimonio de hoy y el de fin de cada uno de los últimos meses.
+    // Suma todas las cuentas (también inversiones y el fondo) y resta lo que se debe de tarjeta.
+    async 'resumen-patrimonio'({ meses = 12 } = {}, ctx) {
+      const d = await crearModelo(ctx).cargar();
+      const cuentas = d.cuentasActivas();
+      const pagos = d.movimientos.filter(m => m.tipo === 'transferencia' && m.destinoCreditoId);
+      const al = (fecha) => {
+        const activos = cuentas.reduce((s, c) => s + d.saldo(c.id, fecha), 0);
+        // Deuda de tarjeta a esa fecha: cuotas de compras hechas hasta ese día, menos lo pagado hasta ese día.
+        const tope = fecha || '9999-12-31';
+        const compras = d.cuotas().filter(q => !q.yaPagada && q.mov.fecha <= tope).reduce((s, q) => s + q.importe, 0);
+        const pagado = pagos.filter(m => m.fecha <= tope).reduce((s, m) => s + m.importe, 0);
+        return Math.round(activos - Math.max(0, compras - pagado));
+      };
+      const actual = mesActual();
+      const historia = [];
+      for (let i = meses; i >= 1; i--) {
+        const [a, mm] = actual.split('-').map(Number);
+        const f = new Date(a, mm - 1 - i + 1, 0);   // último día del mes que corresponde
+        const fin = `${f.getFullYear()}-${String(f.getMonth() + 1).padStart(2, '0')}-${String(f.getDate()).padStart(2, '0')}`;
+        historia.push({ mes: fin.slice(0, 7), total: al(fin) });
+      }
+      return { total: al(null), historia };
+    },
     // ¿Está pagado lo que recuerda esta tarea?
     'recordatorio-estado': (datos, ctx) => estadoRecordatorio(ctx, datos),
     // Abre el formulario de pago con todo completo.

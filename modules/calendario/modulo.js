@@ -15,6 +15,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { pantallaSemana } from './semana.js';
+import { panelesCalendario } from './pc.js';
 
 const pad = (n) => String(n).padStart(2, '0');
 // Última vista usada en este dispositivo.
@@ -179,6 +180,11 @@ async function dibujarSemana(ctx, contenedor, op) {
 export default {
   id: 'calendario',
   nombre: 'Calendario',
+
+  // Inicio de la PC: Mi día (hora por hora) y Esta semana.
+  panelesPC(ctx) {
+    return panelesCalendario(ctx, { leerConfig, cargarEstilos });
+  },
 
   // Cuadro "Esta semana" para el Inicio.
   bloquesInicio(ctx) {

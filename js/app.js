@@ -74,7 +74,8 @@ function itemsMenu() {
     ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
     { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' },
   ];
-  if (esPC()) return todos.filter(it => visible(it.id, 'pc'));
+  // En la PC, lo que está unido a otro módulo (Resumen va dentro del Inicio) no sale en la barra.
+  if (esPC()) return todos.filter(it => visible(it.id, 'pc') && !listaModulos().find(m => m.id === it.id)?.fueraDePC);
   const orden = barraCelular(todos.map(it => it.id));
   return orden.map(id => todos.find(it => it.id === id)).filter(Boolean);
 }

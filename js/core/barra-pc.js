@@ -165,6 +165,8 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     }
   }
   ultima = { def, ctx };
+  // El Inicio de la PC no usa columna: todo entra en una pantalla.
+  app()?.classList.toggle('sin-col', !!def.sinColumna);
   const mio = ++turno;
   const gris = def.id === 'ajustes';
   // El ícono está en el registro de módulos (js/modulos.js), no siempre en la definición.

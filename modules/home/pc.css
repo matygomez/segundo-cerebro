@@ -1,0 +1,89 @@
+/* Inicio en la PC (modules/home/pc.js): franja fina arriba + cuadrícula que entra justo en la pantalla.
+   Acá también está el "kit" que usan los paneles de los módulos (ip-fila, ip-tag, ip-sec, ip-barra…). */
+@media (min-width: 900px) {
+  #pantalla:has(> .ip) { padding: 12px 14px 14px; max-width: none; }
+  .ip {
+    --ip-tenue: color-mix(in srgb, var(--tinta-2) 70%, var(--papel));
+    --ip-linea2: color-mix(in srgb, var(--linea) 70%, var(--tinta-2));
+    --ip-azul: #8FA9E8;
+    height: calc(100vh - 26px); height: calc(100dvh - 26px);
+    display: flex; flex-direction: column; gap: 12px;
+  }
+
+  /* ── Franja de arriba ── */
+  .ip-franja { display: flex; align-items: center; gap: 18px; flex: none; min-height: 48px; padding: 0 4px; }
+  .ip-fecha { font-family: var(--fuente-titulo); font-size: 26px; font-weight: 600; line-height: 1; white-space: nowrap; color: var(--tinta); text-decoration: none; }
+  .ip-fecha small { display: block; font-family: var(--fuente); font-size: 12px; color: var(--tinta-2); font-weight: 400; margin-bottom: 2px; text-transform: capitalize; }
+  .ip-fecha:hover small { color: var(--laton); }
+  .ip-clima { display: flex; align-items: center; gap: 8px; padding-left: 16px; border-left: 1px solid var(--linea); flex: none; }
+  .ip-clima:empty { display: none; }
+  .ip-clima .ip-tmp { font-family: var(--fuente-titulo); font-size: 24px; font-weight: 600; line-height: 1; }
+  .ip-clima b { font-size: 12px; font-weight: 500; display: block; }
+  .ip-clima small { font-size: 10.5px; color: var(--tinta-2); }
+  .ip-clima a { font-size: 12px; color: var(--laton); }
+  .ip-mm { display: flex; align-items: center; gap: 14px; padding-left: 18px; border-left: 1px solid var(--linea); min-width: 0; flex: 1; }
+  .ip-mm[hidden] { display: none; }
+  .ip-mm-n { font-family: var(--fuente-titulo); font-size: 22px; font-weight: 600; white-space: nowrap; }
+  .ip-mm-n small { font-family: var(--fuente); font-size: 11px; color: var(--tinta-2); font-weight: 400; margin-left: 4px; }
+  .ip-mm-lin { display: flex; align-items: center; gap: 6px; font-size: 10.5px; color: var(--tinta-2); white-space: nowrap; }
+  .ip-mm-lin .ip-barra { width: 54px; height: 4px; }
+  .ip-mm-q { font-size: 11.5px; color: var(--ip-tenue); font-style: italic; quotes: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .ip-mm-cargar { font-size: 12.5px; color: var(--laton); }
+  .ip-aviso { display: flex; align-items: center; gap: 8px; margin-left: auto; flex: none; min-width: 0; }
+  .ip-aviso.lleno { flex: 1; margin-left: 0; }
+
+  /* ── Cuadrícula: Mi día a la izquierda (todo el alto), arriba tres paneles, abajo la semana y Seguir viendo ── */
+  .ip-grilla {
+    flex: 1; min-height: 0; display: grid; gap: 12px; grid-auto-flow: row dense;
+    grid-template-columns: repeat(12, minmax(0, 1fr)); grid-template-rows: repeat(3, minmax(0, 1fr)) repeat(2, minmax(0, 0.8fr));
+  }
+  .ip-card {
+    background: var(--superficie); border: 1px solid var(--linea); border-radius: 14px; padding: 13px 15px;
+    display: flex; flex-direction: column; gap: 9px; min-height: 0; min-width: 0; overflow: hidden;
+    animation: ip-entra 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .ip-card:nth-child(2) { animation-delay: 45ms; } .ip-card:nth-child(3) { animation-delay: 90ms; }
+  .ip-card:nth-child(4) { animation-delay: 135ms; } .ip-card:nth-child(n+5) { animation-delay: 180ms; }
+  @keyframes ip-entra { from { opacity: 0; transform: translateY(8px); } }
+  .ip-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; flex: none; }
+  .ip-cab h2 { margin: 0; font-family: var(--fuente); font-size: 14px; font-weight: 600; }
+  .ip-enlace { color: var(--laton); font-size: 12px; white-space: nowrap; text-decoration: none; }
+  .ip-enlace:hover { text-decoration: underline; }
+  .ip-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--ip-linea2) transparent; }
+  .ip-cuerpo > * { flex: none; }
+
+  /* ── Kit para los paneles ── */
+  .ip-fila { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--linea); font-size: 13px; min-width: 0; color: var(--tinta); text-decoration: none; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100%; text-align: left; font-family: inherit; cursor: pointer; }
+  .ip-fila:first-child, .ip-sec + .ip-fila { border-top: 0; }
+  .ip-fila:hover .ip-tx { color: var(--laton); }
+  .ip-fila > .icono { width: 15px; height: 15px; color: var(--tinta-2); flex: none; }
+  .ip-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ip-tx small { display: block; color: var(--tinta-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .ip-der { color: var(--tinta-2); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .ip-tag { font-size: 10.5px; font-weight: 600; border-radius: 6px; padding: 1px 7px; white-space: nowrap; background: var(--superficie-2); color: var(--tinta-2); }
+  .ip-tag.a { background: color-mix(in srgb, var(--laton) 18%, transparent); color: var(--laton); }
+  .ip-tag.r { background: color-mix(in srgb, var(--rojo) 18%, transparent); color: var(--rojo); }
+  .ip-tag.v { background: color-mix(in srgb, var(--verde) 18%, transparent); color: var(--verde); }
+  .ip-tag.z { background: color-mix(in srgb, var(--ip-azul) 16%, transparent); color: var(--ip-azul); }
+  .ip-sec { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ip-tenue); font-weight: 700; padding: 8px 0 2px; display: flex; justify-content: space-between; gap: 8px; }
+  .ip-sec:first-child { padding-top: 0; }
+  .ip-sec span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+  .ip-barra { display: block; height: 6px; border-radius: 6px; background: var(--superficie-2); overflow: hidden; flex: none; }
+  .ip-barra i { display: block; height: 100%; border-radius: 6px; background: var(--laton); transform-origin: left; animation: ip-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .ip-barra i.v { background: var(--verde); } .ip-barra i.r { background: var(--rojo); } .ip-barra i.z { background: var(--ip-azul); }
+  @keyframes ip-crece { from { transform: scaleX(0); } }
+  .ip-nota { font-size: 12px; color: var(--tinta-2); margin: 4px 0; }
+  .ip-ok { color: var(--verde); } .ip-mal { color: var(--rojo); }
+  .ip-bt { text-decoration: none; border: 1px solid var(--ip-linea2); background: var(--superficie-2); color: var(--tinta); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+  .ip-bt .icono { width: 14px; height: 14px; }
+  .ip-bt.p { background: var(--laton); border-color: var(--laton); color: #111; font-weight: 600; }
+
+  /* Pantallas bajas: un poco más compacto para que entre sin barras */
+  @media (max-height: 780px) {
+    .ip-card { padding: 10px 13px; gap: 6px; }
+    .ip-grilla { gap: 10px; }
+    .ip-fila { padding: 5px 0; }
+    .ip-fecha { font-size: 22px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .ip-card, .ip-barra i { animation: none !important; } }
+}

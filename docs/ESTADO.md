@@ -13,6 +13,7 @@ Se arma con `.github/workflows/android.yml` al cambiar `android/` (subir `versio
 ## Inicio (`modules/home`)
 Fecha, memento mori (estilos mezcla/barras/contador/años, frase, años de vida elegibles 50–120 (por defecto 100); se puede apagar), botones rápidos, búsqueda, captura "Anotá algo", bloques de módulos.
 Todo configurable en Ajustes › Inicio (`js/core/inicio.js`, `js/core/ajustes-inicio.js`).
+PC (0.41.0, `modules/home/pc.js` + `pc.css`; el celular no cambia): todo en una pantalla, sin columna (`sinColumna`). Franja fina: fecha, tiempo, memento mori (o el aviso del Resumen en su lugar hasta "Ahora no"; sin avisos, botones Semana y Mes). Cuadrícula fija con `panelesPC` de cada módulo (contrato en registro.js, `ctx.inicio.paneles()`): Mi día (Calendario, 0–24 h, línea de ahora, Detalle) · Hábitos y metas (logros = metas cumplidas) · Tu mes y patrimonio (Resumen; `resumen-patrimonio` de Finanzas) · Bitácora · Esta semana (tocar un día lo muestra en Mi día) · Seguir viendo. Prueba: `pruebas/test_inicio_pc.py`.
 
 ## Tareas (`modules/tareas`)
 Áreas, proyectos, secciones, subtareas, repetición, papelera 30 días, sistemas (tareas creadas por otros módulos). Repetidas guardan `completadas[]`.
@@ -53,6 +54,7 @@ Acciones: `resumen-habitos, resumen-rachas, resumen-metas`.
 
 ## Resumen (`modules/resumen`)
 Hoy (`dia.js`: tiempo Open-Meteo por GPS o ciudad, tareas/vencimientos/hábitos de hoy, cumpleaños), Semana (revisión guiada de 7 pasos con foco), Mes (KPIs, lo mejor, gastos, hábitos, áreas, cierre), Estadísticas, Configurar (nombre del saludo, hora, lugar, "Relanzar el panel"; noticias sacadas por pedido de Matías).
+PC (0.41.0): fuera de la barra (`fueraDePC` en modulos.js), vive en el Inicio (`pc.js`: clima, aviso, Tu mes); sin pestaña Hoy y Estadísticas al final del Mes; acción `resumen-clima`. Configurar se abre desde Configuración › Inicio.
 Inicio: un cuadro fijo arriba de todo (`arriba` en `js/core/inicio.js`) que se desliza mes → semana → día; mes/semana hasta abrirlo o cerrarlo, día (desde la hora de Configurar) hasta "Ver mi día"/"Ahora no". Guarda `revisiones` (tipo `dia`) y `ajustes`. Acción: `resumen-foco`. Pide `cumpleanos`/`abrir-cumpleanos` a Tareas si existen.
 
 ## Compras (`modules/compras`)

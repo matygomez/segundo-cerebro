@@ -58,6 +58,7 @@ export async function clima(aj, { pedirPermiso = false } = {}) {
     temp: Math.round(j.current.temperature_2m), codigo: j.current.weather_code, lugar: c.nombre,
     max: Math.round(j.daily.temperature_2m_max[0]), min: Math.round(j.daily.temperature_2m_min[0]), lluvia: j.daily.precipitation_probability_max?.[0] ?? null,
     horas: [9, 15, 21].map(hh => ({ hora: hh, temp: Math.round(j.hourly.temperature_2m[hh]) })),
+    horas24: Array.from({ length: 24 }, (_, hh) => Math.round(j.hourly.temperature_2m[hh])),   // Mi día (Inicio de la PC)
   };
   climaGuardado = { clave, t: Date.now(), dato };
   return dato;

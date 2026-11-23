@@ -788,3 +788,25 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
   .bt.bt-pc .bt-or-item { background: var(--bp-sup); border-radius: 12px; }
   .bt.bt-pc .bt-or-item.sel { box-shadow: inset 2px 0 0 var(--bp-laton); }
 }
+
+/* ── Inicio de la PC: "Bitácora" y "Seguir viendo" (panelesBitacora en modulo.js) ── */
+@media (min-width: 900px) {
+  .btp-num { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px; }
+  .btp-num a { background: var(--superficie-2); border-radius: 9px; padding: 6px 10px; color: var(--tinta-2); font-size: 11.5px; text-decoration: none; }
+  .btp-num a:hover { color: var(--tinta); }
+  .btp-num b { font-family: var(--fuente-titulo); font-size: 22px; font-weight: 600; line-height: 1; margin-right: 6px; color: var(--tinta); }
+  .btp-dato { cursor: default; }
+  .ip-viendo .ip-cuerpo { overflow: hidden; }
+  .btp-post { flex: 1 !important; min-height: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); grid-auto-flow: column; gap: 8px; }
+  .btp-p { position: relative; border-radius: 9px; overflow: hidden; min-height: 0; background: var(--superficie-2); color: #fff; text-decoration: none; display: flex; }
+  .btp-p .btp-img, .btp-p img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border-radius: 0; }
+  .btp-p::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 35%, rgba(0, 0, 0, 0.85)); }
+  .btp-tx { position: relative; z-index: 1; margin-top: auto; padding: 8px; display: flex; flex-direction: column; gap: 2px; font-size: 12px; min-width: 0; width: 100%; }
+  .btp-tx b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .btp-tx small { color: #ccc; font-size: 10.5px; }
+  .btp-prog { display: block; height: 3px; border-radius: 3px; background: rgba(255, 255, 255, 0.2); margin-top: 4px; overflow: hidden; }
+  .btp-prog i { display: block; height: 100%; background: var(--laton); }
+}
+@media (min-width: 900px) {
+  .btp-p .fm-poster { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; margin: 0; border-radius: 0; }
+  .btp-p .fm-tipo, .btp-p .fm-poster-tit, .btp-p .fm-prog { display: none; }
+}

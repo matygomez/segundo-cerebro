@@ -110,6 +110,11 @@ export function seccionInicio(seccion) {
       h('h2', {}, 'Inicio'),
       h('p', { class: 'nota' }, 'Todo lo del Inicio se arma acá: qué aparece, en qué orden (mezclado como quieras) y las opciones de cada cuadro. Vale para la PC y el celular; lo de un módulo oculto en un dispositivo no aparece ahí.'),
       ...memento,
+      // El Resumen vive dentro del Inicio (en la PC no tiene lugar en la barra): su configuración se abre desde acá.
+      h('h3', { class: 'ai-sub' }, 'Aviso del día y tiempo'),
+      h('p', { class: 'nota' }, 'Tu nombre para el saludo, desde qué hora aparece el aviso del día y de qué lugar es el tiempo. ',
+        h('a', { href: '#/resumen/config' }, 'Configurarlo ›')),
+      ...(matchMedia('(min-width: 900px)').matches ? [h('p', { class: 'nota' }, 'En la PC el Inicio tiene su propio orden fijo (Mi día, hábitos y metas, tu mes, Bitácora, la semana y Seguir viendo). La lista de abajo es la del celular.')] : []),
       h('h3', { class: 'ai-sub' }, 'Qué aparece y en qué orden'),
       h('div', { class: 'ai-lista' }, filas),
       h('p', { class: 'nota ai-pie' }, '“½” pone el cuadro a media pantalla en la PC (dos lado a lado); “Entero” ocupa todo el ancho. En el celular todo va uno abajo del otro.'),

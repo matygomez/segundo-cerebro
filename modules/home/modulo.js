@@ -6,7 +6,10 @@
 // el memento mori, los botones rápidos, la captura y los cuadros que
 // ofrece cada módulo. No conoce a ningún módulo: le pide todo al
 // núcleo con ctx.inicio.armar().
+// En la PC el Inicio es otra pantalla (pc.js): todo en una pantalla, sin columna.
 // ─────────────────────────────────────────────────────────────
+
+import { pantallaPC } from './pc.js';
 
 // Frases estoicas cortas (para que entren en una línea).
 const CITAS = [
@@ -104,12 +107,17 @@ function memento(ctx, cfg) {
   return h('section', { class: `tarjeta mm mm-${cfg.estilo || 'mezcla'}` }, cuerpo, frase(ctx, cfg));
 }
 
+// La frase del día (o la tuya fija): [texto, autor]. Sin frase: [''].
+function textoFrase(cfg) {
+  if (cfg.frase === 'no') return [''];
+  if (cfg.frase === 'fija') return [(cfg.fraseTexto || '').trim(), (cfg.fraseAutor || '').trim()];
+  const hoy = new Date(); const n = Math.floor(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime() / 864e5);
+  return CITAS[n % CITAS.length];
+}
+
 function frase(ctx, cfg) {
   const { h } = ctx;
-  if (cfg.frase === 'no') return null;
-  let texto, autor;
-  if (cfg.frase === 'fija') { texto = (cfg.fraseTexto || '').trim(); autor = (cfg.fraseAutor || '').trim(); }
-  else { const hoy = new Date(); const n = Math.floor(new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate()).getTime() / 864e5); [texto, autor] = CITAS[n % CITAS.length]; }
+  const [texto, autor] = textoFrase(cfg);
   if (!texto) return null;
   return h('div', { class: `mm-cita${cfg.unaLinea !== false ? ' una-linea' : ''}` },
     h('span', { class: 'mm-cita-txt' }, `“${texto}”`),
@@ -128,8 +136,17 @@ function ajustarFrases(raiz) {
 export default {
   id: 'home',
   nombre: 'Inicio',
+  sinColumna: true,   // en la PC no hay columna: todo entra en una pantalla
 
   async pantalla(contenedor, ctx) {
+    // Al pasar de celular a PC (o al revés) se vuelve a abrir el Inicio con la otra pantalla.
+    const mqPC = matchMedia('(min-width: 900px)');
+    const cambiarPantalla = () => window.dispatchEvent(new HashChangeEvent('hashchange'));
+    if (esPC()) {
+      const l = await pantallaPC(contenedor, ctx, { datosVida, porcentajes, vidaDe, textoFrase });
+      mqPC.addEventListener('change', cambiarPantalla, { once: true });
+      return () => { mqPC.removeEventListener('change', cambiarPantalla); l?.(); };
+    }
     const { h, icono } = ctx;
     const hoy = new Date();
     const dia = hoy.toLocaleDateString('es-AR', { weekday: 'long' });
@@ -222,7 +239,7 @@ export default {
     const reloj = setInterval(pintarMemento, 60_000);
     // Al pasar de celular a PC (o al revés) cambia su forma.
     const mq = matchMedia('(min-width: 900px)');
-    const alCambiarTam = () => pintarMemento();
+    const alCambiarTam = () => (mq.matches ? cambiarPantalla() : pintarMemento());
     mq.addEventListener('change', alCambiarTam);
     const alRedimensionar = () => zonaMemento && ajustarFrases(zonaMemento);
     window.addEventListener('resize', alRedimensionar);

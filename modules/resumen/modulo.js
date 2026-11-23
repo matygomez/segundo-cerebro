@@ -9,6 +9,8 @@
 
 import { pantallaResumen, dibujarAviso, cargarEstilos } from './vistas.js';
 import { crearModelo } from './datos.js';
+import { panelesResumen } from './pc.js';
+import { leerAjustes, clima } from './dia.js';
 
 export default {
   id: 'resumen',
@@ -35,7 +37,16 @@ export default {
     }];
   },
 
+  // Inicio de la PC: el tiempo, el aviso (en la franja de arriba) y "Tu mes y patrimonio".
+  panelesPC(ctx) {
+    return panelesResumen(ctx, { cargarEstilos });
+  },
+
   acciones: {
+    // El tiempo de hoy (sin pedir permiso de ubicación): { temp, codigo, max, min, lluvia, horas24 } o null.
+    async 'resumen-clima'(_, ctx) {
+      return clima(await leerAjustes(ctx)).catch(() => null);
+    },
     // El foco que escribiste en la revisión, para la semana que empieza en "lunes".
     async 'resumen-foco'({ lunes } = {}, ctx) {
       const [a, m, d] = String(lunes).split('-').map(Number);

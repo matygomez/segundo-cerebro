@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { crearModelo, hoyISO, sumarDias, lunesDe, progresoMeta, ritmo } from './modelo.js';
-import { pantallaHabitos, cuadroHoy, cargarEstilos } from './vistas.js';
+import { pantallaHabitos, cuadroHoy, cargarEstilos, panelHabitosPC } from './vistas.js';
 
 export default {
   id: 'habitos',
@@ -34,6 +34,23 @@ export default {
           if (mio !== turno) return;
           contenedor.replaceChildren(ctx.h('div', { class: 'hb hb-ini' }, cuadroHoy(ctx, m, d, { conPendientes: opciones.pendientes !== false, inicio: true })));
         };
+        await pintar();
+        let espera = null;
+        const quitar = ctx.alCambiarDatos(() => { clearTimeout(espera); espera = setTimeout(pintar, 80); });
+        return () => { turno++; quitar(); clearTimeout(espera); };
+      },
+    }];
+  },
+
+  // Inicio de la PC: hábitos de hoy, metas en curso y logros, en un solo panel.
+  panelesPC(ctx) {
+    return [{
+      lugar: 'habitos', titulo: 'Hábitos y metas', enlace: { texto: 'Hábitos', href: '#/habitos' },
+      async dibujar(cont) {
+        cargarEstilos();
+        const m = crearModelo(ctx);
+        let turno = 0;
+        const pintar = async () => { const mio = ++turno; const d = await m.cargar(); if (mio === turno) await panelHabitosPC(ctx, m, d, cont); };
         await pintar();
         let espera = null;
         const quitar = ctx.alCambiarDatos(() => { clearTimeout(espera); espera = setTimeout(pintar, 80); });

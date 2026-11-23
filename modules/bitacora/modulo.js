@@ -94,9 +94,82 @@ function cuadroViendo(ctx, contenedor, op) {
   return pintar().then(() => () => { quitar(); clearTimeout(espera); });
 }
 
+// ── Inicio de la PC: "Bitácora" (números arriba + listado) y "Seguir viendo" (pósters) ──
+function panelesBitacora(ctx) {
+  const { h } = ctx;
+  const m = crearModelo(ctx);
+  const conEscucha = (pintar) => {
+    let espera = null;
+    const quitar = ctx.alCambiarDatos(() => { clearTimeout(espera); espera = setTimeout(pintar, 80); });
+    return () => { quitar(); clearTimeout(espera); };
+  };
+  return [
+    {
+      lugar: 'bitacora', titulo: 'Bitácora', enlace: { texto: 'Bitácora', href: '#/bitacora' },
+      async dibujar(cont) {
+        cargarEstilos();
+        async function pintar() {
+          const d = await m.cargar();
+          const hoy = hoyISO(), en30 = new Date(); en30.setDate(en30.getDate() + 30);
+          const tope = `${en30.getFullYear()}-${String(en30.getMonth() + 1).padStart(2, '0')}-${String(en30.getDate()).padStart(2, '0')}`;
+          const fila = (icono, titulo, sub, tag, cls, href) => h('a', { href, class: 'ip-fila' }, ic(icono), h('span', { class: 'ip-tx' }, titulo, sub ? h('small', {}, sub) : null), tag ? h('span', { class: `ip-tag ${cls || ''}` }, tag) : null);
+          const sec = (t, n) => h('div', { class: 'ip-sec' }, t, h('span', {}, n ? String(n) : ''));
+          const vivas = d.notas.filter(n => !n.papelera);
+          const fijadas = vivas.filter(n => n.fijada).sort((a, b) => b.modificado - a.modificado);
+          const recs = d.recordatorios.filter(r => r.fecha && r.fecha <= tope).map(r => ({ r, n: d.nota(r.notaId) })).filter(x => x.n && !x.n.papelera).sort((a, b) => a.r.fecha.localeCompare(b.r.fecha));
+          const vencen = vivas.filter(n => n.archivo?.vence && n.archivo.vence >= hoy && n.archivo.vence <= tope).sort((a, b) => a.archivo.vence.localeCompare(b.archivo.vence));
+          const mes = hoy.slice(0, 7);
+          const delMes = vivas.filter(n => !n.cine && n.creado && new Date(n.creado).toISOString().slice(0, 7) === mes);
+          const archivosMes = delMes.filter(n => n.archivo).length;
+          const ultima = vivas.filter(n => !n.cine).sort((a, b) => b.modificado - a.modificado)[0];
+          const s7 = new Date(); s7.setDate(s7.getDate() + 7);
+          const en7 = `${s7.getFullYear()}-${String(s7.getMonth() + 1).padStart(2, '0')}-${String(s7.getDate()).padStart(2, '0')}`;
+          const cuando = (f) => (f === hoy ? 'hoy' : f < hoy ? `desde el ${diaCorto(f)}` : diaCorto(f));
+          const nB = d.notasDe(BANDEJA).length;
+          cont.replaceChildren(...[
+            h('div', { class: 'btp-num' },
+              h('a', { href: '#/bitacora/pendientes' }, h('b', {}, String(d.totalRevisar || 0)), 'para revisar'),
+              h('a', { href: '#/bitacora/bandeja' }, h('b', {}, String(nB)), 'en la Bandeja')),
+            fijadas.length ? [sec('Fijadas', fijadas.length), fijadas.map(n => fila('pin', n.titulo || 'Sin título', d.nombreRuta(n.carpetaId), '', '', `#/bitacora/n/${n.id}`))] : null,
+            recs.length ? [sec('Recordatorios', recs.length), recs.map(({ r, n }) => fila('reloj', n.titulo || 'Sin título', d.nombreRuta(n.carpetaId), cuando(r.fecha), r.fecha <= hoy ? 'a' : '', `#/bitacora/n/${n.id}`))] : null,
+            vencen.length ? [sec('Vencen', vencen.length), vencen.map(n => fila('pdf', n.titulo || n.archivo.que || 'Archivo', d.nombreRuta(n.carpetaId), diaCorto(n.archivo.vence), n.archivo.vence <= en7 ? 'r' : '', `#/bitacora/n/${n.id}`))] : null,
+            [sec(MESES_BT[Number(mes.slice(5, 7)) - 1]),
+              h('div', { class: 'ip-fila btp-dato' }, ic('nota'), h('span', { class: 'ip-tx' }, `${delMes.length - archivosMes} notas nuevas y ${archivosMes} archivos`,
+                ultima ? h('small', {}, `la última: ${ultima.titulo || 'Sin título'}`) : null))],
+          ].flat(Infinity).filter(Boolean));
+        }
+        await pintar();
+        return conEscucha(pintar);
+      },
+    },
+    {
+      lugar: 'viendo', titulo: 'Seguir viendo', enlace: { texto: 'Filmoteca', href: '#/bitacora/f' },
+      async dibujar(cont) {
+        cargarEstilos();
+        async function pintar() {
+          const d = await m.cargar();
+          const lista = listaViendo(d).slice(0, 4);
+          cont.replaceChildren(lista.length ? h('div', { class: 'btp-post' }, lista.map(n => {
+            const p = progreso(n.cine, vivo(d, n.cine));
+            return h('a', { href: `#/bitacora/n/${n.id}`, class: 'btp-p', title: n.cine.titulo },
+              poster(ctx, n.cine, { tam: 'w342', clase: 'btp-img' }),
+              h('span', { class: 'btp-tx' }, h('b', {}, n.cine.titulo), h('small', {}, subtituloViendo(d, n.cine).replace(' próximo', '')),
+                h('span', { class: 'btp-prog' }, h('i', { style: `width:${p.pct}%` }))));
+          })) : h('p', { class: 'ip-nota' }, 'No estás viendo ninguna serie. ', h('a', { href: '#/bitacora/f' }, 'Abrir la Filmoteca')));
+        }
+        await pintar();
+        return conEscucha(pintar);
+      },
+    },
+  ];
+}
+const MESES_BT = ['Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio', 'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre'];
+
 export default {
   id: 'bitacora',
   nombre: 'Bitácora',
+
+  panelesPC(ctx) { return panelesBitacora(ctx); },
 
   // Columna de la PC: botones, vistas, árbol de carpetas (sin números, el nombre completo
   // al pasar el mouse) y etiquetas. Lo plegado se recuerda igual que antes (por dispositivo).

@@ -13,7 +13,8 @@ CLIMA={'current':{'temperature_2m':19.4,'weather_code':2},'daily':{'temperature_
 afuera=[]
 with sync_playwright() as p:
   b=p.chromium.launch()
-  for w in (390,1366):
+  # En la PC el Inicio es otra pantalla (franja + paneles): la prueban test_inicio_pc.py.
+  for w in (390,):
     cel=w<600
     cx=b.new_context(viewport={'width':w,'height':844 if cel else 900}, is_mobile=cel, has_touch=cel, permissions=['geolocation'], geolocation={'latitude':-34.6,'longitude':-58.4})
     page=cx.new_page(); err=[]

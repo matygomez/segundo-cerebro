@@ -15,6 +15,16 @@
 //   // Bloques que el módulo ofrece para Inicio.
 //   bloquesInicio(ctx) { return [{ id, titulo, dibujar(contenedor) {} }]; },
 //
+//   // Paneles del Inicio en la PC (una sola pantalla, sin columna). Cada uno va a un lugar fijo:
+//   //   dia, semana, habitos, mes, bitacora, viendo (tarjetas) · aviso, clima (franja de arriba).
+//   // dibujar puede devolver una función de limpieza. En "aviso", mostrar(true) le dice al Inicio que
+//   // el aviso ocupa el lugar del memento mori. Clases comunes para el contenido: ip-fila, ip-tx,
+//   // ip-der, ip-tag (a, r, v, z), ip-sec, ip-barra, ip-nota (estilos en modules/home/pc.css).
+//   panelesPC(ctx) { return [{ lugar, titulo, enlace: { texto, href }, dibujar(contenedor, { mostrar }) {} }]; },
+//
+//   // Sin columna en la PC (el Inicio): la barra de módulos queda sola a la izquierda.
+//   sinColumna: true,
+//
 //   // Botones que el módulo ofrece para Inicio.
 //   botonesInicio(ctx) { return [{ id, texto, icono, alTocar() {} }]; },
 //
@@ -60,7 +70,7 @@ import { abrirBusqueda, barraBusqueda } from './busqueda.js';
 const cargados = new Map();
 
 // oculto: módulos que no van en el menú (se abren desde otro lado).
-export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto, ocultoPorDefecto: !!m.ocultoPorDefecto, fueraDeBarra: !!m.fueraDeBarra }));
+export const listaModulos = () => MODULOS.map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono, oculto: !!m.oculto, ocultoPorDefecto: !!m.ocultoPorDefecto, fueraDeBarra: !!m.fueraDeBarra, fueraDePC: !!m.fueraDePC }));
 
 export async function cargar(id) {
   if (cargados.has(id)) return cargados.get(id);
@@ -142,6 +152,7 @@ export function contexto(moduloId) {
     busqueda: { abrir: (texto) => abrirBusqueda(texto), barra: () => barraBusqueda() },
     inicio: {
       bloques: () => juntar('bloquesInicio'),
+      paneles: () => juntar('panelesPC'),
       botones: () => juntar('botonesInicio'),
       quienCaptura: async () => (await receptorCaptura())?.nombre || null,
       // Todo lo del Inicio ya ordenado y filtrado según Ajustes › Inicio.

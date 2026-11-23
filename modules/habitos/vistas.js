@@ -63,6 +63,42 @@ function mini7(ctx, d, h, { resaltar = '' } = {}) {
   }));
 }
 
+// ── Inicio de la PC: "Hábitos y metas" ──
+// Mitad de arriba los hábitos de hoy (tocar = hecho / deshacer) con sus últimos 7 días,
+// mitad de abajo las metas en curso, y fijos al pie los logros (metas cumplidas).
+export async function panelHabitosPC(ctx, m, d, cont) {
+  const { h: hh } = ctx;
+  const hoy = hoyISO();
+  const lista = d.deHoy();
+  const habitos = lista.length ? lista.map(h => {
+    const hecho = d.estado(h, hoy) === 's';
+    const racha = d.racha(h);
+    return hh('button', { type: 'button', class: `hbp-fila${hecho ? ' hecho' : ''}`, title: hecho ? 'Tocá para deshacer' : 'Tocá para marcarlo hecho',
+      onclick: async () => { if (hecho) await m.marcar(h, hoy, null); else await marcarCon(ctx, m, d, h, hoy, 's'); } },
+    hh('span', { class: 'hbp-ck' }),
+    hh('span', { class: 'ip-tx' }, h.nombre, racha > 1 ? hh('small', {}, `racha de ${racha} ${h.frecuencia?.tipo === 'semana' ? 'semanas' : 'días'}`) : null),
+    mini7(ctx, d, h));
+  }) : [hh('p', { class: 'ip-nota' }, d.habitos.length ? 'Hoy no te toca ningún hábito.' : 'Todavía no tenés hábitos. ', d.habitos.length ? null : hh('a', { href: '#/habitos/lista/nuevo' }, 'Crear el primero'))];
+  const prog = await Promise.all(d.metas.map(async (x) => ({ x, p: await progresoMeta(ctx, d, x) })));
+  const pctDe = ({ p }) => (p.objetivo ? Math.min(1, p.valor / p.objetivo) : 0);
+  const enCurso = prog.filter(y => pctDe(y) < 1), logros = prog.filter(y => pctDe(y) >= 1);
+  const metas = enCurso.length ? enCurso.map(y => {
+    const r = ritmo(y.x, y.p);
+    return hh('a', { class: 'hbp-meta', href: '#/habitos/metas' },
+      hh('span', { class: 'hbp-mt' }, hh('span', {}, y.x.nombre, hh('small', {}, ` · ${y.p.texto}`)), hh('b', {}, `${Math.round(pctDe(y) * 100)} %`)),
+      hh('span', { class: 'ip-barra' }, hh('i', { class: /atrasado|Venció/.test(r) ? 'r' : '', style: `width:${pctDe(y) * 100}%` })));
+  }) : [hh('p', { class: 'ip-nota' }, 'Sin metas en curso. ', hh('a', { href: '#/habitos/metas' }, 'Crear una'))];
+  const hechos = lista.filter(h => d.estado(h, hoy) === 's').length;
+  cont.replaceChildren(hh('div', { class: 'hbp' },
+    hh('div', { class: 'ip-sec' }, 'Hoy', hh('span', {}, lista.length ? `${hechos} de ${lista.length}` : '')),
+    hh('div', { class: 'hbp-mitad' }, habitos),
+    hh('div', { class: 'ip-sec' }, 'Metas del año', hh('span', {}, enCurso.length ? `${enCurso.length} en curso` : '')),
+    hh('div', { class: 'hbp-mitad' }, metas),
+    hh('div', { class: 'hbp-pie' },
+      hh('div', { class: 'ip-sec' }, 'Logros · metas cumplidas', hh('span', {}, String(logros.length))),
+      logros.length ? hh('div', { class: 'hbp-logros' }, logros.map(y => hh('span', {}, hh('b', {}, '✓ '), y.x.nombre))) : hh('p', { class: 'ip-nota' }, 'Cuando cumplas una meta, aparece acá.'))));
+}
+
 // ── Marcar con confirmación (no / descanso) ──
 async function marcarCon(ctx, m, d, h, fecha, estado) {
   const { h: hh } = ctx;

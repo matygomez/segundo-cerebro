@@ -20,7 +20,8 @@ SEEDR="""async () => {
 }"""
 with sync_playwright() as p:
   b=p.chromium.launch()
-  for w in (390,1366):
+  # En la PC el Inicio es otra pantalla (franja + paneles): la prueban test_inicio_pc.py.
+  for w in (390,):
     cel=w<600
     cx=b.new_context(viewport={'width':w,'height':844 if cel else 900}, is_mobile=cel, has_touch=cel); page=cx.new_page(); err=[]
     page.on('pageerror',lambda e: err.append(str(e)))

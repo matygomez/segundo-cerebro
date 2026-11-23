@@ -223,3 +223,39 @@ button.cl-sem-dia { font: inherit; cursor: pointer; }
 /* Foco de la semana (viene de la revisión del Resumen) */
 .pl-foco { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; padding: 8px 10px; border-radius: 10px; background: var(--laton-fondo); border: 1px solid #4a3f24; font-size: 0.9rem; }
 .pl-foco span { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--laton); font-weight: 600; }
+
+/* ── Inicio de la PC: Mi día y Esta semana (pc.js) ── */
+@media (min-width: 900px) {
+  .ip-dia .ip-cuerpo { overflow: hidden; }
+  .clp-d24 { position: relative; flex: 1.7 1 0 !important; min-height: 140px; margin: 8px 0 6px; }
+  .clp-hr { position: absolute; left: 0; right: 0; display: flex; gap: 6px; align-items: center; font-size: 10px; color: var(--ip-tenue); transform: translateY(-50%); }
+  .clp-hr::after { content: ""; flex: 1; border-top: 1px dashed color-mix(in srgb, var(--linea) 80%, transparent); order: 2; }
+  .clp-hr em { font-style: normal; order: 3; width: 24px; text-align: right; }
+  .clp-hr.pasada { opacity: 0.5; }
+  .clp-blq { position: absolute; left: 34px; right: 30px; border: 0; border-radius: 6px; background: var(--superficie-2); border-left: 3px solid var(--laton);
+    padding: 0 7px; font: inherit; font-size: 11.5px; color: var(--tinta); text-align: left; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+    display: flex; align-items: center; gap: 6px; z-index: 1; cursor: pointer; }
+  .clp-blq:hover { background: color-mix(in srgb, var(--laton) 14%, var(--superficie-2)); }
+  .clp-blq small { color: var(--tinta-2); }
+  .clp-blq.c1 { right: calc(50% - 2px); } .clp-blq.c2 { left: calc(50% + 2px); }
+  .clp-blq.z { border-left-color: var(--ip-azul); } .clp-blq.r { border-left-color: var(--rojo); } .clp-blq.v { border-left-color: var(--verde); }
+  .clp-blq.pasada { opacity: 0.45; text-decoration: line-through; }
+  .clp-ahora { position: absolute; left: 26px; right: 0; height: 0; border-top: 2px solid var(--rojo); z-index: 3; transition: top 1s linear; pointer-events: none; }
+  .clp-ahora::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--rojo); }
+  .clp-ahora span { position: absolute; right: 0; top: -17px; font-size: 10px; font-weight: 700; color: var(--rojo); background: var(--superficie); padding: 0 3px; }
+  .clp-lista { flex: 1 1 0 !important; min-height: 0; overflow-y: auto; scrollbar-width: thin; }
+  .clp-hecha .ip-tx { text-decoration: line-through; color: var(--tinta-2); }
+  .ip-semana .ip-cuerpo { overflow: hidden; }
+  .clp-sem { flex: 1 !important; min-height: 0; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }
+  .clp-dia { border: 1px solid var(--linea); border-radius: 9px; padding: 6px; display: flex; flex-direction: column; gap: 4px; min-width: 0; min-height: 0; overflow: hidden; cursor: pointer; transition: border-color 0.15s; }
+  .clp-dia:hover { border-color: var(--ip-linea2); }
+  .clp-dia.hoy { background: color-mix(in srgb, var(--laton) 6%, transparent); }
+  .clp-dia.sel { border-color: var(--laton); }
+  .clp-dn { font-size: 11px; color: var(--tinta-2); } .clp-dn b { color: var(--tinta); font-weight: 600; margin-left: 3px; }
+  .clp-ev { font-size: 11px; background: var(--superficie-2); border-radius: 5px; padding: 3px 5px; line-height: 1.2; border-left: 2px solid var(--laton);
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; flex: none; }
+  .clp-ev small { color: var(--tinta-2); margin-right: 3px; }
+  .clp-ev.z { border-left-color: var(--ip-azul); } .clp-ev.v { border-left-color: var(--verde); } .clp-ev.r { border-left-color: var(--rojo); }
+  .clp-ev.hecha { opacity: 0.5; text-decoration: line-through; }
+  .clp-mas { font-size: 10.5px; color: var(--tinta-2); }
+}

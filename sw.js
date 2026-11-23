@@ -6,7 +6,7 @@
 // ARCHIVOS los módulos nuevos).
 // ─────────────────────────────────────────────────────────────
 
-const VERSION = 'sc-0.40.0';
+const VERSION = 'sc-0.41.0';
 
 const ARCHIVOS = [
   './',
@@ -41,6 +41,8 @@ const ARCHIVOS = [
   './js/core/sincronizacion.js',
   './js/core/ui.js',
   './modules/home/modulo.js',
+  './modules/home/pc.js',
+  './modules/home/pc.css',
   './modules/tareas/modulo.js',
   './modules/tareas/modelo.js',
   './modules/tareas/vistas.js',
@@ -53,6 +55,7 @@ const ARCHIVOS = [
   './modules/calendario/modulo.js',
   './modules/calendario/calendario.css',
   './modules/calendario/semana.js',
+  './modules/calendario/pc.js',
   './modules/compras/modulo.js',
   './modules/compras/modelo.js',
   './modules/compras/vistas.js',
@@ -72,6 +75,7 @@ const ARCHIVOS = [
   './modules/resumen/datos.js',
   './modules/resumen/vistas.js',
   './modules/resumen/dia.js',
+  './modules/resumen/pc.js',
   './modules/resumen/resumen.css',
   './modules/finanzas/modulo.js',
   './modules/finanzas/modelo.js',

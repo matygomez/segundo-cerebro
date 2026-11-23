@@ -105,20 +105,32 @@ export async function pantallaResumen(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h } = ctx;
   const m = crearModelo(ctx);
-  const pestana = ['hoy', 'mes', 'est', 'config'].includes(sub[0]) ? sub[0] : sub[0] === 'semana' ? 'semana' : 'hoy';
+  let pestana = ['hoy', 'mes', 'est', 'config'].includes(sub[0]) ? sub[0] : sub[0] === 'semana' ? 'semana' : 'hoy';
+  // En la PC el día está en el Inicio (Mi día) y las Estadísticas se ven al final del Mes.
+  const pc = esPC();
+  if (pc && (pestana === 'hoy' || pestana === 'est')) pestana = 'mes';
   const cuerpo = h('div', { class: 'rs-cuerpo' }, h('p', { class: 'nota' }, 'Juntando los números…'));
   const tab = (id, texto, ruta) => h('a', { href: `#/resumen${ruta}`, class: pestana === id ? 'sel' : '' }, texto);
   contenedor.replaceChildren(h('div', { class: 'rs' },
     h('header', { class: 'rs-cab' },
       h('div', {}, h('h1', {}, 'Resumen'), h('p', { class: 'nota' }, 'Cómo te fue, en qué estás y hacia dónde vas.')),
-      h('nav', { class: 'rs-pest' }, tab('hoy', 'Hoy', '/hoy'), tab('semana', 'Semana', '/semana'), tab('mes', 'Mes', '/mes'), tab('est', 'Estadísticas', '/est'),
+      h('nav', { class: 'rs-pest' }, pc ? h('a', { href: '#/home' }, '‹ Inicio') : tab('hoy', 'Hoy', '/hoy'), tab('semana', 'Semana', '/semana'), tab('mes', 'Mes', '/mes'), pc ? null : tab('est', 'Estadísticas', '/est'),
         h('a', { href: '#/resumen/config', class: pestana === 'config' ? 'sel' : '', title: 'Configurar Resumen', 'aria-label': 'Configurar Resumen' }, '⚙'))),
     cuerpo));
 
   if (pestana === 'hoy') return pantallaHoy(cuerpo, ctx, m);
   if (pestana === 'config') return pantallaConfig(cuerpo, ctx);
   if (pestana === 'semana') return pantallaSemana(cuerpo, ctx, m, /^\d{4}-\d{2}-\d{2}$/.test(sub[1] || '') ? lunesDe(sub[1]) : semanaARevisar());
-  if (pestana === 'mes') return pantallaMes(cuerpo, ctx, m, /^\d{4}-\d{2}$/.test(sub[1] || '') ? sub[1] : sumarMeses(hoyISO().slice(0, 7), deISO(hoyISO()).getDate() <= 3 ? -1 : 0));
+  if (pestana === 'mes') {
+    await pantallaMes(cuerpo, ctx, m, /^\d{4}-\d{2}$/.test(sub[1] || '') ? sub[1] : sumarMeses(hoyISO().slice(0, 7), deISO(hoyISO()).getDate() <= 3 ? -1 : 0));
+    // PC: abajo del mes, las tendencias de 12 meses y los récords (lo que era Estadísticas).
+    if (pc) {
+      const est = h('div', { class: 'rs-est-pc' });
+      cuerpo.append(h('h2', { class: 'rs-est-tit' }, 'Tendencias y récords'), est);
+      return pantallaEst(est, ctx);
+    }
+    return;
+  }
   return pantallaEst(cuerpo, ctx);
 }
 

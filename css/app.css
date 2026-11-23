@@ -715,6 +715,7 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
     transition: width 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
   #app.col-plegada .pc-colw { width: 66px; }
+  #app.sin-col .pc-colw { display: none; }
   .pc-col { width: 184px; height: 100%; padding: 12px 8px; display: flex; flex-direction: column; gap: 2px; transition: opacity 0.18s; }
   #app.col-plegada .pc-col { opacity: 0; pointer-events: none; }
   .pc-col.cambia { animation: pc-col-in 0.32s cubic-bezier(0.2, 0.8, 0.2, 1); }
