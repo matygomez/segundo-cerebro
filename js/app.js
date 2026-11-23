@@ -55,15 +55,42 @@ let textoSync = 'Sin Drive', driveDesconectado = true;
 // Celular: pestañas del módulo en una fila debajo del nombre (las mismas de la columna de la PC).
 // Se deslizan de costado; al final, Filtros y Configurar si el módulo los tiene.
 const pestanasCel = h('nav', { class: 'pest-cel', hidden: true, 'aria-label': 'Pestañas del módulo' });
+// Selector de mes (Finanzas) junto a la lupa, y botón + abajo con lo que el módulo ofrece (Egreso, Ingreso…).
+const mesCel = h('div', { class: 'mes-cel', hidden: true });
+const fabCel = h('div', { class: 'fab-cel', hidden: true });
+function dibujarMesYBotones(extra) {
+  const mes = extra?.mes;
+  mesCel.hidden = !mes;
+  if (mes) {
+    mesCel.replaceChildren(
+      h('button', { type: 'button', 'aria-label': 'Mes anterior', disabled: !mes.puedeAntes, onclick: () => mes.mover(-1) }, icono('flecha-izq')),
+      h('button', { type: 'button', class: `mes-cel-c${mes.otro ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => mes.mover(0) }, mes.texto.slice(0, 3)),
+      h('button', { type: 'button', 'aria-label': 'Mes siguiente', disabled: !mes.puedeDespues, onclick: () => mes.mover(1) }, icono('flecha-der')));
+  }
+  const botones = extra?.botones || [];
+  fabCel.hidden = !botones.length;
+  fabCel.classList.remove('abierto');
+  if (!botones.length) { fabCel.replaceChildren(); return; }
+  const opciones = h('div', { class: 'fab-cel-op' }, botones.map(b => h('button', { type: 'button', onclick: () => { fabCel.classList.remove('abierto'); b.alTocar?.(); } },
+    b.signo ? h('b', {}, b.signo) : (b.icono instanceof Node ? b.icono.cloneNode(true) : icono(b.icono || 'mas')), h('span', {}, b.texto))));
+  fabCel.replaceChildren(opciones, h('button', { type: 'button', class: 'fab-cel-b', 'aria-label': 'Agregar', onclick: (e) => {
+    e.stopPropagation();
+    if (botones.length === 1) { botones[0].alTocar?.(); return; }
+    fabCel.classList.toggle('abierto');
+  } }, icono('mas')));
+}
+document.addEventListener('click', (e) => { if (!fabCel.contains(e.target)) fabCel.classList.remove('abierto'); });
+
 function dibujarPestanas(def, extra, { conf, filtrar } = {}) {
+  dibujarMesYBotones(extra);
   if (!extra?.grupos) { pestanasCel.hidden = true; pestanasCel.replaceChildren(); return; }
   const izq = pestanasCel.scrollLeft;
-  const pest = extra.grupos.flatMap(g => g.pestañas).map(p => h('a', { href: p.href, class: 'pest-cel-p', 'aria-current': p.activa ? 'page' : null },
+  const pest = extra.grupos.filter(g => g.enCel !== false).flatMap(g => g.pestañas).map(p => h('a', { href: p.href, class: 'pest-cel-p', 'aria-current': p.activa ? 'page' : null },
     p.nombre, p.n ? h('span', { class: 'pest-cel-n' }, String(p.n)) : null));
   const confAttrs = typeof conf === 'function' ? { href: '#', onclick: (e) => { e.preventDefault(); conf(); } } : { href: conf || '#/ajustes' };
-  pestanasCel.replaceChildren(...pest,
+  pestanasCel.replaceChildren(...[...pest,
     filtrar ? h('button', { type: 'button', class: 'pest-cel-ic', 'aria-label': 'Filtros', onclick: filtrar }, icono('filtro')) : null,
-    conf ? h('a', { ...confAttrs, class: 'pest-cel-ic', 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')) : null);
+    conf ? h('a', { ...confAttrs, class: 'pest-cel-ic', 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')) : null].filter(Boolean));
   pestanasCel.hidden = false;
   // La pestaña elegida queda a la vista (si estaba fuera de la pantalla, se corre la fila).
   pestanasCel.scrollLeft = izq;
@@ -126,11 +153,12 @@ function armarCascaron() {
   document.getElementById('app').replaceChildren(
     h('header', { class: 'barra' },
       marca,
-      h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }), fotoCel),
+      h('div', { class: 'barra-der' }, mesCel, botonBusqueda(), h('div', { id: 'estado-sync' }), fotoCel),
       pestanasCel),
     veloModulos,
     panelModulos,
     menu,
+    fabCel,
     // PC: barra de módulos y columna del módulo (en el celular no se ven)
     armarBarraPC({ items: () => itemsMenu(), alBuscar: () => abrirBusqueda(), alSincronizar: () => sincronizar(), alConectar: conectarDrive, alPestanas: dibujarPestanas }),
     h('main', { id: 'pantalla', tabindex: '-1' }),

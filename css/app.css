@@ -886,12 +886,42 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
 .pest-cel { display: none; }
 @media (max-width: 899px) {
   .barra { flex-wrap: wrap; row-gap: 0; }
+  .barra > .marca { flex: 1 1 0; min-width: 0; }
+  .barra > .barra-der { flex: none; }
   .pest-cel:not([hidden]) { display: flex; flex-basis: 100%; gap: 4px; margin: 0.35rem -0.85rem -0.4rem; padding: 0 0.6rem 0.45rem; overflow-x: auto; scrollbar-width: none; align-items: center; }
   .pest-cel::-webkit-scrollbar { display: none; }
   .pest-cel-p { flex: none; padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.85rem; color: var(--tinta-2); text-decoration: none; white-space: nowrap; }
   .pest-cel-p[aria-current='page'] { background: var(--superficie-2); color: var(--tinta); font-weight: 600; }
   .pest-cel-n { font-size: 0.7rem; color: var(--laton); font-weight: 600; margin-left: 0.3rem; }
   .pest-cel-ic { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border: 0; background: none; color: var(--tinta-2); cursor: pointer; }
-  .pest-cel-ic:first-of-type { margin-left: auto; }
+  .pest-cel-ic { margin-left: auto; } .pest-cel-ic + .pest-cel-ic { margin-left: 0; }
   .pest-cel-ic .icono { width: 1.1rem; height: 1.1rem; }
+}
+.mes-cel, .fab-cel { display: none; }
+@media (max-width: 899px) {
+  .mes-cel:not([hidden]) { display: flex; align-items: center; gap: 0; }
+  .mes-cel button { border: 0; background: none; color: var(--tinta-2); font: inherit; cursor: pointer; display: grid; place-items: center; height: 2.2rem; padding: 0 0.15rem; }
+  .mes-cel button:disabled { opacity: 0.3; }
+  .mes-cel button .icono { width: 1rem; height: 1rem; }
+  .mes-cel .mes-cel-c { color: var(--tinta); font-size: 0.95rem; font-weight: 600; padding: 0 0.15rem; min-width: 2.4rem; }
+  .mes-cel .mes-cel-c.otro { color: var(--laton); }
+  /* Botón + abajo a la derecha; con varias opciones, se abren arriba de él */
+  .fab-cel:not([hidden]) { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; position: fixed; z-index: 6;
+    right: 1rem; bottom: calc(var(--alto-menu) + env(safe-area-inset-bottom) + 1rem); }
+  .fab-cel-b { width: 56px; height: 56px; border-radius: 18px; border: 0; background: var(--laton); color: #17130a; display: grid; place-items: center; cursor: pointer;
+    box-shadow: 0 8px 24px rgb(0 0 0 / 0.5); transition: transform 0.2s; }
+  .fab-cel-b .icono { width: 26px; height: 26px; }
+  .fab-cel-b .icono { transition: transform 0.2s; }
+  .fab-cel.abierto .fab-cel-b .icono { transform: rotate(45deg); }
+  .fab-cel-op { display: none; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .fab-cel.abierto .fab-cel-op { display: flex; animation: fab-sube 0.2s cubic-bezier(0.2, 0.8, 0.2, 1); }
+  @keyframes fab-sube { from { opacity: 0; transform: translateY(10px); } }
+  .fab-cel-op button { display: flex; align-items: center; gap: 0.6rem; padding: 0.6rem 1rem; border-radius: 999px; border: 1px solid var(--linea); background: var(--superficie-2);
+    color: var(--tinta); font: inherit; font-size: 0.95rem; cursor: pointer; box-shadow: 0 6px 18px rgb(0 0 0 / 0.45); }
+  .fab-cel-op b { color: var(--laton); font-size: 1.1rem; width: 1rem; text-align: center; }
+  .fab-cel-op .icono { width: 1rem; height: 1rem; color: var(--laton); }
+}
+@media (max-width: 899px) {
+  /* Drive: en el celular solo el ícono (el texto está en el menú de la foto) */
+  .chip-sync { padding: 0.35rem; } .chip-sync span:last-child { display: none; }
 }

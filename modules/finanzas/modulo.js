@@ -35,6 +35,7 @@ export default {
   nombre: 'Finanzas',
 
   pantalla: pantallaFinanzas,
+  pestañasCel: true,   // en el celular: pestañas, mes y botones van en la barra de arriba y el botón +
 
   // Columna de la PC: Gasto / Ingreso / Transferencia, el mes, las vistas y cada panel.
   async columna(ctx) {
@@ -59,7 +60,8 @@ export default {
           pest('panel', 'Panel', 'grilla', '#/finanzas', vista === 'panel'),
           pest('movimientos', 'Movimientos', 'tabla', '#/finanzas/movimientos', vista === 'movimientos'),
           pest('analisis', 'Análisis', 'grafico', '#/finanzas/analisis', vista === 'analisis')] },
-        { titulo: 'Paneles', pestañas: PANELES.map(([k, n, i]) => pest(k, n, i, `#/finanzas/detalle/${k}`, vista === 'detalle' && clave === k)) },
+        // En el celular solo van las tres vistas: cada panel se abre tocándolo en el Panel.
+        { titulo: 'Paneles', enCel: false, pestañas: PANELES.map(([k, n, i]) => pest(k, n, i, `#/finanzas/detalle/${k}`, vista === 'detalle' && clave === k)) },
       ],
     };
   },

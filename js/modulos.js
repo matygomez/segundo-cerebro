@@ -7,7 +7,7 @@
 // línea acá. El orden de la lista es el orden del menú.
 // ─────────────────────────────────────────────────────────────
 
-export const VERSION = '0.42.0';
+export const VERSION = '0.43.0';
 
 export const MODULOS = [
   { id: 'home', nombre: 'Inicio', icono: 'inicio', archivo: './modules/home/modulo.js' },

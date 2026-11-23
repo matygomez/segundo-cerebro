@@ -89,8 +89,8 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
   // ── Encabezado: título, mes, botones y pestañas ──
   // En el panel, la cabecera va arriba de la primera columna; en las demás vistas, arriba de todo.
   function dibujarCabecera() {
-    // En la PC el mes, los botones y las pestañas están en la columna del costado.
-    const sinCab = vista === 'panel' || (esPC() && vista !== 'config');
+    // El mes, los botones y las pestañas están en la columna del costado (PC) o en la barra de arriba (celular, 0.43).
+    const sinCab = vista !== 'config';
     cabecera.hidden = sinCab;
     if (sinCab) cabecera.replaceChildren(); else poner(cabecera, piezasCabecera());
   }
@@ -551,7 +551,7 @@ export async function pantallaFinanzas(contenedor, ctx, sub = []) {
         h('button', { type: 'button', onclick: () => explicarGastos(r) }, 'Gastos ', h('b', { class: 'num neg' }, plata(r.totalGastos))),
         h('span', {}, 'Diferencia ', h('b', { class: `num ${r.diferencia < 0 ? 'neg' : 'pos'}` }, plata(r.diferencia)))));
     // En la PC el Disponible es un cuadro más, con la cuenta de dónde sale (la cabecera está en la columna).
-    const fija = esPC() && !sinNada ? disponiblePC(r) : h('div', { class: 'fz-fija' }, piezasCabecera(), disponible,
+    const fija = !sinNada ? disponiblePC(r) : h('div', { class: 'fz-fija' }, piezasCabecera(), disponible,
       sinNada ? h('div', { class: 'vacio' }, h('h2', {}, 'Empecemos'),
         h('p', {}, 'Creá tus cuentas, tarjetas y categorías desde Configurar Finanzas. Después ya podés cargar gastos e ingresos.'),
         h('a', { href: '#/finanzas/config', class: 'boton principal' }, ic('engranaje'), 'Configurar Finanzas')) : null);

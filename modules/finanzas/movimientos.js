@@ -200,11 +200,14 @@ export function vistaMovimientos(cuerpo, ctx, m, d, { mes }) {
   selTipo.addEventListener('change', () => { estado.tipo = selTipo.value; estado.elegido = null; pintar(); });
   selCuenta.addEventListener('change', () => { estado.cuenta = selCuenta.value; pintar(); });
 
+  // Celular (0.43): la cantidad y "Ver todos los meses" en un renglón, sin la aclaración de las transferencias.
+  const cel = !matchMedia('(min-width: 900px)').matches;
   poner(cuerpo,
-    h('div', { class: 'fz-filtros' }, buscador, selTipo, selCuenta, filaTodos),
+    h('div', { class: 'fz-filtros' }, buscador, selTipo, selCuenta, cel ? null : filaTodos),
     // Cantidad y aclaración en un solo renglón (en la PC la lista llena el resto de la pantalla).
-    h('div', { class: 'fz-mov-notas' }, contador,
-      h('p', { class: 'nota' }, 'Con una cuenta elegida en el filtro, las transferencias muestran − si salieron de esa cuenta y + si entraron.')),
+    cel ? h('div', { class: 'fz-mov-notas fz-mov-cel' }, contador, filaTodos)
+      : h('div', { class: 'fz-mov-notas' }, contador,
+        h('p', { class: 'nota' }, 'Con una cuenta elegida en el filtro, las transferencias muestran − si salieron de esa cuenta y + si entraron.')),
     h('div', { class: 'fz-hoja-mov' }, zonaTabla, zonaLista, zonaDetalle));
   pintar();
 }

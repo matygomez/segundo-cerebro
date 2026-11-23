@@ -795,3 +795,12 @@ dialog.fz-hoja.fz-ctrl { max-width: 30rem; width: calc(100vw - 1.5rem); }
 }
 @keyframes fz-fila { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
 @keyframes fz-aparece { from { opacity: 0; } to { opacity: 1; } }
+
+/* Celular (0.43): las pestañas, el mes y los botones están en la barra de arriba y el botón +; el detalle no repite "← Panel". */
+@media (max-width: 899px) {
+  .fz-cuerpo[data-vista="detalle"] > .fz-volver { display: none; }
+  .fz-cuerpo[data-vista="detalle"] > .fz-det-titulo { font-size: 1.6rem; margin: 0 0 0.2rem; }
+  .fz-mov-cel { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+  .fz-mov-cel > * { margin: 0; }
+  .fz-mov-cel .fz-filtro-todos { margin: 0; padding: 0; min-height: 0; white-space: nowrap; }
+}
