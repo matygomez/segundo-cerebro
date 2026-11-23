@@ -237,7 +237,7 @@
 .hb-cf-nota { margin: -4px 0 0; font-size: 0.82rem; }
 
 /* ── Inicio de la PC: "Hábitos y metas" (panelHabitosPC) ── */
-@media (min-width: 900px) {
+@media screen { /* PC y celular (Inicio); el celular ajusta tamaños en home/pc.css */
   .ip-habitos .ip-cuerpo { overflow: hidden; }
   .hbp { flex: 1 !important; min-height: 0; display: flex; flex-direction: column; }
   .hbp > .ip-sec { flex: none; }

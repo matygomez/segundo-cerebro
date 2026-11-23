@@ -31,6 +31,7 @@ export default {
   nombre: 'Tareas',
 
   pantalla: pantallaTareas,
+  pestañasCel: true,   // en el celular, las pestañas de la columna van debajo de la barra de arriba
 
   // Columna de la PC: vistas, áreas y filtros guardados, con su número.
   async columna(ctx) {

@@ -790,7 +790,7 @@ h2.bt-con-ic .icono { color: var(--laton); width: 1.25rem; height: 1.25rem; }
 }
 
 /* ── Inicio de la PC: "Bitácora" y "Seguir viendo" (panelesBitacora en modulo.js) ── */
-@media (min-width: 900px) {
+@media screen { /* PC y celular (Inicio); el celular ajusta tamaños en home/pc.css */
   .btp-num { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 4px; }
   .btp-num a { background: var(--superficie-2); border-radius: 9px; padding: 6px 10px; color: var(--tinta-2); font-size: 11.5px; text-decoration: none; }
   .btp-num a:hover { color: var(--tinta); }

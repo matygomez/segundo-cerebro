@@ -1,7 +1,8 @@
 /* ─────────────────────────────────────────────────────────────
    Tareas en la PC (pc.js). Copiado de la maqueta aprobada
    (vistas-previas/tareas-tablero.html) con el prefijo tp-.
-   Solo se usa desde 900 px de ancho; el celular no cambia.
+   Desde 0.42 también en el celular: lo de abajo vale para los dos y al final
+   del archivo el celular acomoda todo en una columna.
    ───────────────────────────────────────────────────────────── */
 .tr-zona.tr-pc, .tp-fpanel, .tp-uno {
   --tp-sup: #1B1C1E; --tp-sup2: #242528; --tp-linea: #2E3033; --tp-linea2: #3a3d41;
@@ -10,7 +11,7 @@
   font-size: 14px; line-height: 1.4; color: var(--tp-texto);
 }
 
-@media (min-width: 900px) {
+@media screen {
   /* Lo de antes (título, hojas de arriba, botón flotante) no se ve: lo hace la columna. */
   .tr-zona.tr-pc .tr-cabecera, .tr-zona.tr-pc .tr-hojas { display: none; }
   #pantalla:has(.tr-zona.tr-pc) { padding: 12px 14px 14px; }
@@ -306,4 +307,37 @@
 
 @media (prefers-reduced-motion: reduce) {
   .tp-card, .tp-f, .tp-fpanel, .tp-uno, .tp-uno-card, .tp-barra i, .tp-co i, .tr-zona.tr-pc .tr-panel { animation: none !important; transition: none !important; }
+}
+
+/* ── Celular (0.42): las mismas pantallas, en una columna ──
+   La lista va primero y a todo el ancho; las tarjetas de al lado (Cómo vas, Por área, Lo que viene…)
+   quedan debajo, cada una con su alto natural. Las pestañas están en la barra de arriba de la app. */
+@media (max-width: 899px) {
+  #pantalla:has(.tr-zona.tr-pc) { padding: 0.75rem 0.75rem 6rem; }
+  .tr-zona.tr-pc ~ .tr-fab { display: inline-flex; }
+  .tp-bento { display: flex; flex-direction: column; gap: 12px; height: auto; }
+  .tp-card { padding: 13px 14px; border-radius: 16px; overflow: visible; }
+  .tp-card.tp-lista { order: -2; }
+  .tp-card.tp-cvc { order: -3; }
+  .tp-cuerpo { overflow: visible; flex: none; }
+  .tp-kcab b { font-size: 15px; }
+  .tp-a { font-size: 12.5px; }
+  .tp-f { font-size: 15px; gap: 12px; padding: 10px 0; }
+  .tp-f .tp-tx small { font-size: 12px; margin-top: 1px; }
+  .tp-ck { width: 22px; height: 22px; border-width: 1.8px; }
+  .tp-tag { font-size: 11.5px; padding: 2px 8px; }
+  /* Cómo vas: el anillo a la izquierda y los datos de a dos */
+  .tp-cv { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 14px; height: auto; }
+  .tp-cv:has(> .tp-anillo) { grid-template-columns: auto 1fr 1fr; }
+  .tp-cv > .tp-anillo { grid-row: span 2; }
+  .tp-cv small { font-size: 10.5px; } .tp-cv b { font-size: 16px; } .tp-cv i { font-size: 11px; }
+  .tp-aherr { flex-wrap: wrap; }
+  .tp-aherr .tp-qadd { flex: 1 1 100%; }
+  .tp-aherr .tp-btn { flex: 1; justify-content: center; }
+  /* Resumen › Tu día: el reloj arriba y la lista abajo */
+  .tp-dia-g { display: flex; flex-direction: column; height: auto; }
+  .tp-reloj svg { width: 220px; height: 220px; }
+  .tp-dia-g > div:last-child { overflow: visible; padding-right: 0; }
+  /* Próximos: la semana va de arriba a abajo (un día debajo de otro) */
+  .tp-semana { display: flex; flex-direction: column; gap: 8px; }
 }

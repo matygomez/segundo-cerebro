@@ -38,5 +38,8 @@ with sync_playwright() as p:
     cx.close()
   cx=b.new_context(viewport={'width':390,'height':844}, is_mobile=True, has_touch=True); page=cx.new_page()
   page.goto(U+'#/home'); page.wait_for_timeout(1500)
-  chk(page.locator('.ini').count()==1 and page.locator('.ip').count()==0, 'el celular no cambia')
+  # Desde 0.42 el celular usa la misma pantalla en una columna: Mi día con la tira de la semana, sin botones ni "Anotá algo".
+  chk(page.locator('.ip.ip-cel').count()==1 and page.locator('.ip-tira .clp-dia').count()==7, 'celular: una columna con la tira de la semana')
+  chk(page.locator('.clp-caja').count()==1 and page.locator('.captura-form, .accesos').count()==0, 'celular: horario en su caja, sin botones ni captura')
+  chk(page.locator('.menu-item[data-id="resumen"]').count()==0, 'celular: Resumen fuera de la barra de abajo')
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)

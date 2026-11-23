@@ -225,7 +225,7 @@ button.cl-sem-dia { font: inherit; cursor: pointer; }
 .pl-foco span { font-size: 0.7rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--laton); font-weight: 600; }
 
 /* ── Inicio de la PC: Mi día y Esta semana (pc.js) ── */
-@media (min-width: 900px) {
+@media screen { /* PC y celular (Inicio); el celular ajusta tamaños en home/pc.css */
   .ip-dia .ip-cuerpo { overflow: hidden; }
   .clp-d24 { position: relative; flex: 1.7 1 0 !important; min-height: 140px; margin: 8px 0 6px; }
   .clp-hr { position: absolute; left: 0; right: 0; display: flex; gap: 6px; align-items: center; font-size: 10px; color: var(--ip-tenue); transform: translateY(-50%); }

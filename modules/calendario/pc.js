@@ -37,8 +37,10 @@ export function panelesCalendario(ctx, { leerConfig, cargarEstilos }) {
   return [
     {
       lugar: 'dia', titulo: 'Mi día',
-      async dibujar(cont, { cambiar } = {}) {
+      async dibujar(cont, { cambiar, cel = false } = {}) {
         cargarEstilos();
+        // Celular: el horario va en una caja con su propio desplazamiento, que arranca cerca de la hora actual.
+        let caja = null, ultimoDia = null;
         let temps = null;
         try { if (await ctx.existeAccion('resumen-clima')) temps = (await ctx.pedir('resumen-clima', {}))?.horas24 || null; } catch { temps = null; }
         async function pintar() {
@@ -86,8 +88,17 @@ export function panelesCalendario(ctx, { leerConfig, cargarEstilos }) {
             ...sinHora.map(x => fila(x, x.tipo === 'fin' ? (x.hecha ? 'pagado' : esHoy ? 'vence hoy' : 'vence') : x.tipo === 'fer' ? 'feriado' : x.hecha ? 'hecha' : '', x.tipo === 'fin' ? 'v' : 'a')),
             ...atrasadas.map(x => fila({ ...x, tipo: 'tarea' }, x.fecha === aISO(new Date(Date.now() - 864e5)) ? 'ayer' : diaCorto(x.fecha), 'r')),
           ];
+          if (cel) {
+            const y = caja && ultimoDia === dia ? caja.scrollTop : null;
+            caja = h('div', { class: 'clp-caja' }, linea);
+            queueMicrotask(() => {
+              const desde = esHoy ? Math.max(0, Math.floor((mins - 45) / 120) * 120) : 8 * 60;
+              caja.scrollTop = y ?? (desde / 1440) * caja.scrollHeight;
+            });
+            ultimoDia = dia;
+          }
           cont.replaceChildren(
-            linea,
+            cel ? caja : linea,
             h('div', { class: 'ip-sec' }, 'Detalle', h('span', {}, String(detalle.length))),
             h('div', { class: 'clp-lista' }, detalle.length ? detalle : h('p', { class: 'ip-nota' }, esHoy ? 'Nada sin hora ni atrasado.' : 'Nada sin hora este día.')));
         }

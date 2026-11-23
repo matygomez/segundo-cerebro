@@ -218,6 +218,8 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
     h('a', { ...confAttrs, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
 
+  // Celular: las mismas pestañas van debajo de la barra de arriba (si el módulo lo pide con pestañasCel).
+  opciones.alPestanas?.(def, def.pestañasCel ? extra : null, { conf: gris ? null : conf, filtrar });
   col.replaceChildren(...[cab, prin, selMes, ...grupos, pieCol].filter(Boolean));
   if (!sinAnimar) { col.classList.remove('cambia'); void col.offsetWidth; col.classList.add('cambia'); }
 

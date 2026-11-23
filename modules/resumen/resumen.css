@@ -174,7 +174,7 @@
 .rs-card .rs-campo input[type=password] { flex: 1; min-width: 0; width: 100%; }
 
 /* ── Inicio de la PC (pc.js): aviso en la franja y "Tu mes y patrimonio" ── */
-@media (min-width: 900px) {
+@media screen { /* PC y celular (Inicio); el celular ajusta tamaños en home/pc.css */
   .rsp-aviso { flex: 1; min-width: 0; display: flex; align-items: center; gap: 14px; border: 1px solid color-mix(in srgb, var(--laton) 55%, transparent);
     background: linear-gradient(100deg, color-mix(in srgb, var(--laton) 16%, var(--superficie)) 0%, var(--superficie) 70%); border-radius: 12px; padding: 6px 8px 6px 14px;
     animation: rsp-entra 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }

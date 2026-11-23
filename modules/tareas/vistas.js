@@ -348,8 +348,6 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   const m = crearModelo(ctx);
   let vista = sub[0] || 'inicio';
   let ancla = '';
-  // En la PC, Próximos tiene su propia pantalla; en el celular es una parte de Hoy.
-  if (vista === 'proximos' && !window.matchMedia('(min-width: 900px)').matches) { vista = 'hoy'; ancla = 'proximos'; }
   if (vista === 'vencidas') { vista = 'hoy'; ancla = 'vencidas'; }
   if (vista === 'sin-area') vista = 'bandeja';
   if (vista === 'hoy' && sub[1]) ancla = sub[1];
@@ -1327,7 +1325,8 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   let primeraVez = true;
   function dibujar() {
-    const nuevaPC = esPC() ? pc.vista(vista, idRuta) : null;
+    // Desde 0.42 el celular usa las mismas pantallas que la PC (acomodadas en una columna, tareas-pc.css).
+    const nuevaPC = pc.vista(vista, idRuta);
     zona.classList.toggle('tr-pc', !!nuevaPC);
     if (nuevaPC) {
       // Al redibujar la misma pantalla (ordenar, tildar, filtrar) cada tarjeta queda donde estaba, sin saltar arriba.
@@ -1380,7 +1379,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   // En Hoy y el Resumen, cada minuto: las que se pasan de hora bajan solas a Vencidas.
   const reloj = setInterval(() => {
-    if (!esPC() || !['hoy', 'inicio'].includes(vista) || editor || document.activeElement?.matches('input, textarea, select')) return;
+    if (!['hoy', 'inicio'].includes(vista) || editor || document.activeElement?.matches('input, textarea, select')) return;
     dibujar();
   }, 60_000);
 

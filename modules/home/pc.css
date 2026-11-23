@@ -52,32 +52,6 @@
   .ip-cuerpo { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; scrollbar-width: thin; scrollbar-color: var(--ip-linea2) transparent; }
   .ip-cuerpo > * { flex: none; }
 
-  /* ── Kit para los paneles ── */
-  .ip-fila { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--linea); font-size: 13px; min-width: 0; color: var(--tinta); text-decoration: none; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100%; text-align: left; font-family: inherit; cursor: pointer; }
-  .ip-fila:first-child, .ip-sec + .ip-fila { border-top: 0; }
-  .ip-fila:hover .ip-tx { color: var(--laton); }
-  .ip-fila > .icono { width: 15px; height: 15px; color: var(--tinta-2); flex: none; }
-  .ip-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .ip-tx small { display: block; color: var(--tinta-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .ip-der { color: var(--tinta-2); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .ip-tag { font-size: 10.5px; font-weight: 600; border-radius: 6px; padding: 1px 7px; white-space: nowrap; background: var(--superficie-2); color: var(--tinta-2); }
-  .ip-tag.a { background: color-mix(in srgb, var(--laton) 18%, transparent); color: var(--laton); }
-  .ip-tag.r { background: color-mix(in srgb, var(--rojo) 18%, transparent); color: var(--rojo); }
-  .ip-tag.v { background: color-mix(in srgb, var(--verde) 18%, transparent); color: var(--verde); }
-  .ip-tag.z { background: color-mix(in srgb, var(--ip-azul) 16%, transparent); color: var(--ip-azul); }
-  .ip-sec { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ip-tenue); font-weight: 700; padding: 8px 0 2px; display: flex; justify-content: space-between; gap: 8px; }
-  .ip-sec:first-child { padding-top: 0; }
-  .ip-sec span { text-transform: none; letter-spacing: 0; font-weight: 400; }
-  .ip-barra { display: block; height: 6px; border-radius: 6px; background: var(--superficie-2); overflow: hidden; flex: none; }
-  .ip-barra i { display: block; height: 100%; border-radius: 6px; background: var(--laton); transform-origin: left; animation: ip-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
-  .ip-barra i.v { background: var(--verde); } .ip-barra i.r { background: var(--rojo); } .ip-barra i.z { background: var(--ip-azul); }
-  @keyframes ip-crece { from { transform: scaleX(0); } }
-  .ip-nota { font-size: 12px; color: var(--tinta-2); margin: 4px 0; }
-  .ip-ok { color: var(--verde); } .ip-mal { color: var(--rojo); }
-  .ip-bt { text-decoration: none; border: 1px solid var(--ip-linea2); background: var(--superficie-2); color: var(--tinta); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
-  .ip-bt .icono { width: 14px; height: 14px; }
-  .ip-bt.p { background: var(--laton); border-color: var(--laton); color: #111; font-weight: 600; }
-
   /* Pantallas bajas: un poco más compacto para que entre sin barras */
   @media (max-height: 780px) {
     .ip-card { padding: 10px 13px; gap: 6px; }
@@ -86,4 +60,116 @@
     .ip-fecha { font-size: 22px; }
   }
   @media (prefers-reduced-motion: reduce) { .ip-card, .ip-barra i { animation: none !important; } }
+}
+
+/* ── Kit para los paneles (PC y celular) ── */
+.ip {
+  --ip-tenue: color-mix(in srgb, var(--tinta-2) 70%, var(--papel));
+  --ip-linea2: color-mix(in srgb, var(--linea) 70%, var(--tinta-2));
+  --ip-azul: #8FA9E8;
+}
+.ip-fila { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-top: 1px solid var(--linea); font-size: 13px; min-width: 0; color: var(--tinta); text-decoration: none; background: none; border-left: 0; border-right: 0; border-bottom: 0; width: 100%; text-align: left; font-family: inherit; cursor: pointer; }
+.ip-fila:first-child, .ip-sec + .ip-fila { border-top: 0; }
+.ip-fila:hover .ip-tx { color: var(--laton); }
+.ip-fila > .icono { width: 15px; height: 15px; color: var(--tinta-2); flex: none; }
+.ip-tx { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ip-tx small { display: block; color: var(--tinta-2); font-size: 11px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ip-der { color: var(--tinta-2); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.ip-tag { font-size: 10.5px; font-weight: 600; border-radius: 6px; padding: 1px 7px; white-space: nowrap; background: var(--superficie-2); color: var(--tinta-2); }
+.ip-tag.a { background: color-mix(in srgb, var(--laton) 18%, transparent); color: var(--laton); }
+.ip-tag.r { background: color-mix(in srgb, var(--rojo) 18%, transparent); color: var(--rojo); }
+.ip-tag.v { background: color-mix(in srgb, var(--verde) 18%, transparent); color: var(--verde); }
+.ip-tag.z { background: color-mix(in srgb, var(--ip-azul) 16%, transparent); color: var(--ip-azul); }
+.ip-sec { font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ip-tenue); font-weight: 700; padding: 8px 0 2px; display: flex; justify-content: space-between; gap: 8px; }
+.ip-sec:first-child { padding-top: 0; }
+.ip-sec span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.ip-barra { display: block; height: 6px; border-radius: 6px; background: var(--superficie-2); overflow: hidden; flex: none; }
+.ip-barra i { display: block; height: 100%; border-radius: 6px; background: var(--laton); transform-origin: left; animation: ip-crece 0.9s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.ip-barra i.v { background: var(--verde); } .ip-barra i.r { background: var(--rojo); } .ip-barra i.z { background: var(--ip-azul); }
+@keyframes ip-crece { from { transform: scaleX(0); } }
+.ip-nota { font-size: 12px; color: var(--tinta-2); margin: 4px 0; }
+.ip-ok { color: var(--verde); } .ip-mal { color: var(--rojo); }
+.ip-bt { text-decoration: none; border: 1px solid var(--ip-linea2); background: var(--superficie-2); color: var(--tinta); border-radius: 8px; padding: 6px 11px; font: inherit; font-size: 12.5px; cursor: pointer; white-space: nowrap; display: inline-flex; align-items: center; gap: 6px; }
+.ip-bt .icono { width: 14px; height: 14px; }
+.ip-bt.p { background: var(--laton); border-color: var(--laton); color: #111; font-weight: 600; }
+
+
+/* ── Celular (0.42): la misma pantalla, en una columna ──
+   Arriba fecha y tiempo; abajo el memento mori o el aviso del Resumen; después los paneles,
+   cada uno con su alto natural (Mi día tiene su propia caja con el horario). */
+@media (max-width: 899px) {
+  #pantalla:has(> .ip) { padding: 0.9rem 0.75rem 1.5rem; }
+  .ip-cel { display: flex; flex-direction: column; gap: 12px; }
+  .ip-cel .ip-franja { display: flex; flex-direction: column; gap: 12px; }
+  .ip-f1 { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding: 0 4px; }
+  .ip-cel .ip-fecha { font-family: var(--fuente-titulo); font-size: 30px; font-weight: 600; line-height: 1; color: var(--tinta); text-decoration: none; white-space: nowrap; }
+  .ip-cel .ip-fecha small { display: block; font-family: var(--fuente); font-size: 12.5px; color: var(--tinta-2); font-weight: 400; margin-bottom: 3px; text-transform: capitalize; }
+  .ip-cel .ip-clima { display: flex; align-items: center; gap: 8px; flex-direction: row-reverse; text-align: right; min-width: 0; }
+  .ip-cel .ip-clima:empty { display: none; }
+  .ip-cel .ip-clima .ip-tmp { font-family: var(--fuente-titulo); font-size: 28px; font-weight: 600; line-height: 1; }
+  .ip-cel .ip-clima b { display: block; font-size: 11.5px; font-weight: 500; color: var(--tinta-2); }
+  .ip-cel .ip-clima small { font-size: 11px; color: var(--tinta-2); }
+  .ip-cel .ip-clima a { font-size: 12.5px; color: var(--laton); }
+  /* Memento mori: tarjeta con días, año y vida, la frase y los botones Semana / Mes debajo */
+  .ip-cel .ip-mm { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; padding: 12px 14px; }
+  .ip-cel .ip-mm[hidden] { display: none; }
+  .ip-cel .ip-mm-n { grid-column: 1 / -1; font-family: var(--fuente-titulo); font-size: 24px; font-weight: 600; }
+  .ip-cel .ip-mm-n small { font-family: var(--fuente); font-size: 11.5px; color: var(--tinta-2); font-weight: 400; margin-left: 5px; }
+  .ip-cel .ip-mm-lin { display: flex; align-items: center; gap: 6px; font-size: 11px; color: var(--tinta-2); }
+  .ip-cel .ip-mm-lin .ip-barra { flex: 1; height: 4px; }
+  .ip-cel .ip-mm-q { grid-column: 1 / -1; font-size: 12px; color: var(--ip-tenue); font-style: italic; quotes: none; }
+  .ip-cel .ip-mm-cargar { grid-column: 1 / -1; font-size: 13px; color: var(--laton); }
+  .ip-cel .ip-aviso { display: flex; gap: 8px; }
+  .ip-cel .ip-aviso:empty { display: none; }
+  .ip-cel .ip-aviso > .ip-bt { flex: 1; justify-content: center; padding: 9px 10px; font-size: 13.5px; border-radius: 10px; }
+  /* Aviso del Resumen: tarjeta con título, números en dos columnas y botones abajo */
+  .ip-cel .rsp-aviso { flex: 1; display: flex; flex-direction: column; align-items: stretch; gap: 10px; border: 1px solid color-mix(in srgb, var(--laton) 50%, transparent);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--laton) 16%, var(--superficie)), var(--superficie) 70%); border-radius: 16px; padding: 12px 14px; }
+  .ip-cel .rsp-pto { display: none; }
+  .ip-cel .rsp-t small { font-size: 10.5px; }
+  .ip-cel .rsp-t b { font-size: 17px; white-space: normal; }
+  .ip-cel .rsp-n { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 12px; white-space: normal; overflow: visible; }
+  .ip-cel .rsp-n span { max-width: none; font-size: 11.5px; line-height: 1.25; }
+  .ip-cel .rsp-n span b { display: block; font-size: 21px; margin: 0; }
+  .ip-cel .rsp-b .ip-bt { padding: 8px 14px; font-size: 13.5px; border-radius: 10px; }
+  .ip-cel .rsp-pts { margin-left: auto; }
+  /* Paneles */
+  .ip-cel .ip-grilla { display: flex; flex-direction: column; gap: 12px; }
+  .ip-cel .ip-card { background: var(--superficie); border: 1px solid var(--linea); border-radius: 16px; padding: 13px 14px; display: flex; flex-direction: column; gap: 9px; min-width: 0;
+    animation: ip-entra 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .ip-cel .ip-card:nth-child(2) { animation-delay: 40ms; } .ip-cel .ip-card:nth-child(3) { animation-delay: 80ms; } .ip-cel .ip-card:nth-child(n+4) { animation-delay: 120ms; }
+  @keyframes ip-entra { from { opacity: 0; transform: translateY(8px); } }
+  .ip-cel .ip-cab { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+  .ip-cel .ip-cab h2 { margin: 0; font-family: var(--fuente); font-size: 15px; font-weight: 600; }
+  .ip-cel .ip-enlace { color: var(--laton); font-size: 12.5px; padding: 4px 0; text-decoration: none; }
+  .ip-cel .ip-cuerpo, .ip-cel .ip-dia .ip-cuerpo, .ip-cel .ip-habitos .ip-cuerpo, .ip-cel .ip-viendo .ip-cuerpo { display: flex; flex-direction: column; overflow: visible; }
+  .ip-cel .ip-fila { font-size: 14px; padding: 9px 0; }
+  .ip-cel .ip-tx small { font-size: 11.5px; }
+  .ip-cel .ip-tag { font-size: 11px; padding: 2px 8px; }
+  /* Mi día: tira de la semana (días con puntitos), horario en su caja y Detalle */
+  .ip-tira .clp-sem { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+  .ip-tira .clp-dia { align-items: center; padding: 5px 0 6px; gap: 2px; border-radius: 10px; flex-direction: row; flex-wrap: wrap; justify-content: center; }
+  .ip-tira .clp-dn { width: 100%; text-align: center; font-size: 10.5px; display: flex; flex-direction: column; align-items: center; }
+  .ip-tira .clp-dn b { margin: 0; font-family: var(--fuente-titulo); font-size: 18px; line-height: 1.1; }
+  .ip-tira .clp-dia.hoy .clp-dn b { color: var(--laton); }
+  .ip-tira .clp-dia.sel { background: color-mix(in srgb, var(--laton) 10%, transparent); }
+  .ip-tira .clp-ev { font-size: 0; width: 4px; height: 4px; padding: 0; border: 0; border-radius: 50%; background: var(--laton); flex: none; }
+  .ip-tira .clp-ev small { display: none; }
+  .ip-tira .clp-ev.z { background: var(--ip-azul); } .ip-tira .clp-ev.v { background: var(--verde); } .ip-tira .clp-ev.r { background: var(--rojo); }
+  .ip-tira .clp-ev:nth-of-type(n+5), .ip-tira .clp-mas { display: none; }
+  .clp-caja { height: 300px; overflow-y: auto; border-top: 1px solid var(--linea); margin: 0 -4px; padding: 0 4px; overscroll-behavior: contain; scrollbar-width: thin; }
+  .ip-cel .clp-d24 { height: 1056px; flex: none !important; min-height: 0; margin: 8px 0 0; }
+  .ip-cel .clp-blq { font-size: 12.5px; }
+  .ip-cel .clp-hr { font-size: 10.5px; }
+  .ip-cel .clp-lista { flex: none !important; overflow: visible; }
+  /* Hábitos y metas, Tu mes, Bitácora y Seguir viendo: alto natural */
+  .ip-cel .hbp, .ip-cel .hbp-mitad { flex: none !important; overflow: visible; }
+  .ip-cel .hbp-fila { font-size: 14px; padding: 9px 0; }
+  .ip-cel .hbp-ck { width: 20px; height: 20px; }
+  .ip-cel .rsp-pat { height: 58px; }
+  .ip-cel .rsp-hbar { grid-template-columns: minmax(0, 1fr) 64px 46px; font-size: 12.5px; padding: 4px 0; }
+  .ip-cel .btp-post { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -14px; padding: 0 14px; }
+  .ip-cel .btp-post::-webkit-scrollbar { display: none; }
+  .ip-cel .btp-p { flex: none; width: 118px; height: 168px; }
+  @media (prefers-reduced-motion: reduce) { .ip-cel .ip-card { animation: none !important; } }
 }

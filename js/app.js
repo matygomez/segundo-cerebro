@@ -43,7 +43,35 @@ const marca = h('a', { href: '#/home', class: 'marca', 'aria-controls': 'panel-m
   if (esPC()) return;
   e.preventDefault();
   abrirPanel(panelModulos.hidden);
-} }, h('span', { class: 'marca-signo', 'aria-hidden': 'true' }), 'Segundo Cerebro', h('span', { class: 'marca-flecha', 'aria-hidden': 'true' }));
+} }, h('span', { class: 'marca-cuad', 'aria-hidden': 'true' }, h('span', { class: 'marca-signo' })),
+  h('span', { class: 'marca-nombre' }, 'Segundo Cerebro'), h('span', { class: 'marca-flecha', 'aria-hidden': 'true' }));
+
+// Celular: tu foto arriba a la derecha, con el anillo de Drive (verde al día, amarillo subiendo,
+// rojo con problema, gris sin Drive). Tocarla abre el mismo menú que el logo.
+const fotoCel = h('button', { type: 'button', class: 'foto-cel', 'aria-label': 'Tu cuenta y el menú', onclick: (e) => { e.stopPropagation(); abrirPanel(panelModulos.hidden); } },
+  h('span', { class: 'pc-av apagado' }, icono('persona')));
+let textoSync = 'Sin Drive', driveDesconectado = true;
+
+// Celular: pestañas del módulo en una fila debajo del nombre (las mismas de la columna de la PC).
+// Se deslizan de costado; al final, Filtros y Configurar si el módulo los tiene.
+const pestanasCel = h('nav', { class: 'pest-cel', hidden: true, 'aria-label': 'Pestañas del módulo' });
+function dibujarPestanas(def, extra, { conf, filtrar } = {}) {
+  if (!extra?.grupos) { pestanasCel.hidden = true; pestanasCel.replaceChildren(); return; }
+  const izq = pestanasCel.scrollLeft;
+  const pest = extra.grupos.flatMap(g => g.pestañas).map(p => h('a', { href: p.href, class: 'pest-cel-p', 'aria-current': p.activa ? 'page' : null },
+    p.nombre, p.n ? h('span', { class: 'pest-cel-n' }, String(p.n)) : null));
+  const confAttrs = typeof conf === 'function' ? { href: '#', onclick: (e) => { e.preventDefault(); conf(); } } : { href: conf || '#/ajustes' };
+  pestanasCel.replaceChildren(...pest,
+    filtrar ? h('button', { type: 'button', class: 'pest-cel-ic', 'aria-label': 'Filtros', onclick: filtrar }, icono('filtro')) : null,
+    conf ? h('a', { ...confAttrs, class: 'pest-cel-ic', 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')) : null);
+  pestanasCel.hidden = false;
+  // La pestaña elegida queda a la vista (si estaba fuera de la pantalla, se corre la fila).
+  pestanasCel.scrollLeft = izq;
+  const activa = pestanasCel.querySelector('[aria-current="page"]');
+  if (activa && (activa.offsetLeft < pestanasCel.scrollLeft || activa.offsetLeft + activa.offsetWidth > pestanasCel.scrollLeft + pestanasCel.clientWidth)) {
+    pestanasCel.scrollLeft = activa.offsetLeft - 12;
+  }
+}
 
 function abrirPanel(abrir) {
   if (abrir) {
@@ -59,14 +87,19 @@ function abrirPanel(abrir) {
 
 function dibujarPanel() {
   const actual = leerRuta().id;
-  const todos = [
-    ...listaModulos().filter(m => !m.oculto && visible(m.id, 'cel')),
-    { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' },
-  ];
+  const cerrar = () => abrirPanel(false);
+  const todos = listaModulos().filter(m => !m.oculto && !m.fueraDePC && visible(m.id, 'cel'));
+  const fila = (ic, texto, alTocar, clase = '') => h('button', { type: 'button', class: `panel-fila ${clase}`, onclick: () => { cerrar(); alTocar(); } }, icono(ic), h('span', {}, texto));
+  const tono = fotoCel.firstChild.className;
   panelModulos.replaceChildren(
+    h('div', { class: 'panel-us' }, h('span', { class: tono }, icono('persona')),
+      h('div', {}, h('b', {}, 'Mi cuenta'), h('small', { class: tono.split(' ')[1] || '' }, textoSync))),
+    h('button', { type: 'button', class: 'panel-bus', onclick: () => { cerrar(); abrirBusqueda(); } }, icono('lupa'), h('span', {}, 'Buscar en todo…')),
     h('div', { class: 'panel-grilla' }, todos.map(m => h('a', {
-      href: `#/${m.id}`, class: 'panel-mod', 'aria-current': m.id === actual ? 'page' : null, onclick: () => abrirPanel(false),
-    }, icono(m.icono), h('span', {}, m.nombre)))));
+      href: `#/${m.id}`, class: 'panel-mod', 'aria-current': m.id === actual ? 'page' : null, onclick: cerrar,
+    }, icono(m.icono), h('span', {}, m.nombre)))),
+    fila('engranaje', 'Configuración', () => { location.hash = '#/ajustes'; }),
+    driveDesconectado ? fila('nube', 'Conectar Drive', conectarDrive) : fila('girar', 'Sincronizar ahora', () => sincronizar()));
 }
 
 function itemsMenu() {
@@ -74,9 +107,10 @@ function itemsMenu() {
     ...listaModulos().filter(m => !m.oculto).map(m => ({ id: m.id, nombre: m.nombre, icono: m.icono })),
     { id: 'ajustes', nombre: 'Configuración', icono: 'engranaje' },
   ];
-  // En la PC, lo que está unido a otro módulo (Resumen va dentro del Inicio) no sale en la barra.
-  if (esPC()) return todos.filter(it => visible(it.id, 'pc') && !listaModulos().find(m => m.id === it.id)?.fueraDePC);
-  const orden = barraCelular(todos.map(it => it.id));
+  // Lo que está unido a otro módulo (Resumen va dentro del Inicio) no sale en la barra (PC y celular).
+  const unido = (id) => !!listaModulos().find(m => m.id === id)?.fueraDePC;
+  if (esPC()) return todos.filter(it => visible(it.id, 'pc') && !unido(it.id));
+  const orden = barraCelular(todos.filter(it => !unido(it.id)).map(it => it.id));
   return orden.map(id => todos.find(it => it.id === id)).filter(Boolean);
 }
 
@@ -92,12 +126,13 @@ function armarCascaron() {
   document.getElementById('app').replaceChildren(
     h('header', { class: 'barra' },
       marca,
-      h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }))),
+      h('div', { class: 'barra-der' }, botonBusqueda(), h('div', { id: 'estado-sync' }), fotoCel),
+      pestanasCel),
     veloModulos,
     panelModulos,
     menu,
     // PC: barra de módulos y columna del módulo (en el celular no se ven)
-    armarBarraPC({ items: () => itemsMenu(), alBuscar: () => abrirBusqueda(), alSincronizar: () => sincronizar(), alConectar: conectarDrive }),
+    armarBarraPC({ items: () => itemsMenu(), alBuscar: () => abrirBusqueda(), alSincronizar: () => sincronizar(), alConectar: conectarDrive, alPestanas: dibujarPestanas }),
     h('main', { id: 'pantalla', tabindex: '-1' }),
   );
   dibujarMenu();
@@ -116,6 +151,9 @@ async function conectarDrive() {
 
 function marcarMenu(id) {
   marcarBarraPC(id);
+  // Celular: arriba va el nombre del módulo abierto (el logo abre el menú con todos).
+  const nombre = id === 'ajustes' ? 'Configuración' : listaModulos().find(m => m.id === id)?.nombre;
+  marca.querySelector('.marca-nombre').textContent = nombre || 'Segundo Cerebro';
   for (const a of document.querySelectorAll('.menu-item')) {
     if (a.dataset.id === id) a.setAttribute('aria-current', 'page');
     else a.removeAttribute('aria-current');
@@ -203,6 +241,8 @@ function dibujarEstado() {
   // Anillo de color alrededor de la foto (PC): verde al día, amarillo subiendo, rojo con problema, gris sin Drive.
   const tono = e !== 'conectado' ? 'apagado' : s.fase === 'sincronizando' ? 'subiendo' : (s.fase === 'error' || s.fase === 'sin-internet') ? 'problema' : s.pendientes ? 'subiendo' : 'aldia';
   estadoUsuario(tono, texto, e === 'desconectado');
+  fotoCel.firstChild.className = `pc-av ${tono}`;
+  textoSync = texto; driveDesconectado = e === 'desconectado';
 }
 
 function registrarServiceWorker() {

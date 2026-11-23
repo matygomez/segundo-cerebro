@@ -11,6 +11,8 @@
 // Lugar de cada panel en la cuadrícula de 12 columnas: [lugar, columnas, filas].
 // Mi día ocupa todo el alto a la izquierda; arriba tres paneles, abajo la semana y Seguir viendo.
 const LUGARES = [['dia', 3, 5], ['habitos', 3, 3], ['mes', 3, 3], ['bitacora', 3, 3], ['semana', 6, 2], ['viendo', 3, 2]];
+// En el celular van una debajo de otra; la semana entra en Mi día como una tira de 7 días.
+const LUGARES_CEL = [['dia'], ['habitos'], ['mes'], ['bitacora'], ['viendo']];
 
 export function cargarEstilosPC() {
   if (document.getElementById('estilos-inicio-pc')) return;
@@ -23,12 +25,13 @@ export function cargarEstilosPC() {
 const pctTxt = (p) => `${Math.round(Math.max(0, Math.min(1, p)) * 100)} %`;
 
 // ay: ayudas del memento que vienen de modulo.js (datosVida, porcentajes, vidaDe, textoFrase).
-export async function pantallaPC(contenedor, ctx, ay) {
+// cel: la misma pantalla adaptada al celular (franja arriba y paneles uno debajo de otro).
+export async function pantallaPC(contenedor, ctx, ay, { cel = false } = {}) {
   cargarEstilosPC();
   const { h } = ctx;
   const franja = h('header', { class: 'ip-franja' });
   const grilla = h('div', { class: 'ip-grilla' });
-  contenedor.replaceChildren(h('div', { class: 'ip' }, franja, grilla));
+  contenedor.replaceChildren(h('div', { class: `ip${cel ? ' ip-cel' : ''}` }, franja, grilla));
 
   let limpiezas = [];
   let turno = 0;
@@ -65,7 +68,9 @@ export async function pantallaPC(contenedor, ctx, ay) {
     const zonaClima = h('div', { class: 'ip-clima' });
     const zonaMm = h('div', { class: 'ip-mm' }, memento(cfg));
     const zonaAviso = h('div', { class: 'ip-aviso' });
-    franja.replaceChildren(fecha, zonaClima, zonaMm, zonaAviso);
+    // En el celular la fecha y el tiempo van en una fila, y el memento (o el aviso) abajo, a todo el ancho.
+    if (cel) franja.replaceChildren(h('div', { class: 'ip-f1' }, fecha, zonaClima), zonaMm, zonaAviso);
+    else franja.replaceChildren(fecha, zonaClima, zonaMm, zonaAviso);
     const correr = async (p, zona, extra) => { try { guardar(await p.dibujar(zona, extra)); } catch (e) { console.error(e); } };
     const clima = de('clima');
     if (clima) correr(clima, zonaClima); else zonaClima.hidden = true;
@@ -77,14 +82,18 @@ export async function pantallaPC(contenedor, ctx, ay) {
     // ── Cuadrícula ──
     const tarjetas = [];
     grilla.replaceChildren();
-    for (const [lugar, c, r] of LUGARES) {
+    for (const [lugar, c, r] of (cel ? LUGARES_CEL : LUGARES)) {
       const p = de(lugar);
       if (!p) continue;
       const titulo = h('h2', {}, p.titulo || p.nombreModulo);
       const enlace = h('a', { class: 'ip-enlace', href: p.enlace?.href || '#', hidden: !p.enlace }, p.enlace ? `${p.enlace.texto} ›` : '');
       const cuerpo = h('div', { class: 'ip-cuerpo' });
-      const tarjeta = h('section', { class: `ip-card ip-${lugar}`, style: `grid-column:span ${c};grid-row:span ${r}` },
-        h('div', { class: 'ip-cab' }, titulo, enlace), cuerpo);
+      // Celular: la tira de la semana va arriba de Mi día (tocar un día lo muestra abajo).
+      const semana = cel && lugar === 'dia' ? de('semana') : null;
+      const tira = semana ? h('div', { class: 'ip-tira' }) : null;
+      const tarjeta = h('section', { class: `ip-card ip-${lugar}`, style: cel ? null : `grid-column:span ${c};grid-row:span ${r}` },
+        h('div', { class: 'ip-cab' }, titulo, enlace), tira, cuerpo);
+      if (semana) tarjetas.push([semana, tira, () => {}]);
       grilla.append(tarjeta);
       // El panel puede cambiar su título o su enlace (Mi día muestra otro día, por ejemplo).
       const cambiar = ({ titulo: t, enlace: e } = {}) => {
@@ -96,7 +105,7 @@ export async function pantallaPC(contenedor, ctx, ay) {
       };
       tarjetas.push([p, cuerpo, cambiar]);
     }
-    await Promise.all(tarjetas.map(([p, cuerpo, cambiar]) => correr(p, cuerpo, { cambiar }).catch(() => {})));
+    await Promise.all(tarjetas.map(([p, cuerpo, cambiar]) => correr(p, cuerpo, { cambiar, cel }).catch(() => {})));
     if (mio !== turno) return;
     for (const [, cuerpo] of tarjetas) if (!cuerpo.childElementCount) cuerpo.append(h('p', { class: 'ip-nota' }, 'No se pudo mostrar.'));
   }
