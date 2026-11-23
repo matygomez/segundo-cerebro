@@ -17,7 +17,7 @@
 // una tarea en Tareas › Sistemas › Bitácora.
 // ─────────────────────────────────────────────────────────────
 
-import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA } from './modelo.js';
+import { hoyISO, sumarDias, fechaCorta, comparar, BANDEJA, separarNumero } from './modelo.js';
 import { poner, ic, ventana, cabecera, elegirCarpeta, vacio, haceCuanto } from './vistas.js';
 import { portada, visor, visorEnLinea } from './visor.js';
 
@@ -366,7 +366,7 @@ export async function subirSinAnalizar(ctx, m, lista, carpetaId) {
     for (let i = 0; i < ruta.length; i++) {
       const clave = ruta.slice(0, i + 1).join('/');
       if (!carpetas.has(clave)) {
-        const ya = d.hijas(padre).find(c => c.nombre.toLowerCase() === ruta[i].toLowerCase());
+        const ya = d.hijas(padre).find(c => c.nombre.toLowerCase() === separarNumero(ruta[i]).nombre.toLowerCase());
         carpetas.set(clave, ya ? ya.id : await m.crearCarpeta({ nombre: ruta[i], padreId: padre, color: d.carpeta(padre)?.color || '' }));
       }
       padre = carpetas.get(clave);
@@ -490,7 +490,7 @@ export async function recibirArchivos(ctx, m, lista, via) {
 export const reintentar = (ctx, m, p, forzar = false) => aLaCola(ctx, m, p.id, null, forzar);
 
 // Elegir archivos del dispositivo.
-function elegirDelDispositivo(ctx, m) {
+export function elegirDelDispositivo(ctx, m) {
   const input = ctx.h('input', { type: 'file', multiple: true, hidden: true });
   input.addEventListener('change', async () => {
     const lista = [...input.files].map(f => ({ blob: f, nombre: f.name }));
@@ -737,7 +737,7 @@ async function crearRuta(m, ruta) {
   let padre = '';
   for (const nombre of ruta.split('›').map(x => x.trim()).filter(Boolean)) {
     const d = await m.cargar();
-    const ya = d.hijas(padre).find(c => comparar(c.nombre, nombre) === 0);
+    const ya = d.hijas(padre).find(c => comparar(c.nombre, separarNumero(nombre).nombre) === 0);
     padre = ya ? ya.id : await m.crearCarpeta({ nombre, padreId: padre });
   }
   return padre;

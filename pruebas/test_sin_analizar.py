@@ -15,7 +15,7 @@ with sync_playwright() as p:
   page.evaluate(EV, "await m.guardarAjuste('gemini', { api: 'x', ok: true })")
   page.goto(U+'#/bitacora/c/'+ids['clu']); page.wait_for_timeout(1200)
   def nueva(texto, files):
-    page.locator('.bt-cab-botones button', has_text='Nueva').first.click(); page.wait_for_timeout(300)
+    page.locator('.bt-nueva').first.click(); page.wait_for_timeout(300)
     with page.expect_file_chooser() as fc: page.locator('.bt-menu-op', has_text=texto).first.click()
     fc.value.set_files(files); page.wait_for_timeout(2500)
   nueva('Subir sin analizar', [{'name':'a.pdf','mimeType':'application/pdf','buffer':b'%PDF a'},{'name':'b.pdf','mimeType':'application/pdf','buffer':b'%PDF b'}])

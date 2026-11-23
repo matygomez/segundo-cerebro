@@ -191,10 +191,20 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     h('button', { type: 'button', 'aria-label': 'Mes anterior', title: mes.puedeAntes ? 'Mes anterior' : 'No hay nada cargado antes', disabled: !mes.puedeAntes, onclick: () => mes.mover(-1) }, icono('flecha-izq')),
     h('button', { type: 'button', class: `pc-mes-c${mes.otro ? ' otro' : ''}`, title: 'Volver al mes actual', onclick: () => mes.mover(0) }, mes.texto),
     h('button', { type: 'button', 'aria-label': 'Mes siguiente', title: mes.puedeDespues ? 'Mes siguiente' : 'No hay nada cargado después', disabled: !mes.puedeDespues, onclick: () => mes.mover(1) }, icono('flecha-der'))) : null;
-  const grupos = (extra?.grupos || []).map(g => [
-    g.titulo ? h('div', { class: 'pc-g' }, g.titulo) : null,
-    ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-pest', 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('span', {}, p.nombre), p.n ? h('span', { class: 'pc-n' }, String(p.n)) : null)),
-  ]).flat();
+  // Un grupo puede plegarse tocando su título (plegado + alPlegar) y tener un botón a la derecha (boton).
+  // Una pestaña puede ir sangrada (nivel), con flecha para abrir lo de adentro (flecha: { abierta, alTocar })
+  // y con el nombre completo al pasar el mouse (titulo): así arma Bitácora su árbol de carpetas.
+  const tituloGrupo = (g) => {
+    if (!g.titulo) return null;
+    const mas = g.boton ? h('button', { type: 'button', class: 'pc-g-mas', title: g.boton.titulo, 'aria-label': g.boton.titulo, onclick: (e) => { e.stopPropagation(); g.boton.alTocar(); } }, iconoDe(g.boton.icono || 'mas')) : null;
+    if (!g.alPlegar) return h('div', { class: `pc-g${mas ? ' con-mas' : ''}` }, h('span', {}, g.titulo), mas);
+    return h('div', { class: 'pc-g con-mas pc-g-plegable', role: 'button', tabindex: '0', 'aria-expanded': String(!g.plegado), onclick: () => g.alPlegar() },
+      h('span', {}, g.titulo), mas, h('span', { class: `pc-g-fl${g.plegado ? '' : ' abierta'}` }, icono('flecha-der')));
+  };
+  const pestana = (p) => h('a', { href: p.href, class: `pc-pest${p.nivel !== undefined ? ' pc-arbol' : ''}`, title: p.titulo || null, style: p.nivel ? `--nivel:${p.nivel}` : null, 'aria-current': p.activa ? 'page' : null },
+    p.nivel !== undefined ? (p.flecha ? h('button', { type: 'button', class: `pc-fl${p.flecha.abierta ? ' abierta' : ''}`, 'aria-label': p.flecha.abierta ? 'Plegar' : 'Desplegar', onclick: (e) => { e.preventDefault(); e.stopPropagation(); p.flecha.alTocar(); } }, icono('flecha-der')) : h('span', { class: 'pc-fl vacia' })) : null,
+    p.icono ? iconoDe(p.icono) : null, h('span', { class: 'pc-nom' }, p.nombre), p.n ? h('span', { class: 'pc-n' }, String(p.n)) : null);
+  const grupos = (extra?.grupos || []).map(g => [tituloGrupo(g), ...(g.plegado ? [] : g.pestañas.map(pestana))]).flat();
 
   // Pie de la columna: Filtros (si el módulo los ofrece) y Configurar este módulo.
   const conf = gris ? null : (extra?.configurar || CONFIGURAR_DE[def.id] || '#/ajustes');
@@ -220,7 +230,7 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
     h('button', { type: 'button', class: `pc-cuad ${gris ? 'gris' : ''} pc-tira-cuad`, title: `Abrir ${def.nombre}`, onclick: () => alternarColumna(false) }, icono(ic)),
     ...[nuevo].flat(),
     mesTira,
-    ...(extra?.grupos || []).flatMap((g, i) => [
+    ...(extra?.grupos || []).filter(g => g.enTira !== false).flatMap((g, i) => [
       i ? h('div', { class: 'pc-tsep' }) : null,
       ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('small', {}, p.nombre))),
     ]),

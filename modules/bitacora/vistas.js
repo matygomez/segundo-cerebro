@@ -11,6 +11,7 @@ import {
   BANDEJA, DIAS_PAPELERA, TIPOS, COLORES_CARPETA, resumen, etiquetasDe, plantillaTitulo, comparar, hoyISO,
 } from './modelo.js';
 import { seccionArchivos, seccionMensuales, elegirParaCarpeta, elegirSinAnalizar, soltarEnCarpeta } from './ordenar.js';
+import { filaNotaPC, inicioPC } from './pc.js';
 
 // Como replaceChildren, pero ignora los vacíos (null, false).
 export const poner = (el, ...hijos) => el.replaceChildren(...hijos.flat(Infinity).filter(x => x !== null && x !== undefined && x !== false));
@@ -136,7 +137,7 @@ export function elegirCarpeta(ctx, d, { titulo = 'Mover a…', actual = null, ex
     const fila = (id, nombre, nivel, color, emoji) => h('button', {
       type: 'button', class: `bt-elegir${id === actual ? ' actual' : ''}`, style: `padding-left:${0.75 + nivel * 1.1}rem`,
       disabled: prohibidas.has(id), onclick: () => { elegido = id; dlg.close(); },
-    }, id === BANDEJA ? ic('bandeja') : marcaCarpeta(h, { color, icono: emoji }), h('span', {}, nombre));
+    }, id === BANDEJA ? ic('bandeja') : marcaCarpeta(h, d.carpeta(id)), h('span', {}, nombre));
     const filas = [];
     if (conBandeja) filas.push(fila(BANDEJA, 'Bandeja', 0));
     else filas.push(h('button', { type: 'button', class: 'bt-elegir', onclick: () => { elegido = ''; dlg.close(); } }, ic('inicio'), h('span', {}, 'Raíz (arriba de todo)')));
@@ -146,9 +147,11 @@ export function elegirCarpeta(ctx, d, { titulo = 'Mover a…', actual = null, ex
   });
 }
 
+// Las carpetas de primer nivel llevan un cuadrito con su color (como las áreas de Tareas);
+// las de adentro, un puntito del mismo color. Sin íconos.
 export function marcaCarpeta(h, c) {
-  if (c?.icono) return h('span', { class: 'bt-emoji', style: c.color ? `--c:${c.color}` : null }, c.icono);
-  return h('span', { class: 'bt-punto', style: `background:${c?.color || 'var(--tinta-2)'}` });
+  const color = c?.colorRaiz || c?.color || 'var(--tinta-2)';
+  return h('span', { class: c && !c.padreId ? 'bt-ccolor' : 'bt-punto', style: `--c:${color}` });
 }
 
 // ── Ajustes guardados ──
@@ -257,6 +260,7 @@ const botonNueva = (ctx, m, d, carpetaId) => ctx.h('button', { type: 'button', c
 
 // ── Inicio del módulo ──
 export function pantallaInicio(ctx, m, d, main) {
+  if (esPC()) { inicioPC(ctx, m, d, main); return; }
   const { h, icono } = ctx;
   const cfg = configInicio(d);
   const cont = [];
@@ -315,6 +319,7 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
   const ruta = c ? d.ruta(c.id) : [];
   const padre = ruta.length > 1 ? ruta[ruta.length - 2] : null;
   soltarEnCarpeta(ctx, m, main);   // en la PC: arrastrar archivos a la carpeta abierta
+  if (esPC()) { carpetaPC(ctx, m, d, c, main, { renderBase }); return; }
   const botones = [];
   const conGrilla = c && !c.base;
   const enGrilla = conGrilla && vistaCarpeta(c.id) === 'grilla';
@@ -346,6 +351,47 @@ export function pantallaCarpeta(ctx, m, d, carpetaId, main, { renderBase }) {
     }))))
     : vacio(ctx, c ? 'Carpeta vacía' : 'La Bandeja está vacía', c ? 'Creá una nota o subí un archivo con "+ Nueva" (en la PC también podés arrastrarlo acá).' : null));
   poner(main, ...cont);
+}
+
+// ── Carpeta en la PC: una tarjeta a todo el ancho ──
+// Arriba la ruta completa con números, el nombre, Lista/Miniaturas, Nueva y opciones;
+// abajo las subcarpetas y las notas en filas compactas (la nota se abre al costado).
+function carpetaPC(ctx, m, d, c, main, { renderBase }) {
+  const { h } = ctx;
+  const id = c ? c.id : BANDEJA;
+  const notas = d.notasDe(id).sort((a, b) => (b.fijada ? 1 : 0) - (a.fijada ? 1 : 0) || b.modificado - a.modificado);
+  const conGrilla = c && !c.base;
+  const enGrilla = conGrilla && vistaCarpeta(c.id) === 'grilla';
+  const cambiar = (v) => { vistaCarpeta(c.id, v); carpetaPC(ctx, m, d, c, main, { renderBase }); };
+  const ruta = c ? d.ruta(c.id).slice(0, -1) : [];
+  const archivos = notas.filter(n => n.archivo).length;
+  const cab = h('div', { class: 'bp-ccab' },
+    h('div', { class: 'bp-ruta' }, ruta.length ? ruta.flatMap((x, i) => [i ? ' › ' : null, h('a', { href: `#/bitacora/c/${x.id}` }, d.nombreNum(x))]) : c ? 'Carpetas' : 'Lo que capturás rápido o compartís cae acá. Movelo a su carpeta cuando puedas.'),
+    h('div', { class: 'bp-cfila' },
+      h('h2', {}, c ? marcaCarpeta(h, c) : ic('bandeja'), d.numero(id) ? h('em', { class: 'bp-num' }, d.numero(id)) : null, h('span', {}, c ? c.nombre : 'Bandeja')),
+      h('span', { class: 'bp-cuenta' }, `${notas.length} nota${notas.length === 1 ? '' : 's'}${archivos ? ` · ${archivos} archivo${archivos === 1 ? '' : 's'}` : ''}`),
+      h('span', { class: 'bt-espacio' }),
+      conGrilla ? h('div', { class: 'bp-modo' },
+        h('button', { type: 'button', class: enGrilla ? '' : 'on', onclick: () => cambiar('lista') }, ic('lista'), 'Lista'),
+        h('button', { type: 'button', class: enGrilla ? 'on' : '', onclick: () => cambiar('grilla') }, ic('grilla'), 'Miniaturas')) : null,
+      c?.base ? h('a', { href: `#/bitacora/c/${c.id}/campos`, class: 'bp-btn' }, ic('ajustes'), 'Campos') : null,
+      h('button', { type: 'button', class: 'bp-btn bt-nueva', onclick: () => menuNueva(ctx, m, d, id) }, ic('mas'), 'Nueva'),
+      c ? h('button', { type: 'button', class: 'bp-btn bp-btn-ic', title: 'Opciones de la carpeta', 'aria-label': 'Opciones de la carpeta', onclick: () => menuCarpeta(ctx, m, d, c) }, ic('puntos')) : null),
+    c && d.hijas(c.id).length ? h('div', { class: 'bp-subs' }, d.hijas(c.id).map(x => h('a', { href: `#/bitacora/c/${x.id}`, class: 'bp-sub', title: d.nombreNum(x) }, ic('carpeta'), h('span', {}, x.nombre), h('small', {}, String(d.cantidad(x.id)))))) : null);
+  const mover = (n) => h('button', { type: 'button', class: 'bp-mv', title: 'Mover a una carpeta', 'aria-label': 'Mover a una carpeta', onclick: async (e) => {
+    e.preventDefault(); e.stopPropagation();
+    const x = await elegirCarpeta(ctx, d, { actual: BANDEJA });
+    if (x !== null && x !== BANDEJA) { await m.guardarNota(n.id, { carpetaId: x }); ctx.aviso(`Movida a ${d.nombreRuta(x)}`); }
+  } }, ic('carpeta'));
+  let cuerpo;
+  if (c?.base) cuerpo = h('div', { class: 'bt-base-zona' });
+  else if (!notas.length) cuerpo = h('p', { class: 'bp-vacio' }, c ? 'Carpeta vacía. Creá una nota o subí un archivo con "Nueva", o arrastralo acá.' : 'La Bandeja está vacía.');
+  else if (enGrilla) cuerpo = grillaNotas(ctx, notas);
+  else cuerpo = notas.map(n => filaNotaPC(ctx, d, n, { ruta: false,
+    der: h('span', { class: 'bp-der' }, n.archivo?.monto ? h('span', { class: 'bp-monto' }, `$ ${Number(n.archivo.monto).toLocaleString('es-AR', { maximumFractionDigits: 2 })}`) : null, haceCuanto(n.modificado)),
+    extra: c ? null : mover(n) }));
+  poner(main, h('section', { class: 'bp-card bp-carpeta' }, cab, h('div', { class: 'bp-cuerpo' }, cuerpo)));
+  if (c?.base) renderBase(main.querySelector('.bt-base-zona'), c);
 }
 
 // Cómo se ve cada carpeta (lista o miniaturas): se recuerda en este dispositivo.
@@ -426,7 +472,6 @@ export function menuCarpeta(ctx, m, d, c) {
   menu(ctx, c.nombre, [
     { icono: 'mas', texto: 'Nueva subcarpeta', accion: () => nuevaCarpeta(ctx, m, c.id) },
     { icono: 'editar', texto: 'Renombrar', accion: async () => { const n = await pedirTexto(ctx, 'Renombrar carpeta', c.nombre); if (n) await m.guardarCarpeta(c.id, { nombre: n }); } },
-    { icono: 'paleta', texto: 'Ícono y color', accion: () => iconoYColor(ctx, m, c) },
     { icono: 'carpeta', texto: 'Mover a…', accion: async () => { const id = await elegirCarpeta(ctx, d, { titulo: `Mover "${c.nombre}" a…`, actual: c.padreId || '', excluir: c.id, conBandeja: false }); if (id !== null) { try { await m.moverCarpeta(c.id, id); } catch (e) { ctx.aviso(e.message); } } } },
     { icono: 'arriba', texto: 'Subir en la lista', accion: () => m.ordenarCarpeta(c.id, -1) },
     { icono: 'abajo', texto: 'Bajar en la lista', accion: () => m.ordenarCarpeta(c.id, 1) },

@@ -20,11 +20,11 @@
 import { crearModelo, espejoDe, sincronizarRecordatorios, BANDEJA, hoyISO, textoArchivo } from './modelo.js';
 import {
   cargarEstilos, esPC, arbol, pantallaInicio, pantallaCarpeta, pantallaEtiqueta, pantallaBuscar,
-  pantallaPapelera, pantallaAjustes, recibirCompartido, ic, crearYAbrir,
+  pantallaPapelera, pantallaAjustes, recibirCompartido, ic, crearYAbrir, plegados, alternarPlegado, marcaCarpeta, nuevaCarpeta,
 } from './vistas.js';
 import { vistaNota, cuerpoLectura } from './nota.js';
 import { renderBase, pantallaCampos } from './base.js';
-import { pantallaPendientes, recibirArchivos, sincronizarMensuales, reintentarSolo, preguntarGemini } from './ordenar.js';
+import { pantallaPendientes, recibirArchivos, sincronizarMensuales, reintentarSolo, preguntarGemini, elegirDelDispositivo } from './ordenar.js';
 import { pantallaFilmoteca, pantallaLista, pantallaAgregar, pantallaStats, pantallaPrevia, actualizarEnFondo, sincronizarAvisos, listaViendo, subtituloViendo, progreso, vivo, poster, items as itemsCine } from './filmoteca.js';
 
 // En el celular, el teclado solo se abre si el foco se pide en el mismo toque.
@@ -98,6 +98,62 @@ export default {
   id: 'bitacora',
   nombre: 'Bitácora',
 
+  // Columna de la PC: botones, vistas, árbol de carpetas (sin números, el nombre completo
+  // al pasar el mouse) y etiquetas. Lo plegado se recuerda igual que antes (por dispositivo).
+  async columna(ctx) {
+    cargarEstilos();
+    const m = crearModelo(ctx);
+    const d = await m.cargar();
+    const ruta = location.hash.replace(/^#\/bitacora\/?/, '').split('/');
+    const que = ruta[0] || 'inicio';
+    // La carpeta abierta (o la de la nota abierta) y sus carpetas de arriba quedan desplegadas.
+    const notaAbierta = que === 'n' ? d.nota(ruta[1]) : null;
+    const actual = que === 'c' ? ruta[1] : notaAbierta && !notaAbierta.cine ? notaAbierta.carpetaId || '' : null;
+    const camino = new Set(actual ? d.ruta(actual).map(c => c.id) : []);
+    const pleg = plegados(d);
+    const alternar = (id) => async () => { await alternarPlegado(m, d, id); dispatchEvent(new Event('pc-columna')); };
+    const pest = (id, nombre, icono, href, activa, n = 0) => ({ id, nombre, icono: ic(icono), href, activa, n });
+    const nB = d.notasDe(BANDEJA).length;
+    const carpetas = [];
+    const ir = (padreId, nivel) => {
+      for (const c of d.hijas(padreId)) {
+        const tiene = d.hijas(c.id).length > 0;
+        const abierta = tiene && (!pleg.has(c.id) || (camino.has(c.id) && c.id !== actual));
+        carpetas.push({ id: c.id, nombre: c.nombre, titulo: d.nombreRutaNum(c.id), icono: marcaCarpeta(ctx.h, c), href: `#/bitacora/c/${c.id}`,
+          activa: actual === c.id && que === 'c', n: d.cantidad(c.id), nivel, flecha: tiene ? { abierta, alTocar: alternar(c.id) } : null });
+        if (abierta) ir(c.id, nivel + 1);
+      }
+    };
+    ir('', 0);
+    const etiquetas = d.etiquetas();
+    const etqs = etiquetas.filter(e => { const p = e.nombre.split('/'); for (let i = 1; i < p.length; i++) if (pleg.has('t:' + p.slice(0, i).join('/'))) return false; return true; })
+      .map(e => { const tiene = etiquetas.some(x => x.nombre.startsWith(e.nombre + '/'));
+        return { id: 't:' + e.nombre, nombre: '#' + e.nombre.split('/').pop(), href: `#/bitacora/e/${encodeURIComponent(e.nombre)}`, activa: que === 'e' && decodeURIComponent(ruta.slice(1).join('/')) === e.nombre,
+          n: d.conEtiqueta(e.nombre).length, nivel: e.nombre.split('/').length - 1, flecha: tiene ? { abierta: !pleg.has('t:' + e.nombre), alTocar: alternar('t:' + e.nombre) } : null }; });
+    const carpetaNueva = que === 'c' && d.carpeta(ruta[1]) && !d.carpeta(ruta[1]).base ? ruta[1] : BANDEJA;
+    return {
+      contexto: [d.totalRevisar ? `${d.totalRevisar} para revisar` : '', nB ? `${nB} en Bandeja` : ''].filter(Boolean).join(' · ') || `${d.notas.length} notas`,
+      botones: [
+        { texto: 'Nueva nota', icono: 'mas', alTocar: async () => crearYAbrir(ctx, m, await m.cargar(), { carpetaId: carpetaNueva }) },
+        { texto: 'Subir', icono: ic('clip'), alTocar: () => elegirDelDispositivo(ctx, m) },
+        { texto: 'Carpeta', icono: ic('carpeta'), alTocar: () => nuevaCarpeta(ctx, m, que === 'c' ? ruta[1] || '' : '') },
+      ],
+      grupos: [
+        { titulo: 'Vistas', pestañas: [
+          pest('inicio', 'Inicio', 'grilla', '#/bitacora', que === 'inicio'),
+          pest('pendientes', 'Para revisar', 'clip', '#/bitacora/pendientes', que === 'pendientes', d.totalRevisar),
+          pest('bandeja', 'Bandeja', 'bandeja', '#/bitacora/bandeja', que === 'bandeja', nB),
+          pest('f', 'Filmoteca', 'film', '#/bitacora/f', que === 'f' || !!notaAbierta?.cine),
+          pest('papelera', 'Papelera', 'papelera', '#/bitacora/papelera', que === 'papelera', d.papelera.length),
+        ] },
+        { titulo: 'Carpetas', enTira: false, plegado: pleg.has('sec:carpetas'), alPlegar: alternar('sec:carpetas'),
+          boton: { titulo: 'Nueva carpeta', icono: 'mas', alTocar: () => nuevaCarpeta(ctx, m, '') }, pestañas: carpetas },
+        ...(etqs.length ? [{ titulo: 'Etiquetas', enTira: false, plegado: pleg.has('sec:etiquetas'), alPlegar: alternar('sec:etiquetas'), pestañas: etqs }] : []),
+      ],
+      configurar: '#/bitacora/ajustes',
+    };
+  },
+
   botonesInicio(ctx) {
     return [
       { id: 'nota', texto: 'Nota', icono: 'mas', alTocar: async () => { abrirTecladoYa(); const m = crearModelo(ctx); await crearYAbrir(ctx, m, await m.cargar(), { carpetaId: BANDEJA }); } },
@@ -143,10 +199,61 @@ export default {
     let actual = 'inicio';
     let vista = null;
 
+    // ── PC: la nota se abre en un panel al costado (como el detalle de Tareas) ──
+    // La lista queda atrás; si se entra directo a una nota (buscador, Inicio), atrás va su carpeta.
+    let detalle = null;   // { id, vista, nodo }
+    const notaEnPanel = (id) => { const n = d.nota(id); return esPC() && n && !n.cine && !n.papelera; };
+    function marcarAbierta() {
+      for (const a of main.querySelectorAll('a[href^="#/bitacora/n/"]')) a.classList.toggle('sel', !!detalle && a.getAttribute('href') === `#/bitacora/n/${detalle.id}`);
+    }
+    function cerrarDetalle() {
+      if (!detalle) return;
+      detalle.vista?.limpiar?.();
+      detalle.nodo.remove();
+      detalle = null;
+      raiz.classList.remove('con-det');
+      marcarAbierta();
+      if (que === 'n') { const n = d.nota(resto[0]); history.replaceState(null, '', n?.carpetaId ? `#/bitacora/c/${n.carpetaId}` : '#/bitacora/bandeja'); que = n?.carpetaId ? 'c' : 'bandeja'; resto = n?.carpetaId ? [n.carpetaId] : []; }
+    }
+    function abrirDetalle(id) {
+      detalle?.vista?.limpiar?.();
+      detalle?.nodo.remove();
+      const cuerpo = h('div', { class: 'bt-det-c' });
+      const nodo = h('aside', { class: 'bt-det', 'aria-label': 'Nota' },
+        h('div', { class: 'bt-det-cab' }, h('h2', {}, 'Nota'), h('button', { type: 'button', class: 'bt-det-x', title: 'Cerrar (Esc)', 'aria-label': 'Cerrar', onclick: cerrarDetalle }, ctx.icono('cerrar'))),
+        cuerpo,
+        h('div', { class: 'bt-det-pie' },
+          h('button', { type: 'button', class: 'bt-det-b borrar', onclick: async () => { const n = d.nota(id); if (!n) return; await m.aPapelera(id); cerrarDetalle(); ctx.aviso(`"${n.titulo || 'Sin título'}" fue a la papelera`, { accion: 'Deshacer', alTocar: () => m.restaurar(id) }); } }, 'Borrar'),
+          h('span', { class: 'bt-espacio' }),
+          h('button', { type: 'button', class: 'bt-det-b listo', onclick: cerrarDetalle }, 'Listo')));
+      detalle = { id, nodo, vista: null };
+      raiz.append(nodo);
+      raiz.classList.add('con-det');
+      detalle.vista = vistaNota(ctx, m, d, id, cuerpo);
+      marcarAbierta();
+    }
+    // Tocar una nota en la PC: se abre al costado sin salir de la lista.
+    main.addEventListener('click', (e) => {
+      const a = e.target.closest('a[href^="#/bitacora/n/"]');
+      if (!a || e.ctrlKey || e.metaKey || e.button) return;
+      const id = a.getAttribute('href').split('/')[3];
+      if (!notaEnPanel(id)) return;
+      e.preventDefault();
+      abrirDetalle(id);
+    });
+    const alTeclear = (e) => { if (e.key === 'Escape' && detalle && !document.querySelector('dialog[open]')) cerrarDetalle(); };
+    document.addEventListener('keydown', alTeclear);
+
     function abrir() {
       vista?.limpiar?.();
       vista = null;
-      if (que === 'n' && resto[0]) { actual = `n:${resto[0]}`; vista = vistaNota(ctx, m, d, resto[0], main); }
+      if (que === 'n' && resto[0] && notaEnPanel(resto[0])) {
+        const n = d.nota(resto[0]);
+        actual = `c:${n.carpetaId || ''}`;
+        pantallaCarpeta(ctx, m, d, n.carpetaId || '', main, { renderBase: (zona, c) => renderBase(ctx, m, d, c, zona) });
+        if (detalle?.id !== n.id) abrirDetalle(n.id); else marcarAbierta();
+      }
+      else if (que === 'n' && resto[0]) { actual = `n:${resto[0]}`; vista = vistaNota(ctx, m, d, resto[0], main); }
       else if (que === 'c' && resto[0] && resto[1] === 'campos') { actual = `c:${resto[0]}`; pantallaCampos(ctx, m, d, d.carpeta(resto[0]), main); }
       else if (que === 'f') {
         actual = 'f';
@@ -167,9 +274,11 @@ export default {
       else { actual = 'inicio'; pantallaInicio(ctx, m, d, main); }
       if (actual.startsWith('n:')) { const n = d.nota(actual.slice(2)); actual = n?.cine ? 'f' : n ? `c:${n.carpetaId || ''}` : actual; }
     }
+    // En la PC las carpetas están en la columna del módulo; el árbol de adentro es solo del celular… y
+    // ya no se usa en la PC.
     function pintarLado() {
-      raiz.classList.toggle('con-arbol', esPC());
-      lado.replaceChildren(esPC() ? arbol(ctx, m, d, actual) : '');
+      raiz.classList.toggle('bt-pc', esPC());
+      lado.replaceChildren();
     }
 
     if (que === 'compartir') {
@@ -197,13 +306,14 @@ export default {
         d = await m.cargar();
         if (vista?.actualizar) vista.actualizar(d);
         else if (!(main.contains(document.activeElement) && document.activeElement.matches('input:not([type=checkbox]), textarea, select'))) abrir();
+        if (detalle) { const n = d.nota(detalle.id); if (!n || n.papelera) cerrarDetalle(); else { detalle.vista?.actualizar?.(d); marcarAbierta(); } }
         pintarLado();
       }, 120);
     });
     const alCambiarTamano = () => pintarLado();
     const mq = matchMedia('(min-width: 900px)');
     mq.addEventListener('change', alCambiarTamano);
-    return () => { quitar(); clearTimeout(espera); mq.removeEventListener('change', alCambiarTamano); vista?.limpiar?.(); };
+    return () => { quitar(); clearTimeout(espera); mq.removeEventListener('change', alCambiarTamano); vista?.limpiar?.(); detalle?.vista?.limpiar?.(); document.removeEventListener('keydown', alTeclear); };
   },
 
   alIniciar(ctx) {

@@ -51,6 +51,18 @@ export const fechaCorta = (iso) => { if (!iso) return ''; const [a, m, d] = Stri
 const sinTildes = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 export const comparar = (a, b) => sinTildes(a).localeCompare(sinTildes(b), 'es', { numeric: true });
 export const nuevoIdCorto = () => Math.random().toString(36).slice(2, 9);
+// Numeración de carpetas (pedido de Matias): cada carpeta lleva el número que le toca
+// por su lugar ("1.1.2 - Nombre"); lo calcula la app, no se escribe. El nombre se guarda
+// limpio y el número se arma al mostrarlo (en la ruta completa y en Drive).
+// Hace falta el separador ("1.2 - ", "3) ") y números cortos: "2026 Facturas" no es un número de carpeta.
+const RE_NUMERO = /^\s*(\d{1,3}(?:\.\d{1,3})*)\s*[-–—)]\s*(?=\S)/;
+export function separarNumero(nombre) {
+  const t = String(nombre || '');
+  const r = t.match(RE_NUMERO);
+  return r ? { numero: r[1], nombre: t.slice(r[0].length).trim() } : { numero: '', nombre: t.trim() };
+}
+// Colores de las carpetas de primer nivel, por su lugar (los mismos de las áreas de Tareas).
+export const COLORES_RAIZ = ['#6FBF8E', '#8FA9E8', '#D3AB5C', '#E07A6A', '#C9A0DC', '#7FC4C9', '#E8A06A', '#B5B0A8'];
 export const escaparRegex = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
 export function plantillaTitulo(patron) {
@@ -299,6 +311,7 @@ export function crearModelo(ctx) {
     pendientes: ctx.datos('pendientes'),   // archivos para ordenar
   };
 
+  const migrando = new Set();
   async function cargar() {
     const [carpetas, notasTodas, plantillas, recordatorios, ajustes, cine, pendientes] = await Promise.all([
       col.carpetas.listar(), col.notas.listar(), col.plantillas.listar(), col.recordatorios.listar(), col.ajustes.listar(), col.cine.listar(), col.pendientes.listar(),
@@ -307,6 +320,16 @@ export function crearModelo(ctx) {
     const porId = new Map(carpetas.map(c => [c.id, c]));
     // Una carpeta cuyo padre ya no existe queda en la raíz.
     for (const c of carpetas) if (c.padreId && !porId.has(c.padreId)) c.padreId = '';
+    // Carpetas que traen el número escrito en el nombre (las de antes o subidas desde Drive):
+    // se guarda el nombre limpio y su lugar sale del número, así no cambia el orden.
+    for (const c of carpetas) {
+      if (c.sistema) continue;
+      const { numero, nombre } = separarNumero(c.nombre);
+      if (!numero || !nombre) continue;
+      const orden = Number(numero.split('.').pop()) || c.orden || 0;
+      c.nombre = nombre; c.orden = orden;
+      if (!migrando.has(c.id)) { migrando.add(c.id); col.carpetas.actualizar(c.id, { nombre, orden }).catch(() => migrando.delete(c.id)); }
+    }
     const ordenar = (l) => l.sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0) || comparar(a.nombre, b.nombre));
     const notas = notasTodas.filter(n => !n.papelera);
     for (const n of notas) if (n.carpetaId && !porId.has(n.carpetaId)) n.carpetaId = BANDEJA;
@@ -334,6 +357,13 @@ export function crearModelo(ctx) {
         return salida;
       },
       nombreRuta: (id) => (id ? d.ruta(id).map(c => c.nombre).join(' › ') : 'Bandeja'),
+      // Corta, para las filas: "Documentación › … › Tecnoperfiles › Firmas".
+      rutaCorta: (id) => { if (!id) return 'Bandeja'; const r = d.ruta(id).map(c => c.nombre); return r.length > 3 ? `${r[0]} › … › ${r.slice(-2).join(' › ')}` : r.join(' › '); },
+      // Con número ("1 - Documentación › 1.1 - Personales"): para la ruta completa y Drive.
+      numero: (id) => numeros.get(id) || '',
+      nombreNum: (c) => (numeros.get(c.id) ? `${numeros.get(c.id)} - ${c.nombre}` : c.nombre),
+      nombreRutaNum: (id) => (id ? d.ruta(id).map(c => d.nombreNum(c)).join(' › ') : 'Bandeja'),
+      raiz: (id) => d.ruta(id)[0] || null,
       descendientes(id) {
         const salida = [];
         const ir = (p) => { for (const h of d.hijas(p)) { salida.push(h); ir(h.id); } };
@@ -392,6 +422,15 @@ export function crearModelo(ctx) {
         return salida.sort((a, b) => b.puntos - a.puntos || b.nota.modificado - a.nota.modificado).map(x => x.nota);
       },
     };
+    // Número y color de cada carpeta según su lugar (la Filmoteca no cuenta).
+    const numeros = new Map();
+    const numerar = (padreId, prefijo, color) => d.hijas(padreId).forEach((c, i) => {
+      const num = prefijo ? `${prefijo}.${i + 1}` : String(i + 1);
+      numeros.set(c.id, num);
+      c.colorRaiz = color || COLORES_RAIZ[i % COLORES_RAIZ.length];
+      numerar(c.id, num, c.colorRaiz);
+    });
+    numerar('', '', '');
     return d;
   }
 
@@ -403,11 +442,15 @@ export function crearModelo(ctx) {
 
     // ── Carpetas ──
     async crearCarpeta({ nombre, padreId = '', color = '', icono = '' }) {
-      if (!String(nombre || '').trim()) throw new Error('La carpeta necesita un nombre');
+      const limpio = separarNumero(nombre);
+      if (!limpio.nombre) throw new Error('La carpeta necesita un nombre');
       const hermanas = (await col.carpetas.listar()).filter(c => (c.padreId || '') === padreId);
-      return col.carpetas.crear({ nombre: nombre.trim(), padreId, color, icono, orden: await siguienteOrden(hermanas), base: false, campos: [], vistas: [] });
+      // Si el nombre trae número (una carpeta subida desde Drive), ese número marca su lugar.
+      const orden = limpio.numero ? Number(limpio.numero.split('.').pop()) : await siguienteOrden(hermanas);
+      return col.carpetas.crear({ nombre: limpio.nombre, padreId, color, icono, orden, base: false, campos: [], vistas: [] });
     },
-    guardarCarpeta: (id, cambios) => col.carpetas.actualizar(id, cambios),
+    // El número no se escribe: si al renombrar lo ponen, se saca.
+    guardarCarpeta: (id, cambios) => col.carpetas.actualizar(id, 'nombre' in cambios ? { ...cambios, nombre: separarNumero(cambios.nombre).nombre || cambios.nombre } : cambios),
     // Borra una carpeta: sus notas y subcarpetas pasan a la carpeta de arriba (o a la Bandeja).
     async borrarCarpeta(id) {
       const c = await col.carpetas.obtener(id);
@@ -501,7 +544,8 @@ export function crearModelo(ctx) {
 
 // Lo que va a Drive como copia legible: un .md por nota en Lecturas (+ archivos subidos en sus carpetas).
 export function espejoDe(d) {
-  const rutaNombres = (carpetaId) => (carpetaId ? d.ruta(carpetaId).map(c => nombreArchivo(c.nombre)) : ['Bandeja']);
+  // En Drive las carpetas llevan su número ("1.1 - Personales"), igual que en la app.
+  const rutaNombres = (carpetaId) => (carpetaId ? d.ruta(carpetaId).map(c => nombreArchivo(d.nombreNum(c))) : ['Bandeja']);
   // Los .md van todos juntos en "Lecturas" (repitiendo las carpetas adentro),
   // así las carpetas de afuera quedan solo con los archivos subidos.
   const LECTURAS = 'Lecturas';

@@ -39,9 +39,14 @@ with sync_playwright() as p:
     ids=page.evaluate(SEED)
     page.goto(U+'#/bitacora'); page.wait_for_timeout(1500)
     page.screenshot(path=S+f'b_ini_{w}.png', full_page=True)
-    chk(page.locator('.bt-titulo').first.inner_text().strip()=='Bitácora','titulo inicio')
-    chk(page.locator('.bt-bloque-bandeja .bt-fila').count()==1,'bandeja 1')
-    chk(page.locator('.bt-ar:has-text("Alumnos")').count()==1,'arbol alumnos')
+    if w>=900:
+      # PC (0.40): tablero y árbol en la columna del módulo; los números de carpeta no se ven ahí.
+      chk(page.locator('.bp-card:has(.bp-cab b:text-is("Bandeja")) .bp-f').count()==1,'bandeja 1')
+      chk(page.locator('.pc-pest:has-text("Alumnos")').count()==1,'arbol alumnos')
+    else:
+      chk(page.locator('.bt-titulo').first.inner_text().strip()=='Bitácora','titulo inicio')
+      chk(page.locator('.bt-bloque-bandeja .bt-fila').count()==1,'bandeja 1')
+      chk(page.locator('.bt-ar:has-text("Alumnos")').count()==1,'arbol alumnos')
     page.goto(U+f'#/bitacora/n/{ids["clase"]}'); page.wait_for_timeout(1200)
     page.screenshot(path=S+f'b_nota_{w}.png', full_page=True)
     chk(page.locator('.ed-area .ed-wl').count()>=1,'wikilink')

@@ -57,7 +57,7 @@ with sync_playwright() as p:
     chk(n.get('titulo')=='2026-10 Luz Edenor' and n['adj']==[['2026-10 Luz Edenor.pdf',True]],'Gemini puso nombre')
     chk(n['a']['lectura']=='lista' and n['a']['monto']==22910 and n['a']['vence']=='2026-11-03' and 'kWh' in n['a']['contenido'],'datos completados')
     chk('Casa › Luz' in est.get('prompt',''),'Gemini sabe la carpeta')
-    chk(page.locator('.bt-fila:has-text("2026-10 Luz Edenor"), .bt-lista a:has-text("2026-10 Luz Edenor")').count()>=1,'aparece en la carpeta')
+    chk(page.locator('.bt-fila:has-text("2026-10 Luz Edenor"), .bt-lista a:has-text("2026-10 Luz Edenor"), .bp-f:has-text("2026-10 Luz Edenor")').count()>=1,'aparece en la carpeta')
     page.goto(U+'#/bitacora/pendientes'); page.wait_for_timeout(1000)
     chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor"):has-text("Para confirmar")').count()==1,'leido queda para confirmar')
     chk(page.locator('.bt-or-item:has-text("2026-10 Luz Edenor") button:has-text("Leer con Gemini")').count()==1,'leer con gemini en para confirmar')

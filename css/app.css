@@ -773,6 +773,23 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   @keyframes pc-raya { from { transform: scaleY(0); } }
   .pc-pest > span:not(.icono):not(.pc-n) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pc-n { font-size: 0.72rem; color: var(--tinta-2); font-variant-numeric: tabular-nums; }
+  /* Grupos que se pliegan y árbol (carpetas de Bitácora) */
+  .pc-g.con-mas { display: flex; align-items: center; gap: 4px; }
+  .pc-g.con-mas > span:first-child { flex: 1; }
+  .pc-g-plegable { cursor: pointer; border-radius: 6px; }
+  .pc-g-plegable:hover { color: var(--tinta-2); }
+  .pc-g-mas { border: 0; background: none; color: #6f6d6a; cursor: pointer; padding: 0; width: 18px; height: 18px; display: grid; place-items: center; border-radius: 5px; }
+  .pc-g-mas:hover { color: var(--tinta); background: var(--superficie); }
+  .pc-g-mas .icono, .pc-g-fl .icono { width: 12px; height: 12px; }
+  .pc-g-fl { display: grid; place-items: center; transition: transform 0.2s; }
+  .pc-g-fl.abierta { transform: rotate(90deg); }
+  .pc-pest.pc-arbol { height: 30px; gap: 6px; padding: 0 6px 0 calc(2px + var(--nivel, 0) * 10px); font-size: 0.82rem; }
+  .pc-fl { flex: none; width: 16px; height: 16px; display: grid; place-items: center; border: 0; background: none; padding: 0; color: #6f6d6a; cursor: pointer; border-radius: 4px; transition: transform 0.2s; }
+  .pc-fl:hover { color: var(--tinta); background: var(--superficie-2); }
+  .pc-fl .icono { width: 12px; height: 12px; }
+  .pc-fl.abierta { transform: rotate(90deg); }
+  .pc-pest.pc-arbol::before { left: -8px; }
+  .pc-pest.pc-arbol > span:not(.pc-nom) { flex: none; }
   .pc-tb.on, .pc-ti.on { color: var(--laton); border-color: var(--laton); }
   .pc-tb[data-n]:not([data-n=""])::after { content: attr(data-n); position: absolute; top: -6px; right: -6px; min-width: 16px; height: 16px; padding: 0 3px; border-radius: 99px; background: var(--laton); color: #111; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
   .pc-tb { position: relative; }
