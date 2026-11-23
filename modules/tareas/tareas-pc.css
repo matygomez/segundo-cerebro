@@ -32,6 +32,11 @@
   @keyframes tp-det { from { transform: translateX(100%); } }
   .tr-zona.tr-pc .tr-panel-asa::after { background: var(--tp-linea2); width: 3px; height: 42px; margin-top: -21px; }
   .tr-zona.tr-pc .tr-panel-asa:hover::after, .tr-zona.tr-pc .tr-panel.ajustando .tr-panel-asa::after { background: var(--tp-laton); }
+  /* Borrar · Cancelar · Guardar siempre pegados abajo del panel, aunque la tarea sea corta
+     (con "sticky" solo bajaban si el contenido llenaba el alto). */
+  .tr-zona.tr-pc .tr-panel-contenido:has(> .tr-editor) { display: flex; flex-direction: column; }
+  .tr-zona.tr-pc .tr-panel-contenido > .tr-editor { flex: 1 0 auto; display: flex; flex-direction: column; }
+  .tr-zona.tr-pc .tr-panel-contenido > .tr-editor > .tr-botones { margin-top: auto; }
 
   /* ── Tablero ── */
   .tp-bento {

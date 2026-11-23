@@ -165,8 +165,6 @@ const COLORES = ['v', 'z', 'a', 'r'];
 // "3 h 15", "1 h", "45 min"
 const duracionCorta = (min) => { min = Math.round(Number(min) || 0); if (!min) return ''; const hh = Math.floor(min / 60), mm = min % 60; return hh ? (mm ? `${hh} h ${String(mm).padStart(2, '0')}` : `${hh} h`) : `${mm} min`; };
 const normal = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
-// Mañana, tarde o noche de ahora (las tareas sin hora van al momento en que estás).
-const momentoAhora = () => momento(horaAhora()) || 'maniana';
 
 export function crearPC(E) {
   const { ctx, h, m, ic } = E;
@@ -339,15 +337,15 @@ export function crearPC(E) {
     const venc = [...porFecha(ordenar(pend.filter(vencida))), ...ordenar(pasadas)];
     const deHoyL = porFecha(ordenar(pend.filter(t => deHoy(t) && !(t.hora && t.hora < ahora))));
     const hechas = porFecha(hechasHoy().filter(delArea));
-    const mAhora = momentoAhora();
-    const en = (mom) => deHoyL.filter(t => (momento(t.hora) || mAhora) === mom);
+    // Sin hora: grupo "HOY" (cuando quieras en el día). Con hora: por momento del día.
+    const en = (mom) => deHoyL.filter(t => momento(t.hora) === mom);
     const total = venc.length + deHoyL.length + hechas.length;
     const f = new Date();
     const nArea = VER.hoyArea === '_bandeja' ? 'Bandeja' : d.area(VER.hoyArea)?.nombre;
     const titulo = VER.hoyArea ? `Hoy en ${nArea}` : `Hoy, ${DIAS[f.getDay()]} ${f.getDate()}`;
     const filaV = (t) => fila(t, { sub: aclaracion(t), etiqueta: [t.fecha < hoy() ? textoHace(diasEntre(t.fecha, hoy())) : t.hora, 'r'] });
     const filaH = (t) => fila(t, { sub: aclaracion(t), enHoy: true });
-    const momentos = [['maniana', 'A LA MAÑANA'], ['tarde', 'A LA TARDE'], ['noche', 'A LA NOCHE']];
+    const momentos = [['', 'HOY'], ['maniana', 'A LA MAÑANA'], ['tarde', 'A LA TARDE'], ['noche', 'A LA NOCHE']];
     const lista = [
       venc.length ? [sec(`VENCIDAS · ${venc.length}`, 'r'), venc.map(filaV)] : null,
       momentos.map(([k, t]) => (en(k).length ? [sec(t), en(k).map(filaH)] : null)),
