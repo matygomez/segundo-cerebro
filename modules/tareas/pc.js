@@ -218,7 +218,18 @@ export function crearPC(E) {
   const areasActivas = () => d.areas.filter(a => !a.archivada && !a.sistema);
   const proyectosDe = (areaId) => d.proyectos.filter(p => p.areaId === areaId && !p.archivado);
   const msHecha = (t) => Number(t.completada) || Date.parse(t.completada) || 0;
-  const hechasHoy = () => d.tareas.filter(t => hecha(t) && t.completada && isoDe(msHecha(t)) === hoy());
+  // Las que se repiten no se cierran (pasan a la próxima fecha): si la última vez
+  // fue hoy, se muestra una copia tildada en su fecha de antes, para ver lo hecho.
+  const repeHoy = (t) => {
+    const ult = (t.completadas || []).at(-1);
+    if (hecha(t) || !t.repeticion?.tipo || !ult || isoDe(ult) !== hoy()) return null;
+    const prev = (t.anteriores || []).at(-1);
+    return { ...t, fecha: prev ? prev.fecha : hoy(), estado: 'hecha', completada: ult, copiaRepe: true, repeHoy: !!prev };
+  };
+  const hechasHoy = () => [
+    ...d.tareas.filter(t => hecha(t) && t.completada && isoDe(msHecha(t)) === hoy()),
+    ...d.tareas.map(repeHoy).filter(Boolean),
+  ];
   const nombreArea = (t) => d.area(t.areaId)?.nombre || 'Bandeja';
   const nombreLugar = (t) => d.proyecto(t.proyectoId)?.nombre || nombreArea(t);
   const colorDe = (areaId) => { const i = areasActivas().findIndex(a => a.id === areaId); return i < 0 ? 'g' : COLORES[i % COLORES.length]; };
@@ -248,6 +259,7 @@ export function crearPC(E) {
   const recienHechas = new Set();   // brillo de la que acaba de llegar a otro grupo
   function fila(t, { sub = null, etiqueta = undefined, enHoy = false, arrastrable = false } = {}) {
     const esHecha = hecha(t);
+    const real = t.copiaRepe ? (d.tarea(t.id) || t) : t;
     const tg = etiqueta !== undefined ? etiqueta : cuando(t, { enHoy });
     const ck = t.aviso ? h('span', { class: 'tp-ck aviso', title: 'Aviso: no hay que completarlo' }) : h('button', {
       type: 'button', class: 'tp-ck', 'aria-label': esHecha ? `Reabrir "${t.titulo}"` : `Completar "${t.titulo}"`,
@@ -255,7 +267,8 @@ export function crearPC(E) {
     });
     const el = h('div', {
       class: `tp-f tp-t${esHecha ? ' hecha' : ''}`, 'data-id': t.id, tabindex: '0', role: 'button', draggable: arrastrable ? 'true' : null,
-      onclick: () => E.abrir(t), onkeydown: (e) => { if (e.key === 'Enter' && e.target === el) E.abrir(t); },
+      // La copia tildada de una repetida abre la tarea de verdad.
+      onclick: () => E.abrir(real), onkeydown: (e) => { if (e.key === 'Enter' && e.target === el) E.abrir(real); },
     }, ck, h('span', { class: 'tp-tx' }, t.titulo, sub ? h('small', {}, sub) : null), Array.isArray(tg) ? tag(tg[0], tg[1]) : tg);
     if (arrastrable) el.addEventListener('dragstart', (e) => { e.dataTransfer.setData('text/x-tarea', t.id); e.dataTransfer.effectAllowed = 'move'; });
     if (recienHechas.has(t.id)) { el.classList.add('llega'); setTimeout(() => recienHechas.delete(t.id), 1500); }
@@ -399,7 +412,7 @@ export function crearPC(E) {
     const pend = conFiltro(pendientes());
     const delDia = (df) => [
       ...porFecha(ordenar(pend.filter(t => t.fecha === df && !(df < hoy())))),
-      ...d.tareas.filter(t => hecha(t) && t.completada && isoDe(msHecha(t)) === df && !t.padreId),
+      ...(df === hoy() ? hechasHoy() : d.tareas.filter(t => hecha(t) && t.completada && isoDe(msHecha(t)) === df)).filter(t => !t.padreId),
     ];
     const soltar = (df) => ({
       ondragover: (e) => { if (e.dataTransfer.types.includes('text/x-tarea')) { e.preventDefault(); e.currentTarget.classList.add('destino'); } },

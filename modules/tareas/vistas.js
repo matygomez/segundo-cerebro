@@ -177,7 +177,7 @@ export async function alternarHecha(ctx, m, d, t) {
       if (r === 'todas') await m.completarSubtareas(t);
     }
     const prox = await m.completar(t);
-    if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`);
+    if (prox) ctx.aviso(`Hecha. Vuelve ${textoFecha(prox).toLowerCase()}.`, { accion: 'Deshacer', alTocar: () => m.deshacerRepeticion(t.id), duracion: 6000 });
     else ctx.aviso(`Completada: "${t.titulo}"`, { accion: 'Deshacer', alTocar: () => m.reabrir({ ...t, estado: 'hecha' }), duracion: 6000 });
   }
 

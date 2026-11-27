@@ -516,6 +516,8 @@ export function crearModelo(ctx) {
           ultimaCompletada: ahora,
           // Registro de cada vez que se completó (para el Resumen).
           completadas: [...(t.completadas || []), ahora].slice(-400),
+          // Dónde estaba antes de avanzar, para poder deshacer la última vez.
+          anteriores: [...(t.anteriores || []), { fecha: t.fecha || '', inicio: t.inicio || '', recordatorio: t.recordatorio || '', ultimaCompletada: t.ultimaCompletada || null }].slice(-5),
           completada: null,
         });
         return prox;
@@ -540,7 +542,25 @@ export function crearModelo(ctx) {
       return col.tareas.actualizar(id, { orden });
     },
 
-    reabrir: (t) => col.tareas.actualizar(t.id, { ...t, estado: 'pendiente', completada: null }),
+    async reabrir(t) {
+      // Copia tildada de una repetida: se deshace la última vez (si se puede).
+      if (t.copiaRepe) return t.repeHoy ? this.deshacerRepeticion(t.id) : undefined;
+      return col.tareas.actualizar(t.id, { ...t, estado: 'pendiente', completada: null });
+    },
+
+    // Deshace la última vez que se completó una tarea que se repite:
+    // vuelve a su fecha anterior y se borra esa marca del registro.
+    async deshacerRepeticion(id) {
+      const t = await col.tareas.obtener(id);
+      if (!t?.repeticion?.tipo || !t.anteriores?.length) return;
+      const anteriores = [...t.anteriores];
+      const prev = anteriores.pop();
+      await col.tareas.actualizar(t.id, {
+        ...t, fecha: prev.fecha, inicio: prev.inicio, recordatorio: prev.recordatorio,
+        ultimaCompletada: prev.ultimaCompletada || null,
+        completadas: (t.completadas || []).slice(0, -1), anteriores,
+      });
+    },
 
     // Cambiar solo la fecha (Planificador). Sin fecha, tampoco queda la hora.
     cambiarFecha: (t, fecha) => col.tareas.actualizar(t.id, fecha ? { fecha } : { fecha: '', hora: '' }),
