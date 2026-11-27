@@ -85,8 +85,12 @@ function dibujarPestanas(def, extra, { conf, filtrar } = {}) {
   dibujarMesYBotones(extra);
   if (!extra?.grupos) { pestanasCel.hidden = true; pestanasCel.replaceChildren(); return; }
   const izq = pestanasCel.scrollLeft;
-  const pest = extra.grupos.filter(g => g.enCel !== false).flatMap(g => g.pestañas).map(p => h('a', { href: p.href, class: 'pest-cel-p', 'aria-current': p.activa ? 'page' : null },
-    p.nombre, p.n ? h('span', { class: 'pest-cel-n' }, String(p.n)) : null));
+  // modo (opcional): 'icono', 'nombre' o 'ambos' (Tareas lo elige en Configurar › Hojas). Sin modo, solo el nombre.
+  const pest = extra.grupos.filter(g => g.enCel !== false).flatMap(g => g.pestañas).map(p => h('a', {
+    href: p.href, class: `pest-cel-p${p.modo === 'icono' ? ' solo-icono' : ''}`, 'aria-current': p.activa ? 'page' : null, 'aria-label': p.nombre, title: p.nombre },
+    p.modo && p.modo !== 'nombre' && p.icono ? (p.icono instanceof Node ? p.icono.cloneNode(true) : icono(p.icono)) : null,
+    p.modo !== 'icono' ? h('span', {}, p.nombre) : null,
+    p.n ? h('span', { class: 'pest-cel-n' }, String(p.n)) : null));
   const confAttrs = typeof conf === 'function' ? { href: '#', onclick: (e) => { e.preventDefault(); conf(); } } : { href: conf || '#/ajustes' };
   pestanasCel.replaceChildren(...[...pest,
     filtrar ? h('button', { type: 'button', class: 'pest-cel-ic', 'aria-label': 'Filtros', onclick: filtrar }, icono('filtro')) : null,

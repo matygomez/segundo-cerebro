@@ -45,12 +45,14 @@ export default {
     const lim = limitesDe(d);
     const ruta = location.hash.replace(/^#\/finanzas\/?/, '').split('/');
     const vista = ruta[0] || 'panel', clave = ruta[1] || '';
-    const pest = (id, nombre, icono, href, activa) => ({ id, nombre, icono: ic(icono), href, activa });
+    // modo 'ambos': en el celular la pestaña va con ícono y nombre (en la PC siempre).
+    const pest = (id, nombre, icono, href, activa) => ({ id, nombre, icono: ic(icono), href, activa, modo: 'ambos' });
     const abrir = (tipo) => () => conPestanas(ctx, tipo);
     const PANELES = [['cuentas', 'Cuentas', 'banco'], ['fijos', 'Gastos fijos', 'calendario'], ['variables', 'Gastos variables', 'bolsa'],
       ['credito', 'Crédito', 'tarjeta'], ['inversiones', 'Inversiones', 'subida'], ['prestamos', 'Préstamos', 'persona']];
     return {
       contexto: `Disponible ${plata(d.resumenMes(mes).disponible)}`,
+      sinFiltros: true,
       botones: [{ texto: 'Egreso', signo: '−', icono: 'menos', alTocar: abrir('gasto') }, { texto: 'Ingreso', signo: '+', icono: 'mas', alTocar: abrir('ingreso') },
         { texto: 'Transferencia', icono: ic('transferir'), corto: 'Transf.', alTocar: abrir('transferencia') }],
       mes: { texto: nombreMes(mes), otro: mes !== mesActual(), puedeAntes: mes > lim.min, puedeDespues: mes < lim.max,

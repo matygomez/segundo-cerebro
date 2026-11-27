@@ -136,7 +136,8 @@ function abrirMenuUsuario() {
 //   configurar: '#/ruta', filtros(boton) → abre sus filtros,
 //   botones?: [{ texto, signo?, icono?, corto?, alTocar }] (el primero grande, los demás en una fila chica;
 //     signo va delante del texto, icono y corto se usan en la columna achicada),
-//   mes?: { texto, otro, puedeAntes, puedeDespues, mover(n) } (n = -1, 1, o 0 para volver al actual) }.
+//   mes?: { texto, otro, puedeAntes, puedeDespues, mover(n) } (n = -1, 1, o 0 para volver al actual),
+//   sinFiltros?: true (no muestra el botón Filtros) }.
 // Un módulo pide redibujar la columna (por ejemplo al cambiar de mes) con window.dispatchEvent(new Event('pc-columna')).
 // Mientras no la tenga, la columna muestra el nombre y el botón principal.
 // Dónde se configura cada módulo, hasta que cada uno lo mande en columna() → configurar.
@@ -215,7 +216,8 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
   const filtrar = extra?.filtros ? (e) => extra.filtros(e.currentTarget) : null;
   const tipFiltros = filtrar ? 'Filtros' : 'Filtros: llegan con el diseño nuevo de este módulo';
   const pieCol = gris ? null : h('div', { class: 'pc-cpie' },
-    h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
+    // Un módulo que no usa filtros (Finanzas) lo dice con sinFiltros y el botón no aparece.
+    extra?.sinFiltros ? null : h('button', { type: 'button', class: 'pc-tb', 'data-tip': tipFiltros, title: tipFiltros, 'aria-label': 'Filtros', disabled: !filtrar, onclick: filtrar }, icono('filtro')),
     h('a', { ...confAttrs, class: 'pc-tb', 'data-tip': `Configurar ${def.nombre}`, title: `Configurar ${def.nombre}`, 'aria-label': `Configurar ${def.nombre}` }, icono('engranaje')));
 
   // Celular: las mismas pestañas van debajo de la barra de arriba (si el módulo lo pide con pestañasCel).
@@ -239,7 +241,7 @@ export async function dibujarColumna(def, ctx, { sinAnimar = false } = {}) {
       ...g.pestañas.map(p => h('a', { href: p.href, class: 'pc-ti', 'data-tip': p.nombre, 'aria-current': p.activa ? 'page' : null }, iconoDe(p.icono), h('small', {}, p.nombre))),
     ]),
     gris ? null : h('div', { class: 'pc-tpie' },
-      h('button', { type: 'button', class: 'pc-ti', 'data-tip': tipFiltros, 'data-filtros': '1', disabled: !filtrar, onclick: filtrar }, icono('filtro'), h('small', {}, 'Filtros')),
+      extra?.sinFiltros ? null : h('button', { type: 'button', class: 'pc-ti', 'data-tip': tipFiltros, 'data-filtros': '1', disabled: !filtrar, onclick: filtrar }, icono('filtro'), h('small', {}, 'Filtros')),
       h('a', { ...confAttrs, class: 'pc-ti', 'data-tip': `Configurar ${def.nombre}` }, icono('engranaje'), h('small', {}, 'Ajustes'))),
   ].filter(Boolean));
 }

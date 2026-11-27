@@ -157,7 +157,17 @@
   .ip-tira .clp-ev small { display: none; }
   .ip-tira .clp-ev.z { background: var(--ip-azul); } .ip-tira .clp-ev.v { background: var(--verde); } .ip-tira .clp-ev.r { background: var(--rojo); }
   .ip-tira .clp-ev:nth-of-type(n+5), .ip-tira .clp-mas { display: none; }
-  .clp-caja { height: 300px; overflow-y: auto; border-top: 1px solid var(--linea); margin: 0 -4px; padding: 0 4px; overscroll-behavior: contain; scrollbar-width: thin; }
+  /* Mi día como lista: hora a la izquierda, título y lugar; lo que ya pasó se apaga; línea roja en "ahora" */
+  .clp-agenda { display: flex; flex-direction: column; border-top: 1px solid var(--linea); padding-top: 4px; }
+  .clp-ag { display: flex; align-items: center; gap: 12px; width: 100%; padding: 9px 0 9px 10px; border: 0; border-left: 3px solid var(--laton); border-bottom: 1px solid var(--linea);
+    background: none; color: var(--tinta); font: inherit; font-size: 14px; text-align: left; cursor: pointer; margin: 2px 0; }
+  .clp-ag.z { border-left-color: var(--ip-azul); } .clp-ag.r { border-left-color: var(--rojo); } .clp-ag.v { border-left-color: var(--verde); }
+  .clp-ag.pasada { opacity: 0.45; } .clp-ag.pasada .ip-tx { text-decoration: line-through; }
+  .clp-ag-h { flex: none; width: 3.2rem; font-weight: 600; font-variant-numeric: tabular-nums; display: flex; flex-direction: column; }
+  .clp-ag-h small { font-weight: 400; font-size: 11px; color: var(--tinta-2); }
+  .clp-ahora-l { position: relative; height: 0; border-top: 2px solid var(--rojo); margin: 8px 0 8px 0; }
+  .clp-ahora-l::before { content: ""; position: absolute; left: -4px; top: -5px; width: 8px; height: 8px; border-radius: 50%; background: var(--rojo); }
+  .clp-ahora-l span { position: absolute; right: 0; top: -9px; font-size: 11px; font-weight: 700; color: var(--rojo); background: var(--superficie); padding: 0 4px; }
   .ip-cel .clp-d24 { height: 1056px; flex: none !important; min-height: 0; margin: 8px 0 0; }
   .ip-cel .clp-blq { font-size: 12.5px; }
   .ip-cel .clp-hr { font-size: 10.5px; }

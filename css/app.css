@@ -893,6 +893,10 @@ dialog.bq::backdrop { background: rgb(0 0 0 / 0.6); }
   .pest-cel-p { flex: none; padding: 0.32rem 0.75rem; border-radius: 999px; font-size: 0.85rem; color: var(--tinta-2); text-decoration: none; white-space: nowrap; }
   .pest-cel-p[aria-current='page'] { background: var(--superficie-2); color: var(--tinta); font-weight: 600; }
   .pest-cel-n { font-size: 0.7rem; color: var(--laton); font-weight: 600; margin-left: 0.3rem; }
+  .pest-cel-p { display: inline-flex; align-items: center; gap: 0.35rem; }
+  .pest-cel-p .icono { width: 1.05rem; height: 1.05rem; }
+  .pest-cel-p.solo-icono { padding-left: 0.6rem; padding-right: 0.6rem; }
+  .pest-cel-p .pest-cel-n { margin-left: 0; }
   .pest-cel-ic { flex: none; display: grid; place-items: center; width: 2rem; height: 2rem; border: 0; background: none; color: var(--tinta-2); cursor: pointer; }
   .pest-cel-ic { margin-left: auto; } .pest-cel-ic + .pest-cel-ic { margin-left: 0; }
   .pest-cel-ic .icono { width: 1.1rem; height: 1.1rem; }

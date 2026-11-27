@@ -9,7 +9,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import { crearModelo, hecha, vencida, deHoy, ordenar, siguienteFecha, textoRepeticion, hoy, sumarDias, textoFecha } from './modelo.js';
-import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha, abrirFiltrosPC, abrirConfigPC, ic } from './vistas.js';
+import { pantallaTareas, filaTarea, cargarEstilos, alternarHecha, abrirFiltrosPC, abrirConfigPC, ic, hojasDe } from './vistas.js';
 import { filtroDe, cuantasCumplen } from './pc.js';
 import { abrirEditor } from './editor.js';
 import { sincronizarCalendario } from './calendario.js';
@@ -45,10 +45,26 @@ export default {
     // Los íconos son los del módulo (áreas con su ícono elegido).
     const pest = (pid, nombre, icono, href, n, activa) => ({ id: pid, nombre, icono: ic(icono), href, n, activa });
     const contar = (f) => cuantasCumplen(d, filtroDe(f));
+    // Celular: las pestañas de arriba salen de Configurar › Hojas (cuáles, en qué orden y con ícono, nombre o ambos).
+    const enCel = !matchMedia('(min-width: 900px)').matches;
+    const hojasCel = () => {
+      const cfg = hojasDe(d, 'hojas-cel');
+      const hoyISO = hoy();
+      const activa = (x) => x.id === (vista === 'area' ? `a:${id}` : vista === 'proyecto' ? `p:${id}` : vista);
+      const cuantas = (x) => {
+        if (!cfg.contador || !x.filtro) return 0;
+        const ts = pend.filter(x.filtro);
+        return x.id === 'hoy' || x.id === 'bandeja' ? ts.length : ts.filter(t => t.fecha && t.fecha <= hoyISO).length;
+      };
+      return cfg.lista.filter(x => x.vis && (!x.vacia || activa(x) || pend.some(x.filtro)))
+        .map(x => ({ ...pest(x.id, x.nombre, x.icono, x.href, cuantas(x), activa(x)), modo: x.modo }));
+    };
     return {
       contexto: `${paraHoy} para hoy · ${venc} vencida${venc === 1 ? '' : 's'}`,
       textoBoton: 'Nueva tarea',
-      grupos: [
+      grupos: enCel ? [{ titulo: 'Hojas', pestañas: hojasCel() },
+        ...(d.filtros.length ? [{ titulo: 'Mis filtros', pestañas: d.filtros
+          .map(f => pest(f.id, f.nombre, f.icono || 'filtro', `#/tareas/filtro/${f.id}`, f.numero ? contar(f) : 0, vista === 'filtro' && id === f.id)) }] : [])] : [
         { titulo: 'Vistas', pestañas: [
           pest('inicio', 'Resumen', 'grilla', '#/tareas', 0, vista === 'inicio'),
           pest('hoy', 'Hoy', 'sol', '#/tareas/hoy', paraHoy, vista === 'hoy'),

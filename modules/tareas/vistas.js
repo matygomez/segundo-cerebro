@@ -342,6 +342,40 @@ function preguntarSubtareas(ctx, t, n) {
 
 // ── Pantalla ──
 
+// Hojas (pestañas) de Tareas según Configurar › Hojas, guardadas por dispositivo ('hojas-cel' / 'hojas-pc').
+// En el celular las usa la barra de arriba (columna() en modulo.js): cuáles se ven, en qué orden y si con ícono, nombre o ambos.
+export function hojasDe(d, clave) {
+  const areasActivas = () => d.areas.filter(a => !a.archivada).sort((a, b) => Number(!!a.sistema) - Number(!!b.sistema));
+  const proyectosDe = (areaId) => d.proyectos.filter(p => p.areaId === areaId && !p.archivado);
+  const iconoArea = (a) => a?.icono || 'carpeta';
+  const iconoProyecto = (p) => p?.icono || 'proyecto';
+  const guardado = d.ajuste(clave) || {};
+  const base = [
+    { id: 'inicio', nombre: 'Resumen', icono: 'grilla', href: '#/tareas', fija: true, vis: true, modo: 'nombre' },
+    { id: 'hoy', nombre: 'Hoy', icono: 'sol', href: '#/tareas/hoy', vis: true, modo: 'ambos', filtro: (t) => t.fecha && t.fecha <= hoy() },
+    { id: 'proximos', nombre: 'Próximos', icono: 'semana', href: '#/tareas/proximos', vis: true, modo: 'nombre' },
+    { id: 'bandeja', nombre: 'Bandeja', icono: 'bandeja', href: '#/tareas/bandeja', vis: true, modo: 'icono', filtro: (t) => !t.areaId },
+  ];
+  for (const a of areasActivas()) {
+    base.push({ id: `a:${a.id}`, nombre: a.nombre, icono: iconoArea(a), href: `#/tareas/area/${a.id}`, vis: !a.sistema, modo: 'ambos', filtro: (t) => t.areaId === a.id });
+    for (const p of proyectosDe(a.id)) base.push({ id: `p:${p.id}`, nombre: p.nombre, icono: iconoProyecto(p), href: `#/tareas/proyecto/${p.id}`, vis: false, modo: 'ambos', proyecto: true, filtro: (t) => t.proyectoId === p.id });
+  }
+  const porId = new Map(base.map(x => [x.id, x]));
+  const lista = [porId.get('inicio')];
+  for (const g of guardado.lista || []) {
+    const x = porId.get(g.id);
+    if (!x || x.fija || lista.includes(x)) continue;
+    lista.push({ ...x, vis: g.vis !== false, vacia: !!g.vacia, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
+  }
+  for (const x of base) if (!lista.some(y => y.id === x.id)) lista.push(x);
+  return {
+    lista, compacto: !!guardado.compacto, limite: Number(guardado.limite) || 0,
+    contador: guardado.contador !== false,                                   // número en las pestañas
+    inicioCont: ['simbolo', 'color', 'nada'].includes(guardado.inicioCont) ? guardado.inicioCont : 'simbolo',
+    leyenda: guardado.leyenda !== false,
+  };
+}
+
 export async function pantallaTareas(contenedor, ctx, sub = []) {
   cargarEstilos();
   const { h, icono } = ctx;
@@ -528,32 +562,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
 
   // ── Hojas de arriba ──
 
-  function configHojas() {
-    const guardado = d.ajuste(claveHojas()) || {};
-    const base = [
-      { id: 'inicio', nombre: 'Inicio', icono: 'inicio', href: '#/tareas', fija: true, vis: true, modo: 'icono' },
-      { id: 'hoy', nombre: 'Hoy', icono: 'sol', href: '#/tareas/hoy', vis: true, modo: 'ambos', filtro: (t) => t.fecha && t.fecha <= hoy() },
-      { id: 'bandeja', nombre: 'Bandeja', icono: 'bandeja', href: '#/tareas/bandeja', vis: true, modo: 'icono', filtro: (t) => !t.areaId },
-    ];
-    for (const a of areasActivas()) {
-      base.push({ id: `a:${a.id}`, nombre: a.nombre, icono: iconoArea(a), href: `#/tareas/area/${a.id}`, vis: !a.sistema, modo: 'ambos', filtro: (t) => t.areaId === a.id });
-      for (const p of proyectosDe(a.id)) base.push({ id: `p:${p.id}`, nombre: p.nombre, icono: iconoProyecto(p), href: `#/tareas/proyecto/${p.id}`, vis: false, modo: 'ambos', proyecto: true, filtro: (t) => t.proyectoId === p.id });
-    }
-    const porId = new Map(base.map(x => [x.id, x]));
-    const lista = [porId.get('inicio')];
-    for (const g of guardado.lista || []) {
-      const x = porId.get(g.id);
-      if (!x || x.fija || lista.includes(x)) continue;
-      lista.push({ ...x, vis: g.vis !== false, vacia: !!g.vacia, modo: ['icono', 'ambos', 'nombre'].includes(g.modo) ? g.modo : x.modo });
-    }
-    for (const x of base) if (!lista.some(y => y.id === x.id)) lista.push(x);
-    return {
-      lista, compacto: !!guardado.compacto, limite: Number(guardado.limite) || 0,
-      contador: guardado.contador !== false,                                   // número en las pestañas
-      inicioCont: ['simbolo', 'color', 'nada'].includes(guardado.inicioCont) ? guardado.inicioCont : 'simbolo',
-      leyenda: guardado.leyenda !== false,
-    };
-  }
+  const configHojas = () => hojasDe(d, claveHojas());
   const guardarConfig = (cfg, cambios = {}) => m.guardarHojas(claveHojas(), {
     lista: cfg.lista.map(x => ({ id: x.id, vis: x.vis, vacia: !!x.vacia, modo: x.modo })), compacto: cfg.compacto, limite: cfg.limite,
     contador: cfg.contador, inicioCont: cfg.inicioCont, leyenda: cfg.leyenda, ...cambios,
@@ -562,7 +571,7 @@ export async function pantallaTareas(contenedor, ctx, sub = []) {
   function hojaActual(cfg) {
     const visibles = new Set(cfg.lista.filter(x => x.vis).map(x => x.id));
     if (vista === 'inicio') return 'inicio';
-    if (vista === 'hoy' || vista === 'bandeja') return vista;
+    if (vista === 'hoy' || vista === 'bandeja' || vista === 'proximos') return vista;
     const area = vista === 'area' ? idRuta : vista === 'proyecto' ? d.proyecto(idRuta)?.areaId : vista === 'seccion' ? d.proyecto(d.seccion(idRuta)?.proyectoId)?.areaId : null;
     const proy = vista === 'proyecto' ? idRuta : vista === 'seccion' ? d.seccion(idRuta)?.proyectoId : null;
     if (proy && visibles.has(`p:${proy}`)) return `p:${proy}`;

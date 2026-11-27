@@ -27,7 +27,7 @@ with sync_playwright() as p:
     chk(page.locator('.rsp-aviso').count()==0 and page.locator('.ip-mm').is_visible(), 'sin avisos vuelve el memento')
     chk(page.locator('.ip-aviso a:has-text("Semana")').count()==1 and page.locator('.ip-aviso a:has-text("Mes")').count()==1, 'botones Semana y Mes')
     # Tocar un día de la semana lo muestra en Mi día; "Hoy" vuelve.
-    page.locator('.clp-dia').nth(3).click(); page.wait_for_timeout(800)
+    page.locator('.clp-dia:not(.hoy)').first.click(); page.wait_for_timeout(800)
     chk(page.locator('.ip-dia h2').inner_text()!='Mi día', 'otro día en Mi día')
     page.locator('.ip-dia .ip-enlace').click(); page.wait_for_timeout(800)
     chk(page.locator('.ip-dia h2').inner_text()=='Mi día', 'vuelve a hoy')
@@ -40,6 +40,6 @@ with sync_playwright() as p:
   page.goto(U+'#/home'); page.wait_for_timeout(1500)
   # Desde 0.42 el celular usa la misma pantalla en una columna: Mi día con la tira de la semana, sin botones ni "Anotá algo".
   chk(page.locator('.ip.ip-cel').count()==1 and page.locator('.ip-tira .clp-dia').count()==7, 'celular: una columna con la tira de la semana')
-  chk(page.locator('.clp-caja').count()==1 and page.locator('.captura-form, .accesos').count()==0, 'celular: horario en su caja, sin botones ni captura')
+  chk(page.locator('.clp-agenda').count()==1 and page.locator('.clp-d24').count()==0 and page.locator('.captura-form, .accesos').count()==0, 'celular: Mi día como lista, sin botones ni captura')
   chk(page.locator('.menu-item[data-id="resumen"]').count()==0, 'celular: Resumen fuera de la barra de abajo')
   print('FIN', ok, 'ok', len(fallas), 'fallas', fallas)
